@@ -53,20 +53,24 @@
   function placeLine(boxes, line, rows, spIdx) {
     const n = line.length;
     const per = Math.max(1, Math.ceil(n / rows));
-    let r = 0, dir = 1, x = 0, noGap = false, inRow = 0;
+    let r = 0, dir = 1, x = 0, noGap = false, inRow = 0, prevDbl = false;
 
     for (let i = 0; i < n; i++) {
       const e = line[i], dbl = e[0] === e[1];
       // Never turn on the spinner: it needs the space above and below it for
       // its arms, and a fold would steal exactly that. Turn a tile later.
-      if (inRow >= per && r < rows - 1 && i !== spIdx) {
+      // A double is already crosswise, so a corner next to one would touch it
+      // side to side instead of end to end — wait a tile and turn on the next.
+      // ...and never on the last tile: nothing follows it, so a corner there is
+      // just a tile lying flat at the open end.
+      if (inRow >= per && r < rows - 1 && i !== spIdx && i < n - 1 && !dbl && !prevDbl) {
         const cx = dir > 0 ? x : x - VW;            // turn: stand the tile up
         boxes.push({ e, idx: i, x: cx, y: rowY(r), w: VW, h: VH, orient: "v", flip: false, row: r });
         r++; dir = -dir;
-        x = dir > 0 ? cx : cx + VW; noGap = true; inRow = 0;
+        x = dir > 0 ? cx : cx + VW; noGap = true; inRow = 0; prevDbl = false;
         continue;
       }
-      inRow++;
+      inRow++; prevDbl = dbl;
       const w = dbl ? VW : HW, h = dbl ? VH : HH;
       const y = dbl ? bandY(r) : rowY(r);
       const g = noGap ? 0 : GAP; noGap = false;
@@ -81,11 +85,14 @@
   /* ---------- an arm: runs up or down, folds sideways ---------- */
   function placeArm(boxes, arm, cx, startEdge, dirY, per, side) {
     let lane = cx - VW / 2 - INSET;       // left edge of the current column lane
-    let dir = dirY, cursor = startEdge, noGap = false, inLane = 0;
+    let dir = dirY, cursor = startEdge, noGap = false, inLane = 0, prevDbl = false;
 
-    arm.forEach((e) => {
+    arm.forEach((e, i) => {
       const dbl = e[0] === e[1];
-      if (per > 0 && inLane >= per) {                          // turn: lay the tile flat
+      // Same rule as the chain: a corner must never lie flat against a double,
+      // or the two touch along their sides and the arm reads as broken — and
+      // never turn on the last tile, which would leave it flat at the open end.
+      if (per > 0 && inLane >= per && i < arm.length - 1 && !dbl && !prevDbl) {  // turn: lay it flat
         const w = HW, h = HH;
         const x = side > 0 ? lane + INSET : lane + INSET - (HW - VW);
         const y = dir < 0 ? cursor - GAP - h : cursor + GAP;
@@ -93,7 +100,7 @@
         lane += side * HW;
         dir = -dir;
         cursor = dir < 0 ? y + h : y;
-        noGap = true; inLane = 0;
+        noGap = true; inLane = 0; prevDbl = false;
         return;
       }
       // doubles always sit crosswise to the run they're in
@@ -103,7 +110,7 @@
       const y = dir < 0 ? cursor - g - h : cursor + g;
       boxes.push({ e, x, y, w, h, orient: dbl ? "h" : "v", flip: dir < 0 });
       cursor = dir < 0 ? y : y + h;
-      inLane++;
+      inLane++; prevDbl = dbl;
     });
     return { lane, cursor, dir };         // where this arm continues
   }
