@@ -16,7 +16,9 @@ const Ozi = require("./public/js/ozi.js");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+// The Android app serves its pages from inside the APK, so its socket comes
+// from a different origin (capacitor://localhost) than the browser's.
+const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
 app.use(express.static(path.join(__dirname, "public")));
 
 const TARGETS = [75, 175, 255, 355];   // the standard Ozi targets

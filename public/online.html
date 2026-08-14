@@ -89,7 +89,9 @@
     <p>თამაში თარაზულ (landscape) რეჟიმში ითამაშება.</p>
   </div>
 
-  <script src="/socket.io/socket.io.js"></script>
+  <!-- bundled, so the app opens instantly and works from the APK's own files -->
+  <script src="js/socket.io.min.js"></script>
+  <script src="js/config.js"></script>
   <script src="js/ozi.js"></script>
   <script src="js/render.js"></script>
   <script src="js/coins.js"></script>
@@ -118,7 +120,8 @@
     function toggleSound(){ Sound.toggle(); paintSoundBtn(); if(!Sound.muted()) Sound.play("tap"); }
     paintSoundBtn();
 
-    const socket = io();
+    // "" in a browser (same origin); the hosted address when run from the APK
+    const socket = SERVER_URL ? io(SERVER_URL, { transports: ["websocket", "polling"] }) : io();
     let S = null;        // latest server view
     let selIdx = null;   // selected hand tile
     let seated = false;  // have we been given a seat yet?

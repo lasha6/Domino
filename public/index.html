@@ -197,11 +197,14 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="/socket.io/socket.io.js"></script>
+  <!-- bundled, so the app opens instantly and works from the APK's own files -->
+  <script src="js/socket.io.min.js"></script>
+  <script src="js/config.js"></script>
   <script src="js/coins.js"></script>
   <script src="js/sound.js"></script>
   <script>
-    const socket = io();
+    // "" in a browser (same origin); the hosted address when run from the APK
+    const socket = SERVER_URL ? io(SERVER_URL, { transports: ["websocket", "polling"] }) : io();
     const dot = document.getElementById("statusDot");
     const stext = document.getElementById("statusText");
     socket.on("connect", () => { dot.classList.remove("off"); stext.textContent = "ონლაინ"; });
