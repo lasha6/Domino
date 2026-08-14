@@ -1,0 +1,25 @@
+# dependencies — reinstalled with `npm install`
+node_modules/
+
+# the built app
+domino.apk
+*.apk
+*.aab
+
+# Android build output and local machine settings
+android/build/
+android/app/build/
+android/.gradle/
+android/.idea/
+android/local.properties
+android/capacitor-cordova-android-plugins/build/
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+
+# editor / OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*

@@ -1,0 +1,138 @@
+/* =====================================================================
+   The house style — loaded by every screen.
+   Design tokens, the felt table itself, and the dialog primitives.
+   Screen-specific rules live in lobby.css / table.css.
+   ===================================================================== */
+
+:root{
+  /* baize */
+  --baize-lit:#2b8a52;
+  --baize:#0f5230;
+  --baize-mid:#116038;
+  --baize-deep:#07301c;
+  --baize-edge:#04200f;
+  /* walnut rim + brass */
+  --wood-hi:#7d5228;
+  --wood:#4e3016;
+  --wood-lo:#2a1809;
+  --brass:#c2913c;
+  --brass-lit:#f2cd7e;
+  --brass-dim:#8a6524;
+  /* bone tiles */
+  --bone-hi:#fffdf6;
+  --bone:#f4eeda;
+  --bone-lo:#ddd2b4;
+  --bone-edge:#b9ac89;
+  --pip:#15150f;
+  /* ink & text */
+  --ink:#0d2a18;
+  --cream:#f6efdd;
+  --cream-dim:rgba(246,239,221,.62);
+  --line:rgba(246,239,221,.14);
+  --panel:rgba(4,26,14,.46);
+  --good:#4ad07d;
+  --bad:#e2685a;
+
+  /* Sylfaen is the classic Georgian serif on Windows; Noto Serif Georgian
+     covers Android. No web font is loaded — the app must work over LAN. */
+  --font-display:"Sylfaen","Noto Serif Georgian",Georgia,"Times New Roman",serif;
+  --font-ui:"Segoe UI","Noto Sans Georgian",system-ui,-apple-system,sans-serif;
+}
+
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body{ height:100%; margin:0; }
+
+body{
+  font-family:var(--font-ui);
+  color:var(--cream);
+  overflow:hidden;
+  background:
+    radial-gradient(58% 46% at 50% 30%, rgba(255,238,190,.20), transparent 62%),
+    radial-gradient(120% 96% at 50% 34%, var(--baize-lit) 0%, var(--baize) 34%,
+                    var(--baize-mid) 58%, var(--baize-deep) 84%, var(--baize-edge) 100%),
+    var(--baize-deep);
+}
+/* felt grain — a self-contained noise tile, no external asset */
+body::before{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
+  opacity:.22; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:140px 140px;
+}
+/* corners fall away into shadow */
+body::after{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background:radial-gradient(130% 100% at 50% 38%, transparent 52%, rgba(0,0,0,.5) 100%);
+}
+
+/* Pinned to the viewport rather than sized by it. `100vh` lies inside Android's
+   WebView, so the hand used to fall off the bottom; with fixed + inset:0 the
+   stage simply cannot be taller than the screen, whatever the WebView claims.
+   --appH (measured in js/viewport.js) caps it further when it is smaller.
+   Never go back to a bare `height:100vh` here. */
+.stage{
+  position:fixed; inset:0; z-index:1;
+  max-height:var(--appH, 100dvh);
+  display:flex; flex-direction:column;
+}
+/* The app runs edge to edge with the system bars hidden, so each screen adds
+   these to its own padding to stay clear of a notch or gesture bar. */
+:root{
+  --safeT:env(safe-area-inset-top, 0px);
+  --safeB:env(safe-area-inset-bottom, 0px);
+  --safeL:env(safe-area-inset-left, 0px);
+  --safeR:env(safe-area-inset-right, 0px);
+}
+
+/* ---------------- dialogs ---------------- */
+.overlay{
+  position:fixed; inset:0; z-index:20; display:none;
+  align-items:center; justify-content:center;
+  background:rgba(2,14,8,.7); backdrop-filter:blur(3px);
+}
+.overlay.show{ display:flex; animation:fadeIn .18s ease-out; }
+@keyframes fadeIn{ from{ opacity:0; } to{ opacity:1; } }
+
+.modal{
+  text-align:center; max-width:94%; padding:20px 26px; border-radius:18px;
+  background:linear-gradient(170deg,#155e38,#092e1a);
+  border:1px solid var(--brass-dim);
+  box-shadow:inset 0 1px 0 rgba(242,205,126,.22), 0 24px 60px rgba(0,0,0,.6);
+  animation:riseIn .22s cubic-bezier(.2,1,.4,1) both;
+}
+@keyframes riseIn{ from{ transform:translateY(14px) scale(.97); opacity:0; } }
+.modal h2{
+  margin:0 0 6px; font-family:var(--font-display); font-size:21px; font-weight:700;
+  color:var(--brass-lit); letter-spacing:.3px;
+}
+.modal p{ margin:4px 0 14px; font-size:13px; color:var(--cream-dim); line-height:1.5; }
+.modal button{
+  cursor:pointer; border:none; border-radius:12px; padding:11px 24px; margin:4px;
+  font-family:var(--font-ui); font-size:14.5px; font-weight:700; color:#04240f;
+  background:linear-gradient(180deg,#7ce9a6,var(--good));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5), 0 4px 12px rgba(0,0,0,.4);
+}
+.modal button:active{ transform:translateY(1px); }
+.modal button.alt{
+  background:var(--panel); color:var(--cream); border:1px solid var(--line); box-shadow:none;
+}
+
+.spin{
+  width:32px; height:32px; margin:8px auto; border-radius:50%;
+  border:3px solid rgba(246,239,221,.16); border-top-color:var(--brass-lit);
+  animation:sp .9s linear infinite;
+}
+@keyframes sp{ to{ transform:rotate(360deg); } }
+
+/* ---------------- portrait ---------------- */
+.rotate{
+  display:none; position:fixed; inset:0; z-index:50;
+  background:var(--baize-deep);
+  flex-direction:column; align-items:center; justify-content:center;
+  gap:16px; text-align:center; padding:30px;
+}
+.rotate .phone{ font-size:58px; animation:rock 1.7s ease-in-out infinite; }
+@keyframes rock{ 0%,100%{ transform:rotate(0); } 50%{ transform:rotate(-90deg); } }
+.rotate h2{ margin:0; font-family:var(--font-display); color:var(--brass-lit); }
+.rotate p{ margin:0; color:var(--cream-dim); font-size:13px; max-width:320px; }
+@media (orientation:portrait){ .stage{ display:none; } .rotate{ display:flex; } }

@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>დომინო</title>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/lobby.css" />
+  <script src="js/viewport.js"></script>
+</head>
+<body>
+  <div class="stage">
+    <!-- ============ TOP HUD ============ -->
+    <div class="hud">
+      <button class="iconbtn" onclick="toast('☰ მენიუ — მალე')">☰</button>
+      <button class="iconbtn" id="sndBtn" onclick="toggleSound()" title="ხმა">🔊</button>
+      <div class="playercard" onclick="openName(true)" title="სახელის შეცვლა">
+        <div class="avatar" id="avatarLetter">ს<span class="lvl">5</span></div>
+        <div class="pcol"><b id="pnameLabel">სტუმარი</b><span class="xp"><i></i></span></div>
+      </div>
+      <div class="spacer"></div>
+      <div class="cur">🪙 <span id="coinLabel">0</span><button class="plus" onclick="openFree()">+</button></div>
+      <div class="cur">💎 <span>10</span><button class="plus" onclick="toast('💎 ქოულების მაღაზია — მალე')">+</button></div>
+      <button class="store later" onclick="toast('🛒 მაღაზია — მალე')">🛒 მაღაზია</button>
+    </div>
+
+    <!-- ============ BOARD ============ -->
+    <div class="board">
+      <!-- left rail: offers/events -->
+      <div class="rail left later">
+        <div class="offer" onclick="toast('🎁 ყოველდღიური ბონუსი — მალე')">
+          <div class="disc">🎁</div><span class="timer">10:04:13</span>
+          <span class="badge">!</span>
+        </div>
+        <div class="offer" onclick="toast('💰 შეთავაზება — მალე')">
+          <div class="disc">💰</div><span class="timer">08:12:40</span>
+        </div>
+        <div class="offer hot" onclick="toast('🔥 ცხელი შეთავაზება — მალე')">
+          <div class="disc">🔥</div><span class="timer">HOT</span>
+        </div>
+        <div class="offer free" onclick="toast('🆓 უფასო მონეტები — მალე')">
+          <div class="disc">🆓</div><span class="timer">FREE</span>
+        </div>
+      </div>
+
+      <!-- right rail: timed events -->
+      <div class="rail right later">
+        <div class="offer" onclick="toast('🏆 ტურნირი — მალე')">
+          <div class="disc">🏆</div><span class="timer">4d 10h</span>
+          <span class="badge">!</span>
+        </div>
+        <div class="offer" onclick="toast('🎯 გამოწვევა — მალე')">
+          <div class="disc">🎯</div><span class="timer">3d 10h</span>
+          <span class="badge">!</span>
+        </div>
+      </div>
+
+      <!-- center hero -->
+      <div class="center">
+        <div class="tiles">
+          <div class="tile a">
+            <div class="half"><div class="pips"><i></i><span></span><i></i><span></span><i></i><span></span><i></i><span></span><i></i></div></div>
+            <div class="half"><div class="pips"><span></span><span></span><span></span><span></span><i></i><span></span><span></span><span></span><span></span></div></div>
+          </div>
+          <div class="tile b">
+            <div class="half"><div class="pips"><i></i><span></span><i></i><i></i><span></span><i></i><i></i><span></span><i></i></div></div>
+            <div class="half"><div class="pips"><i></i><span></span><i></i><span></span><span></span><span></span><i></i><span></span><i></i></div></div>
+          </div>
+        </div>
+        <h1 class="logo-title">დომინო</h1>
+        <p class="logo-sub">ონლაინ</p>
+        <button class="play" onclick="openRooms('quick')">
+          <span class="arrow">▶</span> ითამაშე
+        </button>
+        <div class="modes">
+          <button class="mode" onclick="openFriend()">👥 მეგობართან</button>
+          <button class="mode" onclick="openRooms('cpu')">🤖 კომპიუტერთან</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ BOTTOM NAV ============ -->
+    <div class="nav later">
+      <button class="tab" onclick="toast('🎲 რეჟიმები — მალე')"><span class="ti">🎲</span>რეჟიმები</button>
+      <button class="tab" onclick="toast('✅ დავალებები — მალე')"><span class="ti">✅</span>დავალებები</button>
+      <button class="tab center" onclick="toast('🎡 ბედის ბორბალი — მალე')"><span class="ti">🎡</span>ბორბალი</button>
+      <button class="tab" onclick="toast('🏆 თასები — მალე')"><span class="ti">🏆</span>თასები</button>
+      <button class="tab" onclick="toast('👥 სოციალური — მალე')"><span class="ti">👥</span>სოციალური</button>
+
+      <div class="status"><span class="dot off" id="statusDot"></span><span id="statusText">ვუკავშირდები…</span></div>
+    </div>
+  </div>
+
+  <!-- room picker: choose the score target -->
+  <div class="roomOverlay" id="roomOverlay">
+    <div class="roomModal">
+      <h2>აირჩიე ოთახი</h2>
+      <div class="sizePick" id="sizePick">
+        <button class="sizeBtn on" data-size="2" onclick="pickSize(2)">👤 1v1</button>
+        <button class="sizeBtn" data-size="4" onclick="pickSize(4)">👥 2v2 წყვილებით</button>
+      </div>
+      <p class="roomSub">მოგებულს ფსონი ემატება, წაგებულს აკლდება</p>
+      <div class="rooms">
+        <button class="room" data-target="75" onclick="startGame(75)">
+          <span class="rIco">🚀</span>
+          <span class="rName">ბლიც</span>
+          <span class="rPts">75</span>
+          <span class="rTime">~3 წთ · 2–3 ხელი</span>
+          <span class="rBet">🪙 <b>50</b></span>
+        </button>
+        <button class="room best" data-target="175" onclick="startGame(175)">
+          <span class="rTag">რჩეული</span>
+          <span class="rIco">⚡</span>
+          <span class="rName">სწრაფი</span>
+          <span class="rPts">175</span>
+          <span class="rTime">~6 წთ · 5 ხელი</span>
+          <span class="rBet">🪙 <b>100</b></span>
+        </button>
+        <button class="room" data-target="255" onclick="startGame(255)">
+          <span class="rIco">🎯</span>
+          <span class="rName">კლასიკური</span>
+          <span class="rPts">255</span>
+          <span class="rTime">~8 წთ · 7 ხელი</span>
+          <span class="rBet">🪙 <b>250</b></span>
+        </button>
+        <button class="room" data-target="355" onclick="startGame(355)">
+          <span class="rIco">👑</span>
+          <span class="rName">ოსტატი</span>
+          <span class="rPts">355</span>
+          <span class="rTime">~11 წთ · 10 ხელი</span>
+          <span class="rBet">🪙 <b>500</b></span>
+        </button>
+      </div>
+      <button class="roomClose" onclick="closeRooms()">დახურვა</button>
+    </div>
+  </div>
+
+  <!-- free coins: so a cleaned-out player is never stuck -->
+  <div class="roomOverlay" id="freeOverlay">
+    <div class="roomModal">
+      <h2>🪙 უფასო მონეტები</h2>
+      <p class="roomSub" id="freeText">აიღე მონეტები და განაგრძე თამაში</p>
+      <div class="freeAmount">+500</div>
+      <button class="room best" style="min-width:auto; padding:11px 26px;" onclick="takeFree()">
+        <span class="rName">აიღე</span>
+      </button>
+      <button class="roomClose" onclick="closeFree()">დახურვა</button>
+    </div>
+  </div>
+
+  <!-- name: asked once on first launch, changeable from the profile chip -->
+  <div class="roomOverlay" id="nameOverlay">
+    <div class="roomModal">
+      <h2 id="nameTitle">რა გქვია?</h2>
+      <p class="roomSub">ამ სახელს დაინახავს მოწინააღმდეგე</p>
+      <input id="nameInput" class="bigInput" maxlength="14" placeholder="შენი სახელი" autocomplete="off" />
+      <div style="margin-top:12px;">
+        <button class="room best" style="min-width:auto; padding:11px 26px;" onclick="saveName()">
+          <span class="rName">შენახვა</span>
+        </button>
+      </div>
+      <button class="roomClose" id="nameCancel" onclick="closeName()" style="display:none">გაუქმება</button>
+    </div>
+  </div>
+
+  <!-- friend: create a table or join with a code -->
+  <div class="roomOverlay" id="friendOverlay">
+    <div class="roomModal">
+      <h2>მეგობართან თამაში</h2>
+      <p class="roomSub">შექმენი მაგიდა და გაუგზავნე კოდი, ან შედი მეგობრის კოდით</p>
+      <div class="rooms">
+        <button class="room best" onclick="closeFriend(); openRooms('friend')">
+          <span class="rIco">➕</span>
+          <span class="rName">შექმენი მაგიდა</span>
+          <span class="rTime">მიიღებ კოდს</span>
+        </button>
+        <button class="room" onclick="showJoin()">
+          <span class="rIco">🔑</span>
+          <span class="rName">კოდით შესვლა</span>
+          <span class="rTime">მეგობრის მაგიდაზე</span>
+        </button>
+      </div>
+      <div id="joinBox" style="display:none; margin-top:12px;">
+        <input id="codeInput" class="codeInput" maxlength="4" placeholder="კოდი" autocomplete="off" />
+        <button class="roomClose" style="margin-top:8px" onclick="doJoin()">შესვლა ▶</button>
+      </div>
+      <button class="roomClose" onclick="closeFriend()">დახურვა</button>
+    </div>
+  </div>
+
+  <!-- rotate hint -->
+  <div class="rotate">
+    <div class="phone">📱</div>
+    <h2>გადააბრუნე მოწყობილობა</h2>
+    <p>დომინო თარაზულ (landscape) რეჟიმში ითამაშება — მოაბრუნე ტელეფონი გვერდზე.</p>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/coins.js"></script>
+  <script src="js/sound.js"></script>
+  <script>
+    const socket = io();
+    const dot = document.getElementById("statusDot");
+    const stext = document.getElementById("statusText");
+    socket.on("connect", () => { dot.classList.remove("off"); stext.textContent = "ონლაინ"; });
+    socket.on("disconnect", () => { dot.classList.add("off"); stext.textContent = "ოფლაინ"; });
+
+    /* ---------------- player name ----------------
+       Stored in localStorage and sent to the server when joining a table,
+       so the opponent sees a real name instead of "მოთამაშე". */
+    function getName(){ return (localStorage.getItem("dominoName") || "").trim(); }
+    function showName(){
+      const n = getName();
+      document.getElementById("pnameLabel").textContent = n || "სტუმარი";
+      const av = document.getElementById("avatarLetter");
+      const ch = n ? n[0] : "ს";
+      // capitalise Latin only — a single Georgian mtavruli letter looks wrong
+      av.childNodes[0].nodeValue = /[a-z]/i.test(ch) ? ch.toUpperCase() : ch;
+    }
+    function openName(canCancel){
+      const input = document.getElementById("nameInput");
+      input.value = getName();
+      document.getElementById("nameTitle").textContent = canCancel ? "შენი სახელი" : "რა გქვია?";
+      document.getElementById("nameCancel").style.display = canCancel ? "inline-block" : "none";
+      document.getElementById("nameOverlay").classList.add("show");
+      setTimeout(()=>input.focus(), 50);
+    }
+    function closeName(){ document.getElementById("nameOverlay").classList.remove("show"); }
+    function saveName(){
+      const v = document.getElementById("nameInput").value.trim().slice(0,14);
+      if(v.length < 2) return toast("სახელი მინიმუმ 2 სიმბოლო");
+      localStorage.setItem("dominoName", v);
+      showName(); closeName();
+      toast("სახელი შენახულია: " + v);
+    }
+    // ask once, on first launch
+    document.addEventListener("DOMContentLoaded", ()=>{
+      showName(); showCoins(); paintSoundBtn();
+      if(!getName()) openName(false);
+    });
+    document.getElementById("nameInput").addEventListener("keydown", e=>{
+      if(e.key === "Enter") saveName();
+    });
+
+    /* ---------------- sound ---------------- */
+    function paintSoundBtn(){
+      document.getElementById("sndBtn").textContent = Sound.muted() ? "🔇" : "🔊";
+    }
+    function toggleSound(){ Sound.toggle(); paintSoundBtn(); if(!Sound.muted()) Sound.play("tap"); }
+    // every button in the lobby gives a little click
+    document.addEventListener("click", (e) => {
+      if(e.target.closest("button") && e.target.id !== "sndBtn") Sound.play("tap");
+    });
+
+    /* ---------------- coins ---------------- */
+    function showCoins(){
+      document.getElementById("coinLabel").textContent = Coins.format(Coins.get());
+      // grey out rooms the player can't cover — but practice costs nothing
+      const practice = roomMode === "cpu";
+      document.querySelectorAll("#roomOverlay .room").forEach(r=>{
+        const t = +r.dataset.target;
+        r.classList.toggle("poor", !practice && !Coins.canAfford(t));
+      });
+    }
+    function openFree(){
+      document.getElementById("freeText").textContent =
+        Coins.isBroke() ? "მონეტები გამოგელია — აიღე უფასოდ და განაგრძე"
+                        : "აიღე მონეტები და განაგრძე თამაში";
+      document.getElementById("freeOverlay").classList.add("show");
+    }
+    function closeFree(){ document.getElementById("freeOverlay").classList.remove("show"); }
+    function takeFree(){
+      Coins.add(Coins.FREE_TOPUP); showCoins(); closeFree();
+      toast("🪙 +" + Coins.FREE_TOPUP + " მონეტა");
+    }
+
+    // --- room picker (score target) — shared by every mode ---
+    let roomMode = "cpu";   // cpu | quick | friend
+    let roomSize = 2;       // 2 = 1v1, 4 = 2v2 (online only; the computer is always 1v1)
+    function pickSize(n){
+      roomSize = n;
+      document.querySelectorAll("#sizePick .sizeBtn").forEach(b=>{
+        b.classList.toggle("on", +b.dataset.size === n);
+      });
+    }
+    function openRooms(mode){
+      roomMode = mode || "cpu";
+      const practice = roomMode === "cpu";
+      const ov = document.getElementById("roomOverlay");
+      ov.classList.toggle("practice", practice);   // hides the stake badges
+      ov.querySelector(".roomSub").textContent = practice
+        ? "🎓 კომპიუტერთან პრაქტიკაა — მონეტები არ ითვლება"
+        : "მოგებულს ფსონი ემატება, წაგებულს აკლდება";
+      showCoins();
+      ov.classList.add("show");
+    }
+    function closeRooms(){ document.getElementById("roomOverlay").classList.remove("show"); }
+    function startGame(target){
+      // practice against the computer is free; only real opponents cost coins
+      if(roomMode!=="cpu" && !Coins.canAfford(target)){
+        toast("არ გყოფნის მონეტა — ფსონი 🪙 " + Coins.stakeFor(target));
+        closeRooms(); openFree(); return;
+      }
+      if(roomMode==="cpu") location.href = "game.html?target=" + target;
+      else location.href = "online.html?mode=" + (roomMode==="quick" ? "quick" : "friend")
+                         + "&target=" + target + "&size=" + roomSize;
+    }
+
+    // --- play with a friend: create a table, or join one by code ---
+    function openFriend(){ document.getElementById("friendOverlay").classList.add("show"); }
+    function closeFriend(){
+      document.getElementById("friendOverlay").classList.remove("show");
+      document.getElementById("joinBox").style.display = "none";
+    }
+    function showJoin(){
+      document.getElementById("joinBox").style.display = "block";
+      document.getElementById("codeInput").focus();
+    }
+    function doJoin(){
+      const c = document.getElementById("codeInput").value.trim().toUpperCase();
+      if(c.length !== 4) return toast("კოდი 4 სიმბოლოა");
+      location.href = "online.html?mode=join&code=" + encodeURIComponent(c);
+    }
+
+    let toastTimer;
+    function toast(msg){
+      const t=document.getElementById("toast");
+      t.textContent=msg; t.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer=setTimeout(()=>t.classList.remove("show"),2200);
+    }
+  </script>
+</body>
+</html>

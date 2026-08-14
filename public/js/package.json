@@ -1,0 +1,4 @@
+{
+  "//": "Marks this folder as CommonJS so the ESM server can require() ozi.js. Browsers ignore this file.",
+  "type": "commonjs"
+}

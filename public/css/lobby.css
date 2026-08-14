@@ -1,0 +1,337 @@
+/* =====================================================================
+   The lobby — the room you walk into before sitting down at a table.
+   Loads on top of base.css (tokens, felt, dialogs).
+   ===================================================================== */
+
+.stage{
+  padding:calc(10px + var(--safeT)) calc(16px + var(--safeR))
+          calc(10px + var(--safeB)) calc(16px + var(--safeL));
+}
+
+/* ---------------- top bar ---------------- */
+.hud{ flex:0 0 auto; display:flex; align-items:center; gap:9px; }
+
+.iconbtn{
+  width:38px; height:38px; border-radius:12px; display:grid; place-items:center;
+  border:1px solid var(--line); background:var(--panel); color:var(--cream);
+  font-size:17px; cursor:pointer; font-family:var(--font-ui);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 2px 6px rgba(0,0,0,.35);
+}
+.iconbtn:active{ transform:translateY(1px); }
+
+/* who you are */
+.playercard{
+  display:flex; align-items:center; gap:10px; cursor:pointer;
+  padding:4px 15px 4px 4px; border-radius:999px;
+  background:linear-gradient(180deg, rgba(6,34,19,.85), rgba(3,20,11,.9));
+  border:1px solid var(--brass-dim);
+  box-shadow:inset 0 1px 0 rgba(242,205,126,.18), 0 3px 10px rgba(0,0,0,.4);
+  transition:border-color .15s;
+}
+.playercard:hover{ border-color:var(--brass); }
+.avatar{
+  position:relative; width:36px; height:36px; border-radius:50%;
+  display:grid; place-items:center;
+  font-family:var(--font-display); font-size:17px; font-weight:700; color:#3a2600;
+  background:linear-gradient(160deg, var(--brass-lit), var(--brass) 60%, var(--brass-dim));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.6), 0 2px 5px rgba(0,0,0,.4);
+}
+.lvl{
+  position:absolute; bottom:-4px; right:-6px; padding:1px 6px; border-radius:999px;
+  font-family:var(--font-ui); font-size:9.5px; font-weight:700; color:#fff;
+  background:var(--bad); border:2px solid var(--baize-deep);
+}
+.pcol{ display:flex; flex-direction:column; gap:3px; }
+.pcol b{ font-size:13.5px; font-weight:600; }
+.xp{ width:78px; height:4px; border-radius:9px; background:rgba(0,0,0,.45); overflow:hidden; }
+.xp i{ display:block; height:100%; width:62%; background:linear-gradient(90deg,#7ce9a6,var(--good)); }
+
+.spacer{ flex:1; }
+
+/* coins & gems — same enamel counters as the play screen */
+.cur{
+  display:flex; align-items:center; gap:8px; padding:4px 5px 4px 13px; border-radius:999px;
+  font-family:var(--font-display); font-size:14.5px; font-weight:700;
+  color:var(--brass-lit); font-variant-numeric:tabular-nums;
+  background:linear-gradient(180deg, rgba(4,26,14,.8), rgba(2,15,9,.92));
+  border:1px solid rgba(242,205,126,.24);
+  box-shadow:inset 0 1px 0 rgba(242,205,126,.12), 0 2px 6px rgba(0,0,0,.35);
+}
+/* the + is drawn from two bars so it centres in any font */
+.cur .plus{
+  position:relative; width:22px; height:22px; border-radius:50%;
+  background:linear-gradient(180deg,#7ce9a6,#2f9e52);
+  border:none; padding:0; margin:0; appearance:none; font-size:0; color:transparent;
+  cursor:pointer; flex:0 0 auto;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45), 0 2px 4px rgba(0,0,0,.4);
+}
+.cur .plus::before, .cur .plus::after{
+  content:""; position:absolute; left:50%; top:50%;
+  background:#04240f; border-radius:1px; transform:translate(-50%,-50%);
+}
+.cur .plus::before{ width:11px; height:2.5px; }
+.cur .plus::after{ width:2.5px; height:11px; }
+.cur .plus:active{ filter:brightness(.9); }
+
+.store{
+  display:flex; align-items:center; gap:8px; cursor:pointer; border:none;
+  border-radius:12px; padding:9px 16px;
+  font-family:var(--font-ui); font-size:13px; font-weight:700; color:#2a1a00;
+  background:linear-gradient(180deg, var(--brass-lit), var(--brass) 55%, var(--brass-dim));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5), 0 3px 9px rgba(0,0,0,.4);
+}
+
+/* ---------------- the room ---------------- */
+.board{ flex:1 1 auto; position:relative; min-height:0; }
+
+/* side rails of offers (hidden for now behind .later) */
+.rail{ position:absolute; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:6px; }
+.rail.left{ left:12px; }
+.rail.right{ right:12px; }
+.offer{ position:relative; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:1px; }
+.offer .disc{
+  width:40px; height:40px; border-radius:12px; display:grid; place-items:center; font-size:19px;
+  background:linear-gradient(160deg,#2f9e52,#0e5a2c);
+  border:1px solid rgba(242,205,126,.3);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.15), 0 4px 10px rgba(0,0,0,.45);
+}
+.offer.hot .disc{ background:linear-gradient(160deg,#ff8a3d,#b8390f); }
+.offer.free .disc{ background:linear-gradient(160deg,var(--brass-lit),var(--brass-dim)); }
+.offer .timer{
+  font-size:9px; font-weight:700; color:var(--cream-dim);
+  background:rgba(0,0,0,.4); padding:1px 6px; border-radius:6px;
+}
+.badge{
+  position:absolute; top:-5px; right:-5px; width:17px; height:17px; border-radius:50%;
+  background:var(--bad); border:2px solid var(--baize-deep);
+  display:grid; place-items:center; font-size:10px; font-weight:700;
+}
+
+/* ---------------- the sign over the table ---------------- */
+.center{
+  position:absolute; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:12px; pointer-events:none;
+}
+.center > *{ pointer-events:auto; }
+
+/* two bone tiles leaning together */
+.tiles{ position:relative; height:84px; width:150px; }
+.tile{
+  position:absolute; left:50%; top:50%; display:flex; flex-direction:column;
+  width:48px; height:78px; padding:3px; border-radius:8px; overflow:hidden;
+  background:linear-gradient(158deg, var(--bone-hi) 0%, var(--bone) 46%, var(--bone-lo) 100%);
+  border:1px solid var(--bone-edge);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.95),
+    inset 0 -2px 3px rgba(120,105,70,.3),
+    0 8px 18px rgba(0,0,0,.45);
+}
+.tile.a{ transform:translate(-84%,-50%) rotate(-13deg); }
+.tile.b{ transform:translate(-16%,-50%) rotate(11deg); z-index:2; }
+.tile .half{ flex:1; display:grid; place-items:center; }
+/* the groove across the middle, fading out at both edges — same as the tiles
+   on the table */
+.tile::before{
+  content:""; position:absolute; left:3px; right:3px; top:50%; height:2px;
+  transform:translateY(-50%); z-index:2;
+  background:linear-gradient(90deg,transparent,rgba(122,108,74,.6),transparent);
+}
+/* and its brass pin */
+.tile::after{
+  content:""; position:absolute; left:50%; top:50%; width:6px; height:6px;
+  border-radius:50%; transform:translate(-50%,-50%); z-index:3;
+  background:radial-gradient(circle at 36% 32%, var(--brass-lit), var(--brass) 60%, var(--brass-dim));
+  box-shadow:0 0 2px rgba(0,0,0,.5), inset 0 -1px 1px rgba(0,0,0,.35);
+}
+.pips{ display:grid; grid-template-columns:repeat(3,7px); grid-template-rows:repeat(3,7px); gap:4px; }
+.pips i, .pips span{ width:7px; height:7px; }
+.pips i{
+  border-radius:50%;
+  background:radial-gradient(circle at 38% 32%, #4a4a41, var(--pip) 72%);
+  box-shadow:inset 0 1px 1px rgba(0,0,0,.85), 0 1px 0 rgba(255,255,255,.6);
+}
+
+.logo-title{
+  margin:0; font-family:var(--font-display); font-size:44px; font-weight:700;
+  letter-spacing:1px; color:var(--brass-lit);
+  text-shadow:0 2px 0 var(--brass-dim), 0 4px 2px rgba(0,0,0,.35), 0 12px 30px rgba(0,0,0,.55);
+}
+.logo-sub{
+  margin:-4px 0 0; font-size:10px; letter-spacing:6px; text-transform:uppercase;
+  color:rgba(246,239,221,.55);
+}
+
+/* sit down */
+.play{
+  display:flex; align-items:center; gap:12px; cursor:pointer; border:none;
+  padding:14px 44px; border-radius:16px;
+  font-family:var(--font-ui); font-size:19px; font-weight:700; color:#04240f;
+  background:linear-gradient(180deg,#8bf0b1,var(--good) 55%,#2b8f56);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.55),
+    0 6px 0 #1d6c3f,
+    0 12px 26px rgba(0,0,0,.45);
+  transition:transform .07s, box-shadow .07s;
+}
+.play:active{
+  transform:translateY(4px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5), 0 2px 0 #1d6c3f, 0 6px 14px rgba(0,0,0,.4);
+}
+.play .arrow{ font-size:15px; }
+
+.modes{ display:flex; gap:10px; }
+.mode{
+  display:flex; align-items:center; gap:7px; cursor:pointer;
+  padding:9px 17px; border-radius:12px;
+  font-family:var(--font-ui); font-size:13px; font-weight:600; color:var(--cream);
+  background:linear-gradient(180deg, rgba(6,34,19,.8), rgba(3,20,11,.9));
+  border:1px solid rgba(242,205,126,.22);
+  box-shadow:inset 0 1px 0 rgba(242,205,126,.10), 0 3px 8px rgba(0,0,0,.35);
+  transition:border-color .15s, transform .06s;
+}
+.mode:hover{ border-color:var(--brass); }
+.mode:active{ transform:translateY(1px); }
+
+/* ---------------- bottom bar (hidden for now) ---------------- */
+.nav{
+  flex:0 0 auto; display:flex; align-items:flex-end; justify-content:space-around;
+  padding:6px 12px 8px; position:relative;
+  background:linear-gradient(180deg,var(--wood-hi),var(--wood) 40%,var(--wood-lo));
+  border-top:2px solid rgba(242,205,126,.25);
+}
+.tab{
+  display:flex; flex-direction:column; align-items:center; gap:2px; cursor:pointer;
+  background:none; border:none; padding:2px 8px; min-width:56px;
+  font-family:var(--font-ui); font-size:10.5px; font-weight:600; color:#f0e2c8;
+}
+.tab .ti{ font-size:20px; }
+.tab.center{ margin-top:-30px; }
+.tab.center .ti{
+  width:58px; height:58px; border-radius:50%; display:grid; place-items:center; font-size:28px;
+  background:linear-gradient(160deg,var(--brass-lit),var(--brass-dim));
+  border:3px solid #fff3d0; box-shadow:0 8px 18px rgba(0,0,0,.5); color:var(--ink);
+}
+
+/* server reachability, small print */
+.foot{
+  flex:0 0 auto; display:flex; align-items:center; justify-content:center; gap:8px;
+  font-size:10.5px; color:rgba(246,239,221,.45); padding-top:6px;
+}
+.status{ position:absolute; right:12px; top:6px; display:flex; align-items:center; gap:6px;
+  font-size:10px; color:rgba(246,239,221,.5); }
+.dot{ width:7px; height:7px; border-radius:50%; background:var(--good);
+  box-shadow:0 0 6px rgba(74,208,125,.7); }
+.dot.off{ background:var(--bad); box-shadow:0 0 6px rgba(226,104,90,.6); }
+
+/* ---------------- toast ---------------- */
+.toast{
+  position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(18px);
+  padding:11px 20px; border-radius:12px; font-size:13.5px; z-index:60;
+  background:linear-gradient(180deg,#0d3f24,#062a17);
+  border:1px solid var(--brass-dim); color:var(--cream);
+  box-shadow:0 10px 30px rgba(0,0,0,.55);
+  opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; max-width:90%;
+}
+.toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* ---------------- pickers (rooms / friend / name / free coins) ---------------- */
+.roomOverlay{
+  position:fixed; inset:0; z-index:40; display:none;
+  align-items:center; justify-content:center;
+  background:rgba(2,14,8,.72); backdrop-filter:blur(3px);
+}
+.roomOverlay.show{ display:flex; animation:fadeIn .18s ease-out; }
+.roomModal{
+  text-align:center; max-width:96%; padding:16px 22px 14px; border-radius:18px;
+  background:linear-gradient(170deg,#155e38,#092e1a);
+  border:1px solid var(--brass-dim);
+  box-shadow:inset 0 1px 0 rgba(242,205,126,.22), 0 24px 60px rgba(0,0,0,.6);
+  animation:riseIn .22s cubic-bezier(.2,1,.4,1) both;
+}
+.roomModal h2{
+  margin:0 0 3px; font-family:var(--font-display); font-size:21px; font-weight:700;
+  color:var(--brass-lit);
+}
+.roomSub{ margin:0 0 12px; font-size:12px; color:var(--cream-dim); }
+
+/* 1v1 / 2v2 */
+.sizePick{ display:flex; gap:8px; justify-content:center; margin:8px 0 10px; }
+.sizeBtn{
+  cursor:pointer; border-radius:999px; padding:6px 15px;
+  font-family:var(--font-ui); font-size:12px; font-weight:600; color:var(--cream);
+  background:rgba(3,20,11,.7); border:1px solid var(--line);
+}
+.sizeBtn.on{
+  color:#2a1a00; border-color:transparent;
+  background:linear-gradient(180deg,var(--brass-lit),var(--brass) 60%,var(--brass-dim));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5);
+}
+.roomOverlay.practice .sizePick{ display:none; }   /* the computer is always 1v1 */
+
+/* a room reads like a little brass plaque */
+.rooms{ display:flex; gap:10px; }
+.room{
+  position:relative; display:flex; flex-direction:column; align-items:center; gap:1px;
+  cursor:pointer; min-width:106px; padding:13px 14px 11px; border-radius:15px;
+  font-family:var(--font-ui); color:var(--cream);
+  background:linear-gradient(180deg, rgba(6,34,19,.85), rgba(3,20,11,.92));
+  border:1px solid rgba(242,205,126,.20);
+  box-shadow:inset 0 1px 0 rgba(242,205,126,.12), 0 4px 12px rgba(0,0,0,.4);
+  transition:transform .08s, border-color .15s, box-shadow .15s;
+}
+.room:hover{ border-color:var(--brass); box-shadow:inset 0 1px 0 rgba(242,205,126,.2), 0 8px 20px rgba(0,0,0,.5); }
+.room:active{ transform:translateY(2px); }
+.room .rIco{ font-size:21px; }
+.room .rName{ font-size:12.5px; font-weight:600; }
+.room .rPts{
+  font-family:var(--font-display); font-size:26px; font-weight:700; line-height:1.15;
+  color:var(--brass-lit); font-variant-numeric:tabular-nums;
+  text-shadow:0 2px 0 var(--brass-dim);
+}
+.room .rTime{ font-size:9.5px; color:rgba(246,239,221,.5); }
+.room .rBet{
+  margin-top:6px; padding:2px 11px; border-radius:999px;
+  font-size:11.5px; font-weight:700; color:var(--brass-lit);
+  background:rgba(0,0,0,.35); border:1px solid rgba(242,205,126,.22);
+}
+.room.best{
+  border-color:var(--brass);
+  background:linear-gradient(180deg, rgba(242,205,126,.14), rgba(3,20,11,.92));
+}
+.room .rTag{
+  position:absolute; top:-9px; left:50%; transform:translateX(-50%);
+  padding:2px 10px; border-radius:999px; white-space:nowrap;
+  font-size:9px; font-weight:700; color:#2a1a00;
+  background:linear-gradient(180deg,var(--brass-lit),var(--brass-dim));
+  box-shadow:0 2px 5px rgba(0,0,0,.4);
+}
+.room.poor{ opacity:.4; }
+.room.poor .rBet{ color:#ffb3aa; border-color:rgba(226,104,90,.4); }
+.roomOverlay.practice .rBet{ display:none; }   /* practice costs nothing */
+
+.roomClose{
+  margin-top:12px; cursor:pointer; border-radius:11px; padding:8px 20px;
+  font-family:var(--font-ui); font-size:12.5px; font-weight:600; color:var(--cream);
+  background:rgba(3,20,11,.6); border:1px solid var(--line);
+}
+.roomClose:hover{ border-color:var(--brass-dim); }
+
+/* text inputs (name, table code) */
+.roomModal input{
+  font-family:var(--font-display); color:var(--ink); text-align:center;
+  border:1px solid var(--brass-dim); border-radius:12px; padding:10px;
+  background:linear-gradient(180deg,#fffdf6,#e9e0c8);
+  box-shadow:inset 0 2px 4px rgba(0,0,0,.18);
+}
+.roomModal input:focus{ outline:none; border-color:var(--brass-lit); }
+.bigInput{ width:230px; font-size:19px; font-weight:700; margin-top:4px; }
+.codeInput{ width:158px; font-size:23px; font-weight:700; letter-spacing:7px; text-transform:uppercase; }
+
+/* the free-coins figure */
+.freeAmount{
+  font-family:var(--font-display); font-size:38px; font-weight:700; margin:4px 0 10px;
+  color:var(--brass-lit); text-shadow:0 2px 0 var(--brass-dim), 0 8px 20px rgba(0,0,0,.5);
+}
+
+/* hidden until we bring them back */
+.later{ display:none !important; }

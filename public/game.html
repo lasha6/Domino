@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>დომინო — კომპიუტერთან</title>
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/table.css" />
+  <script src="js/viewport.js"></script>
+</head>
+<body>
+  <div class="stage">
+    <div class="top">
+      <button class="back" onclick="location.href='index.html'">←</button>
+      <div class="score"><span class="me">შენ <b id="s0">0</b></span> : <span class="cpu"><b id="s1">0</b> კომპ.</span></div>
+      <div class="info">
+        <span class="stat"><span class="k">მიზანი</span><b id="target">175</b></span>
+        <span class="stat"><span class="k">ხელი</span><b id="round">1</b></span>
+        <span class="stat"><span class="k">ბაზარი</span><b id="bone">0</b></span>
+        <span class="badge">🎓 პრაქტიკა</span>
+      </div>
+      <div class="spacer"></div>
+      <button class="back sndBtn" id="sndBtn" onclick="toggleSound()" title="ხმა">🔊</button>
+      <button class="newgame" onclick="startMatch()">ახალი თამაში</button>
+    </div>
+
+    <div class="statusrow">
+      <div class="cpuhand" id="cpuhand"></div>
+      <div class="msg" id="msg"></div>
+    </div>
+    <div class="board" id="board"></div>
+    <div class="myhand" id="myhand"></div>
+  </div>
+
+  <!-- boneyard topup -->
+  <div class="overlay" id="boneOverlay">
+    <div class="modal">
+      <h2 id="boneTitle">ბაზარი</h2>
+      <p id="boneSub"></p>
+      <div class="bonegrid" id="bonegrid"></div>
+    </div>
+  </div>
+
+  <!-- round / match result -->
+  <div class="overlay" id="resultOverlay">
+    <div class="modal">
+      <h2 id="resultTitle"></h2>
+      <p id="resultText"></p>
+      <button id="resultBtn"></button>
+    </div>
+  </div>
+
+  <div class="rotate">
+    <div class="phone">📱</div>
+    <h2 style="color:var(--brass-lit)">გადააბრუნე მოწყობილობა</h2>
+    <p>თამაში თარაზულ (landscape) რეჟიმში ითამაშება.</p>
+  </div>
+
+  <script src="js/ozi.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/fx.js"></script>
+  <script>
+    // tile drawing lives in js/render.js (shared with the online screen)
+    const domV = Tiles.domV, backTile = Tiles.backTile;
+
+    function paintSoundBtn(){
+      document.getElementById("sndBtn").textContent = Sound.muted() ? "🔇" : "🔊";
+    }
+    function toggleSound(){ Sound.toggle(); paintSoundBtn(); if(!Sound.muted()) Sound.play("tap"); }
+    paintSoundBtn();
+
+    // ---------- state ----------
+    let g, busy=false, lastWinner=0, dealing=false;
+
+    // score target comes from the room the player picked in the lobby
+    const ALLOWED_TARGETS=[75,175,255,355];
+    const TARGET=(function(){
+      const t=parseInt(new URLSearchParams(location.search).get("target"),10);
+      return ALLOWED_TARGETS.includes(t) ? t : 175;
+    })();
+
+    // Playing the computer is practice only — no coins are won or lost here,
+    // otherwise a player could farm the AI for a fake balance.
+    function startMatch(){
+      g = Ozi.newGame(TARGET);
+      lastWinner = 0;
+      hideResult(); closeBone();
+      startRound(true);
+    }
+
+    function startRound(firstHand){
+      if(!firstHand){ Ozi.deal(g); }
+      g.passes = 0; selIdx = null; dealing = true;   // stagger the hand in
+      if(firstHand){
+        // highest double opens; if somehow no double was dealt, heaviest tile opens
+        let hd = Ozi.highestDouble(g.hands);
+        if(!hd){
+          let bp=0, bt=g.hands[0][0];
+          for(let p=0;p<2;p++) for(const t of g.hands[p])
+            if(t[0]+t[1] > bt[0]+bt[1]){ bt=t; bp=p; }
+          hd={player:bp, tile:bt};
+        }
+        Ozi.applyMove(g, hd.player, hd.tile, "open");
+        g.turn = 1 - hd.player;
+        render();
+        setMsg((hd.player===0?"შენ გახსენი":"კომპიუტერმა გახსნა")+" ["+hd.tile[0]+"–"+hd.tile[1]+"]");
+      } else {
+        g.turn = lastWinner;
+        render();
+        setMsg("ახალი ხელი — "+(g.turn===0?"შენ იწყებ":"კომპიუტერი იწყებს"));
+      }
+      proceed();
+    }
+    function proceed(){
+      if(g.turn===1) setTimeout(computerTurn, 900);
+      else setTimeout(playerTurnBegin, 500);
+    }
+
+    // ---------- player turn ----------
+    function playerTurnBegin(){
+      if(g.roundOver) return;
+      if(Ozi.hasMove(g, g.hands[0])){ busy=false; setMsg("შენი სვლაა — აირჩიე ქვა"); render(); Sound.play("turn"); return; }
+      if(Ozi.canDraw(g)){ busy=true; showBoneForPlayer(); }
+      else { busy=true; setMsg("სვლა არ გაქვს, ბაზარი დახურულია — პასი"); playerPass(); }
+    }
+    function playerPass(){
+      g.passes++;
+      if(g.passes>=2){ endRound(null); return; }
+      g.turn=1; setTimeout(computerTurn, 900);
+    }
+
+    function tileLegal(t){ return Ozi.matchingSides(g, t).length>0; }
+
+    // Tap a hand tile to select it -> green drop spots appear on the board.
+    // Tap a spot to place there. Tap the same tile again to deselect.
+    let selIdx = null;
+    function onTileClick(idx){
+      if(busy || g.turn!==0 || g.roundOver) return;
+      const t = g.hands[0][idx];
+      const sides = Ozi.matchingSides(g, t);
+      if(!sides.length) return;
+      // only one place it can physically go — put it there, don't ask
+      if(sides.length===1){ doPlayerMove(t, sides[0]); return; }
+      selIdx = (selIdx===idx) ? null : idx;
+      render();
+      if(selIdx!==null) setMsg("აირჩიე ადგილი მაგიდაზე — მწვანე ადგილები");
+      else setMsg("შენი სვლაა — აირჩიე ქვა");
+    }
+    function onDropClick(side){
+      if(busy || g.turn!==0 || g.roundOver || selIdx===null) return;
+      doPlayerMove(g.hands[0][selIdx], side);
+    }
+    function doPlayerMove(t, side){
+      busy=true; selIdx=null;
+      const pts = Ozi.applyMove(g, 0, t, side);
+      g.passes=0; render(); showPlacement(side, pts);
+      setMsg("შენ ითამაშე ["+t[0]+"–"+t[1]+"]"+(pts?' — <span class="pts">+'+pts+' ქულა!</span>':''));
+      if(g.hands[0].length===0){ endRound(0); return; }
+      g.turn=1; setTimeout(computerTurn, 1000);
+    }
+
+    // ---------- BONEYARD (topup) ----------
+    function renderBone(mode){
+      const grid = document.getElementById("bonegrid");
+      const locked = !Ozi.canDraw(g);   // last two tiles may never be taken
+      grid.innerHTML = "";
+      for(let i=0;i<g.boneyard.length;i++){
+        const slot = document.createElement("div");
+        slot.className = "slot" + (g.boneyard[i] ? "" : " empty");
+        slot.id = "slot"+i;
+        if(g.boneyard[i]){
+          const wrap = document.createElement("div");
+          wrap.innerHTML = backTile();
+          const d = wrap.firstChild;
+          if(locked) d.classList.add("locked");
+          else if(mode==="player"){ d.classList.add("pick"); d.onclick = ()=>drawPlayerSlot(i); }
+          slot.appendChild(d);
+        }
+        grid.appendChild(slot);
+      }
+    }
+    function showBoneForPlayer(){
+      document.getElementById("boneTitle").textContent = "ბაზარი — აიღე ქვა";
+      document.getElementById("boneSub").textContent =
+        "სვლა არ გაქვს. აირჩიე ქვა ("+Ozi.drawableCount(g)+" ასაღები, ბოლო 2 რჩება).";
+      renderBone("player");
+      document.getElementById("boneOverlay").classList.add("show");
+    }
+    function drawPlayerSlot(i){
+      if(!g.boneyard[i] || !Ozi.canDraw(g)) return;
+      const t = Ozi.drawSlot(g, 0, i);
+      Sound.play("draw");
+      render();
+      renderBone("player");
+      if(Ozi.hasMove(g, g.hands[0])){
+        setMsg("აიღე ["+t[0]+"–"+t[1]+"] — ახლა შენი სვლაა");
+        setTimeout(()=>{ closeBone(); busy=false; render(); }, 500);
+      } else if(Ozi.canDraw(g)){
+        document.getElementById("boneSub").textContent =
+          "აიღე ["+t[0]+"–"+t[1]+"], მაინც არ ჯდება — აიღე კიდევ ("+Ozi.drawableCount(g)+").";
+      } else {
+        setTimeout(()=>{ closeBone(); setMsg("ბაზარი დახურულია (ბოლო 2 რჩება) — პასი"); playerPass(); }, 700);
+      }
+    }
+    function closeBone(){ document.getElementById("boneOverlay").classList.remove("show"); }
+
+    // ---------- computer turn ----------
+    function computerTurn(){
+      if(g.roundOver) return;
+      if(Ozi.hasMove(g, g.hands[1])){ computerPlay(); return; }
+      if(Ozi.canDraw(g)){ showBoneForComputer(); return; }
+      // pass
+      setMsg("კომპიუტერს სვლა არ აქვს, ბაზარი დახურულია — პასი");
+      g.passes++;
+      if(g.passes>=2){ endRound(null); return; }
+      g.turn=0; setTimeout(playerTurnBegin, 900);
+    }
+    function showBoneForComputer(){
+      document.getElementById("boneTitle").textContent = "ბაზარი — კომპიუტერი იღებს";
+      document.getElementById("boneSub").textContent = "კომპიუტერს სვლა არ აქვს, იღებს ბაზრიდან…";
+      renderBone("watch");
+      document.getElementById("boneOverlay").classList.add("show");
+      setTimeout(computerDrawStep, 700);
+    }
+    function computerDrawStep(){
+      if(Ozi.hasMove(g, g.hands[1])){ setTimeout(()=>{ closeBone(); computerPlay(); }, 500); return; }
+      if(!Ozi.canDraw(g)){ closeBone(); setMsg("კომპიუტერი: პასი (ბაზარი დახურულია)"); g.passes++;
+        if(g.passes>=2){ endRound(null); return; } g.turn=0; setTimeout(playerTurnBegin,900); return; }
+      const i = Ozi.randomBoneSlot(g);
+      Ozi.drawSlot(g, 1, i);
+      Sound.play("draw");
+      render(); renderBone("watch");
+      const slot = document.getElementById("slot"+i);
+      if(slot) slot.classList.add("taken-flash");
+      document.getElementById("boneSub").textContent = "კომპიუტერმა აიღო ქვა ("+Ozi.drawableCount(g)+" ასაღები დარჩა)…";
+      setTimeout(computerDrawStep, 800);
+    }
+    function computerPlay(){
+      const m = Ozi.aiChoose(g, 1);
+      const pts = Ozi.applyMove(g, 1, m.tile, m.side);
+      g.passes=0; render(); showPlacement(m.side, pts);
+      setMsg("კომპიუტერმა ითამაშა ["+m.tile[0]+"–"+m.tile[1]+"]"+(pts?' — <span class="pts">+'+pts+'</span>':''));
+      if(g.hands[1].length===0){ endRound(1); return; }
+      g.turn=0; setTimeout(playerTurnBegin, 1000);
+    }
+
+    // ---------- round / match end ----------
+    function endRound(winner){
+      g.roundOver = true; busy=true; closeBone();
+      const wasBlocked = winner === null;   // captured before winner is reassigned
+      let title, text;
+      if(winner===null){
+        // blocked: only the side with fewer pips scores (see Ozi.blockResult)
+        const r = Ozi.blockResult(g);
+        if(r.draw){ title="ბლოკი — ფრე"; text="ორივეს თანაბარი ქულა დარჩა ("+r.pips[0]+")."; lastWinner=0; }
+        else {
+          winner = r.team;
+          g.scores[winner] += r.bonus;
+          title="ბლოკი!";
+          text=(winner===0?"შენ":"კომპიუტერს")+" ნაკლები დარჩა ("+r.pips[winner]+" < "+r.pips[1-winner]+") — +"+r.bonus+" ქულა.";
+          lastWinner=winner;
+        }
+      } else {
+        const bonus=Ozi.handPoints(g.hands[1-winner]); g.scores[winner]+=bonus;
+        title=(winner===0?"შენ დაასრულე ხელი! 🎉":"კომპიუტერმა დაასრულა ხელი");
+        text="მოწინააღმდეგის ხელი: +"+bonus+" ქულა."; lastWinner=winner;
+      }
+      g.round++; render();
+
+      const mr = Ozi.matchResult(g, wasBlocked);   // handles the "რიბა" rule
+      const riba = mr.riba;
+      if(!mr.over){
+        Sound.play(winner===0 ? "handWin" : "handLose");
+        if(winner===0) Fx.cheer();               // a small burst for taking a hand
+      }
+      if(mr.over){
+        const champ = mr.champTeam;
+        Sound.play(champ===0 ? "win" : "lose");
+        if(champ===0) Fx.confetti(80, {spread:0.8});
+        showResult(champ===0?"🏆 შენ მოიგე თამაში!":"კომპიუტერმა მოიგო თამაში",
+          "ანგარიში "+g.scores[0]+" : "+g.scores[1]+" (მიზანი "+g.target+")",
+          "ახალი თამაში", startMatch, champ===0);
+      } else {
+        showResult(riba ? "რიბა! 🔄" : title,
+          (riba ? "მიზანი მიღწეულია, მაგრამ ხელი ბლოკით დასრულდა — ითამაშება დამატებითი ხელი. "
+                : text+" ")
+          + "| ანგარიში "+g.scores[0]+" : "+g.scores[1],
+          "შემდეგი ხელი ▶", ()=>{ hideResult(); startRound(false); });
+      }
+    }
+    function showResult(title,text,btn,cb,won){
+      document.getElementById("resultTitle").textContent=title;
+      document.getElementById("resultText").textContent=text;
+      const b=document.getElementById("resultBtn"); b.textContent=btn; b.onclick=cb;
+      document.getElementById("resultOverlay").classList.add("show");
+      if(won!==undefined) Fx.result(document.querySelector("#resultOverlay .modal"), won);
+    }
+    function hideResult(){ document.getElementById("resultOverlay").classList.remove("show"); }
+
+    // ---------- rendering ----------
+    function setMsg(html){ document.getElementById("msg").innerHTML=html; }
+
+    // the tile lands, and any points float up off the table
+    function showPlacement(side, pts){
+      const board = document.getElementById("board");
+      Tiles.flashPlaced(board, g, side);
+      Tiles.popPoints(board, pts);
+      Sound.play("place");
+      if(pts) setTimeout(()=>Sound.play("score"), 110);
+    }
+    function renderBoard(){
+      const sel = (selIdx!==null && g.turn===0 && !busy && !g.roundOver) ? g.hands[0][selIdx] : null;
+      Tiles.renderBoard(document.getElementById("board"), g, sel,
+        sel ? Ozi.matchingSides(g, sel) : null, onDropClick);
+    }
+    function render(){
+      document.getElementById("s0").textContent=g.scores[0];
+      document.getElementById("s1").textContent=g.scores[1];
+      document.getElementById("round").textContent=g.round;
+      document.getElementById("target").textContent=g.target;
+      document.getElementById("bone").textContent=Ozi.boneCount(g);
+
+      const ch=document.getElementById("cpuhand");
+      ch.innerHTML='<span class="lbl">კომპიუტერი ('+g.hands[1].length+')</span>';
+      for(let i=0;i<g.hands[1].length;i++) ch.innerHTML+=backTile();
+
+      renderBoard();
+
+      const mh=document.getElementById("myhand"); mh.innerHTML="";
+      const myTurn = (g.turn===0 && !busy && !g.roundOver);
+      g.hands[0].forEach((t,idx)=>{
+        const legal = myTurn && tileLegal(t);
+        const el=document.createElement("div");
+        el.innerHTML=domV(t[0],t[1]);
+        const d=el.firstChild;
+        if(legal) d.classList.add("legal");
+        else if(myTurn) d.classList.add("dim");
+        if(idx===selIdx && myTurn) d.classList.add("sel");
+        if(dealing){ d.classList.add("deal"); d.style.animationDelay=(idx*55)+"ms"; }
+        d.onclick=()=>onTileClick(idx);
+        mh.appendChild(d);
+      });
+      dealing = false;
+    }
+
+    startMatch();
+  </script>
+</body>
+</html>

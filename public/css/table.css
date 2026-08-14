@@ -1,0 +1,428 @@
+/* =====================================================================
+   The play screen — shared by game.html (vs computer) and online.html.
+   Loads on top of base.css, which owns the tokens, the felt and dialogs.
+
+   KEEP the tile dimensions marked below: js/render.js positions the board
+   against .btH 52x26 / .btV 26x52 / .bt .dhalf 22x22.
+   ===================================================================== */
+
+.stage{
+  padding:calc(5px + var(--safeT)) calc(10px + var(--safeR))
+          calc(5px + var(--safeB)) calc(10px + var(--safeL));
+  gap:3px;
+}
+
+/* ---------------- top bar ---------------- */
+.top{ flex:0 0 auto; display:flex; align-items:center; gap:9px; }
+
+.back{
+  width:34px; height:34px; border-radius:11px; cursor:pointer;
+  border:1px solid var(--line); background:var(--panel); color:var(--cream);
+  font-size:17px; line-height:1; font-family:var(--font-ui);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 2px 6px rgba(0,0,0,.35);
+  transition:background .15s, transform .06s;
+}
+.back:hover{ background:rgba(4,26,14,.66); }
+.back:active{ transform:translateY(1px); }
+
+/* score plate — dark enamel with a brass hairline */
+.score{
+  display:flex; align-items:center; gap:8px;
+  font-family:var(--font-display); font-size:16px; font-weight:700;
+  padding:5px 15px; border-radius:999px;
+  background:linear-gradient(180deg, rgba(6,34,19,.85), rgba(3,20,11,.9));
+  border:1px solid var(--brass-dim);
+  box-shadow:inset 0 1px 0 rgba(242,205,126,.22), 0 3px 10px rgba(0,0,0,.4);
+  letter-spacing:.3px;
+}
+.score .me{ color:var(--brass-lit); }
+.score .op{ color:#8fd4ff; }
+.score b{ font-variant-numeric:tabular-nums; }
+
+/* little enamel counters instead of loose labels */
+.info{ display:flex; align-items:center; gap:6px; }
+.stat{
+  display:flex; align-items:baseline; gap:5px; padding:3px 10px; border-radius:9px;
+  background:linear-gradient(180deg, rgba(4,26,14,.78), rgba(2,15,9,.9));
+  border:1px solid rgba(242,205,126,.20);
+  box-shadow:inset 0 1px 0 rgba(242,205,126,.10), 0 2px 5px rgba(0,0,0,.32);
+  line-height:1.15;
+}
+/* No uppercase here: on Georgian that turns into mtavruli (მიზანი → ᲛᲘᲖᲐᲜᲘ),
+   which is hard to read this small. Plain lowercase, bright enough to read. */
+.stat .k{
+  font-size:11px; letter-spacing:0; font-style:normal; font-weight:600;
+  color:rgba(246,239,221,.92);
+}
+.stat b{
+  font-family:var(--font-display); font-size:14px; font-weight:700;
+  color:var(--brass-lit); font-variant-numeric:tabular-nums; letter-spacing:.3px;
+}
+.stat.coins b{ color:#ffe9a8; }
+.stat.stake{ border-color:rgba(242,205,126,.42); background:linear-gradient(180deg, rgba(242,205,126,.16), rgba(242,205,126,.05)); }
+
+/* mode badge (practice / anything else worth calling out) */
+.badge{
+  padding:4px 11px; border-radius:999px; font-size:10.5px; font-weight:700;
+  letter-spacing:.4px; white-space:nowrap;
+  background:linear-gradient(180deg, rgba(242,205,126,.20), rgba(242,205,126,.07));
+  border:1px solid rgba(242,205,126,.42); color:var(--brass-lit);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10);
+}
+.spacer{ flex:1; }
+
+/* On a narrow phone the five counters would crowd the bar, so the captions
+   drop away first and the numbers stay. */
+@media (max-width:860px){
+  .stat{ padding:3px 8px; gap:4px; }
+  .stat .k{ font-size:10px; }
+  .info{ gap:4px; }
+}
+@media (max-width:680px){
+  .stat .k{ display:none; }
+  .stat b{ font-size:13px; }
+  .badge{ padding:4px 8px; }
+}
+
+.sndBtn{ font-size:15px; }
+.newgame{
+  cursor:pointer; border:none; border-radius:11px; padding:7px 14px;
+  font-family:var(--font-ui); font-size:12.5px; font-weight:700; color:#2a1a00;
+  background:linear-gradient(180deg, var(--brass-lit), var(--brass) 55%, var(--brass-dim));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5), 0 3px 9px rgba(0,0,0,.4);
+}
+.newgame:active{ transform:translateY(1px); }
+
+/* whose turn */
+.turnpill{
+  font-size:11.5px; font-weight:700; padding:6px 13px; border-radius:999px;
+  background:var(--panel); border:1px solid var(--line); color:var(--cream-dim);
+  transition:all .2s;
+}
+/* the turn clock is spent and the bank is draining */
+.turnpill.overtime{
+  color:#fff; border-color:transparent;
+  background:linear-gradient(180deg,#ff7a5c,#c0392b);
+  box-shadow:0 0 0 3px rgba(226,104,90,.22);
+  animation:tick .7s ease-in-out infinite;
+}
+/* the clock is running out */
+.turnpill.urgent{
+  color:#fff; border-color:transparent;
+  background:linear-gradient(180deg,#ff8a7a,var(--bad));
+  animation:tick .8s ease-in-out infinite;
+}
+@keyframes tick{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.06); } }
+
+/* each player's banked time */
+.bank{
+  font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:999px; margin-right:4px;
+  background:rgba(0,0,0,.35); color:var(--cream-dim); font-variant-numeric:tabular-nums;
+}
+.bank.low{ background:rgba(226,104,90,.25); color:#ffb3aa; }
+.stat.bankStat.low{ border-color:rgba(226,104,90,.5); }
+.stat.bankStat.low b{ color:#ffb3aa; }
+
+.turnpill.mine{
+  color:#04240f; border-color:transparent;
+  background:linear-gradient(180deg,#7ce9a6,var(--good));
+  box-shadow:0 0 0 3px rgba(74,208,125,.18), 0 3px 10px rgba(0,0,0,.35);
+  animation:breathe 2.4s ease-in-out infinite;
+}
+@keyframes breathe{
+  0%,100%{ box-shadow:0 0 0 3px rgba(74,208,125,.16), 0 3px 10px rgba(0,0,0,.35); }
+  50%    { box-shadow:0 0 0 7px rgba(74,208,125,.05), 0 3px 10px rgba(0,0,0,.35); }
+}
+
+/* ---------------- opponents + message ---------------- */
+.statusrow{ flex:0 0 auto; display:flex; align-items:center; gap:12px; min-height:24px; }
+.cpuhand{ flex:0 0 auto; display:flex; align-items:center; gap:9px; }
+.cpuhand .lbl{ font-size:12.5px; font-weight:600; color:var(--cream); margin-right:4px; }
+
+.opp{
+  display:flex; align-items:center; gap:2px; padding:2px 8px;
+  border-radius:999px; border:1px solid transparent; transition:all .2s;
+}
+.opp.mate{ background:rgba(143,212,255,.10); border-color:rgba(143,212,255,.30); }
+.opp.mate .lbl{ color:#8fd4ff; }
+.opp.active{
+  background:rgba(74,208,125,.16); border-color:rgba(74,208,125,.55);
+  box-shadow:0 0 12px rgba(74,208,125,.22);
+}
+.opp.active .lbl{ color:#9df0bd; font-weight:700; }
+
+.msg{
+  flex:1 1 auto; text-align:center; font-size:13px; font-weight:600;
+  color:var(--cream); text-shadow:0 1px 2px rgba(0,0,0,.5);
+}
+.msg .pts{ color:var(--brass-lit); font-family:var(--font-display); font-size:14px; }
+
+/* ---------------- the table surface ---------------- */
+.board{
+  flex:1 1 auto; min-height:0; position:relative;
+  display:flex; align-items:center; justify-content:center; overflow:hidden;
+  padding:6px; border-radius:16px;
+  /* recessed baize inside a walnut rim */
+  background:
+    radial-gradient(75% 105% at 50% 22%, rgba(255,240,200,.10), transparent 60%),
+    linear-gradient(180deg, rgba(0,0,0,.10), rgba(0,0,0,.28));
+  border:3px solid transparent;
+  background-origin:border-box;
+  box-shadow:
+    inset 0 3px 14px rgba(0,0,0,.45),
+    inset 0 0 0 1px rgba(242,205,126,.16),
+    0 2px 0 rgba(255,255,255,.04);
+}
+.board::before{   /* the walnut rim */
+  content:""; position:absolute; inset:-3px; border-radius:16px; z-index:-1;
+  background:linear-gradient(160deg, var(--wood-hi), var(--wood) 45%, var(--wood-lo));
+}
+.board .empty{
+  margin:auto; font-family:var(--font-display); font-size:14px;
+  color:var(--cream-dim); letter-spacing:1px;
+}
+.bwrap{ position:relative; transform-origin:center center; flex:0 0 auto; }
+
+/* ---------------- bone tiles ---------------- */
+/* board tiles — KEEP these dimensions, render.js positions against them */
+.bt{
+  position:absolute; display:flex; align-items:center; justify-content:center;
+  padding:2px; overflow:hidden; border-radius:5px;
+  background:linear-gradient(158deg, var(--bone-hi) 0%, var(--bone) 46%, var(--bone-lo) 100%);
+  border:1px solid var(--bone-edge);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.9),
+    inset 0 -1px 2px rgba(120,105,70,.35),
+    0 2px 3px rgba(0,0,0,.42),
+    0 5px 10px rgba(0,0,0,.24);
+}
+.btH{ width:52px; height:26px; flex-direction:row; }     /* KEEP */
+.btV{ width:26px; height:52px; flex-direction:column; }  /* KEEP */
+.bt .dhalf{ width:22px; height:22px; flex:0 0 auto; }    /* KEEP */
+
+.dhalf{ display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr); }
+.dhalf .pip{ display:grid; place-items:center; }
+/* carved pips: dark well + a light lip along the bottom edge */
+.dhalf .pip i{
+  width:4px; height:4px; border-radius:50%;
+  background:radial-gradient(circle at 38% 32%, #4a4a41, var(--pip) 72%);
+  box-shadow:inset 0 1px 1px rgba(0,0,0,.85), 0 1px 0 rgba(255,255,255,.62);
+}
+/* the groove between halves, with its brass pin */
+.dbar{ position:relative; background:
+  linear-gradient(90deg,transparent,rgba(122,108,74,.55),transparent); }
+.btH .dbar{ width:2px; height:22px; margin:0 1px;
+  background:linear-gradient(180deg,transparent,rgba(122,108,74,.55),transparent); }
+.btV .dbar{ width:22px; height:2px; margin:1px 0; }
+.bt .dbar::after{
+  content:""; position:absolute; left:50%; top:50%; width:4px; height:4px;
+  border-radius:50%; transform:translate(-50%,-50%);
+  background:radial-gradient(circle at 36% 32%, var(--brass-lit), var(--brass) 60%, var(--brass-dim));
+  box-shadow:0 0 2px rgba(0,0,0,.5), inset 0 -1px 1px rgba(0,0,0,.35);
+}
+
+/* The spinner ("სტავკა") — the pivot the whole cross grows from. Warmer bone
+   with a brass rim so you can pick it out at a glance among 20 other tiles. */
+.bt.spinner{
+  background:linear-gradient(158deg, #fff8e2 0%, #f6e7bd 46%, #e2cf9c 100%);
+  border-color:var(--brass);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.95),
+    inset 0 0 0 1px rgba(242,205,126,.55),
+    0 0 0 2px rgba(242,205,126,.28),
+    0 2px 4px rgba(0,0,0,.45),
+    0 6px 14px rgba(0,0,0,.3);
+}
+.bt.spinner .dbar{ background:linear-gradient(90deg,transparent,rgba(160,120,40,.7),transparent); }
+.btH.spinner .dbar{ background:linear-gradient(180deg,transparent,rgba(160,120,40,.7),transparent); }
+
+/* a tile that has just been played settles onto the table */
+.bt.justPlaced{ animation:settle .34s cubic-bezier(.22,1.2,.4,1) both; z-index:3; }
+@keyframes settle{
+  0%  { transform:scale(1.5) translateY(-14px); opacity:0;
+        box-shadow:0 18px 26px rgba(0,0,0,.5); }
+  60% { opacity:1; }
+  100%{ transform:scale(1) translateY(0); opacity:1; }
+}
+
+/* hand / boneyard tiles (upright, free-standing) */
+.domino{
+  display:flex; flex-direction:column; width:36px; padding:3px; border-radius:7px;
+  background:linear-gradient(158deg, var(--bone-hi) 0%, var(--bone) 46%, var(--bone-lo) 100%);
+  border:1px solid var(--bone-edge);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.95),
+    inset 0 -2px 3px rgba(120,105,70,.32),
+    0 3px 5px rgba(0,0,0,.42),
+    0 8px 14px rgba(0,0,0,.26);
+}
+.domino .dhalf{ width:100%; height:27px; }
+.domino .dhalf .pip i{ width:5px; height:5px; }
+.domino .dbar{ height:2px; margin:2px 1px; }
+.domino .dbar::after{
+  content:""; position:absolute; left:50%; top:50%; width:5px; height:5px;
+  border-radius:50%; transform:translate(-50%,-50%);
+  background:radial-gradient(circle at 36% 32%, var(--brass-lit), var(--brass) 60%, var(--brass-dim));
+  box-shadow:0 0 2px rgba(0,0,0,.5);
+}
+/* face down — the tile's back, in baize-stained wood */
+.domino.back{
+  background:linear-gradient(158deg,#1d6b41,#0a3c22 60%,#062a17);
+  border-color:rgba(242,205,126,.20);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 3px 6px rgba(0,0,0,.45);
+}
+.domino.back .dhalf .pip i{ display:none; }
+.domino.back .dbar{ background:linear-gradient(90deg,transparent,rgba(242,205,126,.3),transparent); }
+.domino.back .dbar::after{ background:rgba(242,205,126,.42); box-shadow:none; }
+
+/* ---------------- your hand ---------------- */
+.myhand{
+  flex:0 0 auto; display:flex; justify-content:center; align-items:flex-end;
+  gap:5px; min-height:66px; flex-wrap:wrap; padding-top:2px;
+}
+.myhand .domino{ cursor:default; transition:transform .12s ease, box-shadow .12s ease; }
+.myhand .dhalf{ height:27px; }
+
+/* A short phone in landscape has very little height — tighten everything so
+   the hand can never be pushed off the bottom. */
+@media (max-height:400px){
+  .stage{ padding:calc(4px + var(--safeT)) calc(8px + var(--safeR))
+                  calc(4px + var(--safeB)) calc(8px + var(--safeL)); gap:2px; }
+  .myhand{ min-height:56px; gap:4px; }
+  .myhand .domino{ width:31px; padding:2px; }
+  .myhand .dhalf{ height:23px; }
+  .myhand .dhalf .pip i{ width:4px; height:4px; }
+  .statusrow{ min-height:20px; }
+  .cpuhand .lbl, .msg{ font-size:11.5px; }
+}
+@media (max-height:340px){
+  .myhand{ min-height:48px; }
+  .myhand .domino{ width:27px; }
+  .myhand .dhalf{ height:20px; }
+}
+/* playable */
+.myhand .domino.legal{
+  cursor:pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.95),
+    0 0 0 2px rgba(74,208,125,.85),
+    0 4px 8px rgba(0,0,0,.42),
+    0 0 16px rgba(74,208,125,.22);
+}
+.myhand .domino.legal:hover{ transform:translateY(-9px); }
+.myhand .domino.dim{ opacity:.42; filter:saturate(.6); }
+/* picked up, waiting for a spot */
+.myhand .domino.sel{
+  transform:translateY(-12px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.95),
+    0 0 0 3px var(--brass-lit),
+    0 10px 18px rgba(0,0,0,.5),
+    0 0 22px rgba(242,205,126,.35);
+}
+/* tiles are dealt into the hand one after another */
+.myhand .domino.deal{ animation:dealIn .3s ease-out both; }
+@keyframes dealIn{
+  from{ transform:translateY(26px) scale(.9); opacity:0; }
+  to  { transform:translateY(0) scale(1); opacity:1; }
+}
+
+/* ---------------- where a tile may go ---------------- */
+.drop{
+  position:absolute; border-radius:5px; cursor:pointer;
+  border:2px dashed rgba(160,255,200,.75);
+  background:rgba(74,208,125,.20);
+  animation:beckon 1.5s ease-in-out infinite;
+}
+.drop:hover{ background:rgba(74,208,125,.5); border-color:#fff; animation:none; }
+@keyframes beckon{ 0%,100%{ opacity:.55; } 50%{ opacity:1; } }
+
+/* ---------------- celebration ---------------- */
+.confetti{ position:fixed; inset:0; z-index:40; pointer-events:none; overflow:hidden; }
+.conf{
+  position:absolute; top:-24px; display:block;
+  animation-name:confFall; animation-timing-function:linear; animation-fill-mode:forwards;
+  box-shadow:0 1px 3px rgba(0,0,0,.3);
+}
+@keyframes confFall{
+  0%   { transform:translate(0,0) rotate(0deg); opacity:1; }
+  100% { transform:translate(var(--drift,0), 108vh) rotate(var(--spin,540deg)); opacity:.15; }
+}
+
+/* the result lands: a win bounces in, a loss shudders */
+.modal.fxWin{ animation:fxWin .62s cubic-bezier(.2,1.5,.4,1) both; }
+@keyframes fxWin{
+  0%   { transform:scale(.6) translateY(26px); opacity:0; }
+  55%  { transform:scale(1.08) translateY(-6px); opacity:1; }
+  75%  { transform:scale(.98) translateY(0); }
+  100% { transform:scale(1) translateY(0); }
+}
+.modal.fxLose{ animation:fxLose .5s ease-out both; }
+@keyframes fxLose{
+  0%   { transform:translateX(0) scale(.96); opacity:0; }
+  20%  { transform:translateX(-11px) scale(1); opacity:1; }
+  38%  { transform:translateX(9px); }
+  55%  { transform:translateX(-6px); }
+  72%  { transform:translateX(4px); }
+  88%  { transform:translateX(-2px); }
+  100% { transform:translateX(0); }
+}
+/* a winning title gets a warm glow */
+.modal.fxWin h2{ animation:glow 1.5s ease-in-out 2; }
+@keyframes glow{
+  0%,100%{ text-shadow:0 0 0 rgba(242,205,126,0); }
+  50%    { text-shadow:0 0 22px rgba(242,205,126,.85); }
+}
+
+/* points floating up off the table */
+.pointsPop{
+  position:absolute; left:50%; top:38%; transform:translateX(-50%);
+  font-family:var(--font-display); font-size:34px; font-weight:700;
+  color:var(--brass-lit); text-shadow:0 2px 0 var(--brass-dim), 0 6px 18px rgba(0,0,0,.6);
+  pointer-events:none; z-index:6; animation:floatUp 1.15s ease-out forwards;
+}
+@keyframes floatUp{
+  0%  { opacity:0; transform:translateX(-50%) translateY(10px) scale(.7); }
+  22% { opacity:1; transform:translateX(-50%) translateY(-4px) scale(1.12); }
+  100%{ opacity:0; transform:translateX(-50%) translateY(-52px) scale(1); }
+}
+
+/* table code for invites */
+.code{
+  font-family:var(--font-display); font-size:38px; font-weight:700;
+  letter-spacing:9px; color:var(--brass-lit); margin:10px 0;
+  text-shadow:0 2px 0 var(--brass-dim), 0 8px 20px rgba(0,0,0,.5);
+}
+/* the boneyard, laid out as it sits on the table */
+.bonegrid{ display:grid; grid-template-columns:repeat(7,1fr); gap:8px; justify-items:center; margin-top:6px; }
+.slot{ width:38px; height:74px; display:grid; place-items:center; }
+.slot.empty{ border:2px dashed rgba(246,239,221,.14); border-radius:9px; }
+.bonegrid .domino{ width:38px; }
+.bonegrid .domino.pick{ cursor:pointer; transition:transform .12s, box-shadow .12s; }
+.bonegrid .domino.pick:hover{
+  transform:translateY(-7px);
+  box-shadow:0 0 0 2px var(--brass-lit), 0 10px 18px rgba(0,0,0,.5);
+}
+.bonegrid .domino.locked{ opacity:.35; cursor:not-allowed; filter:grayscale(.7); }
+.slot.taken-flash{ animation:flash .5s; }
+@keyframes flash{ 0%{ box-shadow:0 0 0 3px var(--brass-lit); } 100%{ box-shadow:none; } }
+
+/* 2v2 waiting room */
+.lobby{ display:flex; flex-direction:column; gap:6px; margin:10px 0 4px; min-width:280px; }
+.lrow{
+  display:flex; align-items:center; gap:8px; padding:7px 11px; border-radius:11px;
+  background:rgba(2,20,11,.5); border:1px solid var(--line); font-size:13.5px;
+}
+.lrow.me{ border-color:var(--brass); background:rgba(242,205,126,.08); }
+.lrow .lname{ flex:1 1 auto; text-align:left; font-weight:700; }
+.lrow .lteam{ font-size:10.5px; font-weight:700; padding:2px 9px; border-radius:999px;
+  background:rgba(246,239,221,.12); color:var(--cream-dim); }
+.lrow .lteam.t0{ background:rgba(242,205,126,.22); color:var(--brass-lit); }
+.lrow .lteam.t1{ background:rgba(143,212,255,.18); color:#8fd4ff; }
+.lrow button{
+  font-size:11.5px; padding:5px 12px; margin:0; border-radius:9px; border:none;
+  font-family:var(--font-ui); font-weight:700; color:#04240f; cursor:pointer;
+  background:linear-gradient(180deg,#7ce9a6,var(--good));
+}
+.lobbyHint{ font-size:11.5px; color:var(--cream-dim); margin-top:6px; }
+.lobbyHint b{ color:var(--brass-lit); }
