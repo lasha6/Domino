@@ -97,9 +97,21 @@
 
 .profileModal{ min-width:min(430px, 94vw); }
 .profHead{ display:flex; align-items:center; gap:10px; text-align:left; }
-.profAvatar{ width:40px; height:40px; border-radius:50%; display:grid; place-items:center;
+.profAvatar{ position:relative; width:40px; height:40px; border-radius:50%; overflow:hidden;
+  display:grid; place-items:center; flex:none;
   font:700 19px/1 var(--font-display); color:var(--ink);
   background:linear-gradient(160deg,var(--brass-lit),var(--brass)); }
+
+/* The photo sits over the initial and only appears once it has really loaded,
+   so a missing or stale one simply leaves the letter showing. */
+.profAvatar img, .avatar img{
+  position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+  border-radius:50%; opacity:0; transition:opacity .2s;
+}
+.profAvatar img.on, .avatar img.on{ opacity:1; }
+/* the level badge hangs outside the circle, so the avatar must NOT clip —
+   the photo is rounded by its own border-radius instead */
+.avatar .lvl{ z-index:2; }
 .profWho{ flex:1; min-width:0; }
 .profWho b{ display:block; font:700 16px/1.2 var(--font-ui); color:var(--cream);
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

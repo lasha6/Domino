@@ -87,7 +87,8 @@ async function verifyGoogle(idToken) {
     const ticket = await googleClient.verifyIdToken({ idToken, audience: GOOGLE_CLIENT_ID });
     const p = ticket.getPayload();
     if (!p || !p.sub) return null;
-    return { account: "google:" + p.sub, name: p.given_name || p.name || "", verified: true };
+    return { account: "google:" + p.sub, name: p.given_name || p.name || "",
+             picture: typeof p.picture === "string" ? p.picture : null, verified: true };
   } catch (err) {
     return null;
   }
@@ -450,7 +451,7 @@ function advance(room) {
 function summarise(p) {
   const lv = Progress.levelFromXp(p.xp);
   return {
-    name: p.name, coins: p.coins,
+    name: p.name, coins: p.coins, picture: p.picture || null,
     xp: p.xp, level: lv.level, into: lv.into, need: lv.need,
     stats: p.stats,
     daily: Progress.dailyState(p.daily),
@@ -616,7 +617,7 @@ io.on("connection", (socket) => {
   async function identify(auth, name) {
     if (auth && auth.kind === "google" && auth.idToken) {
       const ok = await verifyGoogle(auth.idToken);
-      if (ok) return { name: ok.name || name, account: ok.account, verified: true };
+      if (ok) return { name: ok.name || name, account: ok.account, picture: ok.picture, verified: true };
       // The token did not check out — usually just old, since Google's last
       // about an hour. They keep playing under the device's own progress
       // rather than being left with nothing, and the name loses its tick.
@@ -631,7 +632,15 @@ io.on("connection", (socket) => {
   // identify(), then fetch what we already know about them
   async function whoIs(auth, name) {
     const who = await identify(auth, name);
-    if (who.account) who.profile = await store.load(who.account, who.verified ? "google" : "guest", who.name);
+    if (!who.account) return who;
+    who.profile = await store.load(who.account, who.verified ? "google" : "guest", who.name);
+    // Keep the picture with the account rather than only on the phone that
+    // signed in, so it is there on the next device too. Google changes the
+    // address when the photo changes, so the newest one always wins.
+    if (who.picture && who.profile.picture !== who.picture) {
+      who.profile.picture = who.picture;
+      store.save(who.profile);
+    }
     return who;
   }
 

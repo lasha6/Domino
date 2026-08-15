@@ -28,7 +28,7 @@ const START_COINS = 1000;
 export function blankProfile(id, kind, name) {
   const now = Date.now();
   return {
-    id, kind, name: name || "",
+    id, kind, name: name || "", picture: null,
     coins: START_COINS,
     xp: 0, level: 1,
     stats: {
