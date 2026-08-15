@@ -652,10 +652,9 @@
         const sw = document.createElement("div");
         sw.className = "swatch";
         if (item.kind === "table") {
-          // the surface is what a player sees most of, so show that, ringed by its felt
-          sw.style.background = `linear-gradient(160deg, ${item.vars["--wood-hi"]}, ${item.vars["--wood"]} 45%, ${item.vars["--wood-lo"]})`;
-          sw.style.borderColor = item.vars["--baize-lit"];
-          sw.style.boxShadow = `0 0 0 3px ${item.vars["--baize"]}`;
+          // the same thing the real table is: baize inside a wooden rim
+          sw.style.background = `radial-gradient(75% 105% at 50% 25%, ${item.vars["--baize-lit"]}, ${item.vars["--baize"]} 55%, ${item.vars["--baize-deep"]})`;
+          sw.style.border = `3px solid ${item.vars["--wood"]}`;
         } else {
           sw.style.background = item.vars["--baize"] || "#0f5230";
           const t = document.createElement("i");

@@ -162,12 +162,16 @@
   flex:1 1 auto; min-height:0; position:relative;
   display:flex; align-items:center; justify-content:center; overflow:hidden;
   padding:6px; border-radius:16px;
-  /* recessed baize inside a walnut rim */
+  /* Recessed baize inside a walnut rim. The baize layer at the bottom has to
+     be opaque: without it the rim behind showed straight through and the whole
+     table read as wood, so choosing a colour appeared to do nothing. Clipped to
+     the padding box so the rim keeps its 3px and no more. */
   background:
     radial-gradient(75% 105% at 50% 22%, rgba(255,240,200,.10), transparent 60%),
-    linear-gradient(180deg, rgba(0,0,0,.10), rgba(0,0,0,.28));
+    linear-gradient(180deg, rgba(0,0,0,.10), rgba(0,0,0,.28)),
+    linear-gradient(180deg, var(--baize-mid), var(--baize-deep));
+  background-clip:padding-box;
   border:3px solid transparent;
-  background-origin:border-box;
   box-shadow:
     inset 0 3px 14px rgba(0,0,0,.45),
     inset 0 0 0 1px rgba(242,205,126,.16),
