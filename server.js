@@ -892,6 +892,29 @@ io.on("connection", (socket) => {
       earned: r.earned, ...summarise(pr) });
   });
 
+  /* A player who has lost everything cannot sit at any table, so the game is
+     over for them until something refills it. Handing it out only when they are
+     actually short, and not again for an hour, keeps that from becoming an
+     income: playing is still the way to get coins. */
+  const RESCUE_TO = 500;
+  const RESCUE_WAIT = 60 * 60 * 1000;
+
+  on("topup", async ({ auth, name }) => {
+    const who = await whoIs(auth, clean(name));
+    const pr = who.profile;
+    if (!pr) return socket.emit("topupResult", { ok: false, why: "unknown" });
+    if (pr.coins >= stakeFor(75)) return socket.emit("topupResult", { ok: false, why: "not-broke", ...summarise(pr) });
+    const since = Date.now() - (pr.lastTopup || 0);
+    if (since < RESCUE_WAIT)
+      return socket.emit("topupResult", { ok: false, why: "wait",
+        minutes: Math.ceil((RESCUE_WAIT - since) / 60000), ...summarise(pr) });
+
+    const added = Math.max(0, RESCUE_TO - pr.coins);
+    pr.lastTopup = Date.now();
+    const r = settle(pr, () => { pr.coins += added; });
+    socket.emit("topupResult", { ok: true, added, earned: r.earned, ...summarise(pr) });
+  });
+
   on("leaveRoom", () => leave(socket, true));   // deliberate exit
   on("disconnect", () => leave(socket, false)); // dropped — hold the seat
 

@@ -807,26 +807,47 @@
     }
 
     /* ---------------- coins ---------------- */
+    // the server's balance is the real one; the local copy is only a fallback
+    // for the moment before it has answered
+    const purse = () => (ME ? ME.coins : Coins.get());
+    const canAfford = (t) => purse() >= Coins.stakeFor(t);
+
     function showCoins(){
-      document.getElementById("coinLabel").textContent = Coins.format(Coins.get());
+      document.getElementById("coinLabel").textContent = Coins.format(purse());
       // grey out rooms the player can't cover — but practice costs nothing
       const practice = roomMode === "cpu";
       document.querySelectorAll("#roomOverlay .room").forEach(r=>{
         const t = +r.dataset.target;
-        r.classList.toggle("poor", !practice && !Coins.canAfford(t));
+        r.classList.toggle("poor", !practice && !canAfford(t));
       });
     }
+    /* Coins live on the server now, so a top-up is asked for rather than
+       granted here — the balance in this browser is only a copy of theirs. */
     function openFree(){
+      const broke = ME ? ME.coins < Coins.MIN_STAKE : Coins.isBroke();
       document.getElementById("freeText").textContent =
-        Coins.isBroke() ? "მონეტები გამოგელია — აიღე უფასოდ და განაგრძე"
-                        : "აიღე მონეტები და განაგრძე თამაში";
+        broke ? "მონეტები გამოგელია — აიღე უფასოდ და განაგრძე"
+              : "მონეტები ჯერ გყოფნის — ითამაშე და მოიგე";
       document.getElementById("freeOverlay").classList.add("show");
     }
     function closeFree(){ document.getElementById("freeOverlay").classList.remove("show"); }
     function takeFree(){
-      Coins.add(Coins.FREE_TOPUP); showCoins(); closeFree();
-      toast("🪙 +" + Coins.FREE_TOPUP + " მონეტა");
+      socket.emit("topup", { auth: Auth.credentials().auth, name: Auth.name() });
     }
+    socket.on("topupResult", (r) => {
+      if (r && r.ok) {
+        ME = { ...(ME || {}), ...r };
+        paintProfile(); closeFree();
+        Sound.play("score");
+        toast("🪙 +" + Coins.format(r.added));
+        return;
+      }
+      if (r && r.level) { ME = { ...(ME || {}), ...r }; paintProfile(); }
+      document.getElementById("freeText").textContent =
+        r && r.why === "not-broke" ? "მონეტები ჯერ გყოფნის — ითამაშე და მოიგე"
+        : r && r.why === "wait" ? "შემდეგი უფასო მონეტები " + r.minutes + " წუთში"
+        : "ვერ მოხერხდა";
+    });
 
     // --- room picker (score target) — shared by every mode ---
     let roomMode = "cpu";   // cpu | quick | friend
@@ -851,7 +872,7 @@
     function closeRooms(){ document.getElementById("roomOverlay").classList.remove("show"); }
     function startGame(target){
       // practice against the computer is free; only real opponents cost coins
-      if(roomMode!=="cpu" && !Coins.canAfford(target)){
+      if(roomMode!=="cpu" && !canAfford(target)){
         toast("არ გყოფნის მონეტა — ფსონი 🪙 " + Coins.stakeFor(target));
         closeRooms(); openFree(); return;
       }

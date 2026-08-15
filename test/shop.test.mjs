@@ -78,10 +78,27 @@ test("the catalogue offers a look for the table and one for the tiles", () => {
     assert.equal(of.filter((i) => i.price === 0).length, 1, `${kind} has exactly one free default`);
   }
   // nothing bought may change how the game plays — only colours
+  const ids = new Set();
   for (const i of P.SHOP) {
+    assert.ok(!ids.has(i.id), `two items share the id ${i.id}`);
+    ids.add(i.id);
+    assert.ok(i.title, `${i.id} has no name to show`);
     assert.ok(i.vars && Object.keys(i.vars).length, `${i.id} paints nothing`);
-    for (const k of Object.keys(i.vars))
+    for (const [k, v] of Object.entries(i.vars)) {
       assert.match(k, /^--/, `${i.id} sets something that is not a colour variable`);
+      // a typo here paints nothing at all, and CSS fails silently
+      assert.match(v, /^#[0-9a-fA-F]{6}$/, `${i.id} has a broken colour: ${k} = ${v}`);
+    }
+  }
+});
+
+test("every look changes the same set of colours, so none is half painted", () => {
+  for (const kind of ["table", "tiles"]) {
+    const of = P.SHOP.filter((i) => i.kind === kind);
+    const expected = Object.keys(of[0].vars).sort().join(",");
+    for (const i of of)
+      assert.equal(Object.keys(i.vars).sort().join(","), expected,
+        `${i.id} paints a different set to the others, so something would stay behind`);
   }
 });
 
