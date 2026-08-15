@@ -212,6 +212,7 @@
         <button class="menuRow" onclick="closeMenu(); openShop()"><span>🛒</span> მაღაზია</button>
         <button class="menuRow" id="menuSound" onclick="toggleSound(); paintMenu()"><span>🔊</span> ხმა</button>
         <button class="menuRow" onclick="closeMenu(); openRules()"><span>📖</span> როგორ ვთამაშობთ</button>
+        <button class="menuRow" id="menuPromo" style="display:none" onclick="closeMenu(); openPromo()"><span>🎟️</span> კოდის გამოყენება</button>
       </div>
       <p class="roomSub" id="menuVersion"></p>
       <button class="roomClose" onclick="closeMenu()">დახურვა</button>
@@ -236,6 +237,22 @@
            ინიშნება დამატებითი ხელი — მოწინააღმდეგეს კიდევ აქვს შანსი.</p>
       </div>
       <button class="roomClose" onclick="closeRules()">დახურვა</button>
+    </div>
+  </div>
+
+  <!-- promo code -->
+  <div class="roomOverlay" id="promoOverlay">
+    <div class="roomModal">
+      <h2>კოდის გამოყენება</h2>
+      <p class="roomSub">თითო ანგარიშზე ერთხელ</p>
+      <input id="promoInput" class="bigInput" maxlength="24" placeholder="კოდი" autocomplete="off" />
+      <div class="modalActions">
+        <button class="room best" style="min-width:auto; padding:11px 26px;" onclick="redeemCode()">
+          <span class="rName">გამოყენება</span>
+        </button>
+      </div>
+      <p class="roomSub" id="promoNote" style="display:none"></p>
+      <button class="roomClose" onclick="closePromo()">დახურვა</button>
     </div>
   </div>
 
@@ -606,6 +623,44 @@
     }
     function openRules(){ document.getElementById("rulesOverlay").classList.add("show"); }
     function closeRules(){ document.getElementById("rulesOverlay").classList.remove("show"); }
+
+    /* ---------------- promo code ----------------
+       The row only appears when the server actually has a code set, so it is
+       not an invitation to guess one. The code itself never leaves the server. */
+    Auth.config().then(cfg => {
+      if (cfg && cfg.promo) document.getElementById("menuPromo").style.display = "flex";
+    });
+    function openPromo(){
+      const note = document.getElementById("promoNote");
+      note.style.display = "none";
+      document.getElementById("promoInput").value = "";
+      document.getElementById("promoOverlay").classList.add("show");
+      setTimeout(() => document.getElementById("promoInput").focus(), 50);
+    }
+    function closePromo(){ document.getElementById("promoOverlay").classList.remove("show"); }
+    function redeemCode(){
+      const code = document.getElementById("promoInput").value.trim();
+      if (!code) return;
+      socket.emit("redeem", { auth: Auth.credentials().auth, name: Auth.name(), code });
+    }
+    socket.on("redeemResult", (r) => {
+      const note = document.getElementById("promoNote");
+      if (r && r.ok) {
+        ME = { ...(ME || {}), ...r };
+        paintProfile();
+        closePromo();
+        Sound.play("score"); Fx.confetti(70);
+        toast("🪙 +" + Coins.format(r.coinsAdded) + " · 💎 +" + r.gemsAdded);
+        celebrate(r.earned);
+        return;
+      }
+      const why = r && r.why;
+      note.textContent = why === "used"  ? "ეს კოდი უკვე გამოყენებულია"
+                       : why === "wrong" ? "კოდი არ ემთხვევა"
+                       : why === "none"  ? "კოდები ამჟამად არ მუშაობს"
+                       : "ვერ მოხერხდა";
+      note.style.display = "block";
+    });
 
     /* ---------------- shop ----------------
        Prices are drawn from the shared rules file, but every purchase is made

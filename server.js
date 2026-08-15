@@ -64,8 +64,21 @@ app.use(["/auth/config", "/status"], (_req, res, next) => {
   next();
 });
 
+/* ------------------------------------------------------------------ *
+ * promo codes
+ *
+ * A code is set in the environment, never in the code, so nobody can read it
+ * out of the repository. It pays once per account and is recorded on the
+ * profile, so it cannot be farmed even if it leaks — and it does not exist at
+ * all until a code is set.
+ * ------------------------------------------------------------------ */
+const GRANT_CODE = (process.env.GRANT_CODE || "").trim().toUpperCase();
+const GRANT_COINS = Math.max(0, parseInt(process.env.GRANT_COINS || "10000", 10) || 0);
+const GRANT_GEMS = Math.max(0, parseInt(process.env.GRANT_GEMS || "100", 10) || 0);
+if (GRANT_CODE) console.log(`🎟️  a promo code is active — ${GRANT_COINS} coins + ${GRANT_GEMS} gems, once per account`);
+
 app.get("/auth/config", (_req, res) => {
-  res.json({ google: !!googleClient, clientId: GOOGLE_CLIENT_ID || null });
+  res.json({ google: !!googleClient, clientId: GOOGLE_CLIENT_ID || null, promo: !!GRANT_CODE });
 });
 
 /* A plain answer to "is this set up properly?" — the startup log says all this,
@@ -857,6 +870,26 @@ io.on("connection", (socket) => {
     pr.equipped[item.kind] = id;
     await store.save(pr);
     socket.emit("buyResult", { ok: true, id, items: Progress.shopState(pr), ...summarise(pr) });
+  });
+
+  on("redeem", async ({ auth, name, code }) => {
+    const said = String(code || "").trim().toUpperCase();
+    const who = await whoIs(auth, clean(name));
+    const pr = who.profile;
+    const no = (why) => socket.emit("redeemResult", { ok: false, why });
+    if (!GRANT_CODE) return no("none");
+    if (!pr) return no("unknown");
+    if (!said || said !== GRANT_CODE) return no("wrong");
+    pr.redeemed = pr.redeemed || {};
+    if (pr.redeemed[said]) return no("used");
+
+    pr.redeemed[said] = Date.now();
+    const r = settle(pr, () => {
+      pr.coins += GRANT_COINS;
+      pr.gems = (pr.gems || 0) + GRANT_GEMS;
+    });
+    socket.emit("redeemResult", { ok: true, coinsAdded: GRANT_COINS, gemsAdded: GRANT_GEMS,
+      earned: r.earned, ...summarise(pr) });
   });
 
   on("leaveRoom", () => leave(socket, true));   // deliberate exit

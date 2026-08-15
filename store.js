@@ -42,6 +42,7 @@ export function blankProfile(id, kind, name) {
     },
     daily: { lastClaim: null, streak: 0 },
     achievements: {},
+    redeemed: {},                    // promo codes already used, so none twice
     created: now, seen: now,
   };
 }
@@ -56,6 +57,7 @@ function complete(p, id, kind, name) {
     stats: { ...base.stats, ...(p.stats || {}) },
     daily: { ...base.daily, ...(p.daily || {}) },
     achievements: { ...(p.achievements || {}) },
+    redeemed: { ...(p.redeemed || {}) },
     owned: { ...(p.owned || {}) },
     equipped: { ...(p.equipped || {}) },
     id, kind: p.kind || kind,
