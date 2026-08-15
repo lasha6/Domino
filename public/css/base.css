@@ -39,6 +39,19 @@
   --font-ui:"Segoe UI","Noto Sans Georgian",system-ui,-apple-system,sans-serif;
 }
 
+/* ---- signing in: guest, or Google ---- */
+.signinBox{ margin-top:14px; }
+.signinOr{ display:flex; align-items:center; gap:10px; margin:6px 0 10px;
+  color:var(--cream-dim); font:600 12px/1 var(--font-ui); }
+.signinOr::before, .signinOr::after{ content:""; flex:1; height:1px; background:var(--line); }
+.googleBtn{ display:flex; justify-content:center; min-height:44px; }
+.signinNote{ margin-top:8px; color:var(--bad); }
+.accountRow{ display:flex; align-items:center; justify-content:center; gap:10px; margin-top:10px; }
+.accountRow img{ width:38px; height:38px; border-radius:50%; border:1px solid var(--brass-dim); }
+.accountRow b{ font:700 17px/1 var(--font-ui); color:var(--cream); }
+/* the tick beside a name nobody can borrow */
+.vtick{ margin-left:5px; color:var(--good); font-size:.85em; }
+
 *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 html,body{ height:100%; margin:0; }
 

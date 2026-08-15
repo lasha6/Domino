@@ -24,6 +24,47 @@ app.use(express.static(path.join(__dirname, "public")));
 const TARGETS = [75, 175, 255, 355];   // the standard Ozi targets
 
 /* ------------------------------------------------------------------ *
+ * who is playing
+ *
+ * Guests are the default and need nothing. Signing in with Google is
+ * optional and only does one thing so far: it proves the name, so nobody can
+ * sit down wearing someone else's. Balances still live on the device — that
+ * needs somewhere to store them, which is a separate step.
+ *
+ * The client id is read from the environment (GOOGLE_CLIENT_ID) and handed to
+ * clients at /auth/config, so it is configured in one place and the installed
+ * app never needs rebuilding for it. With no id set, Google sign-in is simply
+ * switched off everywhere and guests are unaffected.
+ * ------------------------------------------------------------------ */
+const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || "").trim();
+let googleClient = null;
+if (GOOGLE_CLIENT_ID) {
+  const { OAuth2Client } = require("google-auth-library");
+  googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
+  console.log("🔐 Google sign-in is on");
+} else {
+  console.log("👤 guests only — set GOOGLE_CLIENT_ID to offer Google sign-in");
+}
+
+app.get("/auth/config", (_req, res) => {
+  res.json({ google: !!googleClient, clientId: GOOGLE_CLIENT_ID || null });
+});
+
+// Returns a verified identity, or null for anyone we cannot vouch for. Never
+// throws: a bad token just means "play as a guest".
+async function verifyGoogle(idToken) {
+  if (!googleClient || typeof idToken !== "string" || idToken.length > 4096) return null;
+  try {
+    const ticket = await googleClient.verifyIdToken({ idToken, audience: GOOGLE_CLIENT_ID });
+    const p = ticket.getPayload();
+    if (!p || !p.sub) return null;
+    return { account: "google:" + p.sub, name: p.given_name || p.name || "", verified: true };
+  } catch (err) {
+    return null;
+  }
+}
+
+/* ------------------------------------------------------------------ *
  * rooms
  * ------------------------------------------------------------------ */
 const rooms = new Map();   // roomId -> room
@@ -99,6 +140,7 @@ function viewFor(room, seat) {
     const cnt = (t) => room.players.filter((p) => p.team === t && (!me || p.idx !== me.idx)).length;
     base.lobby = room.players.map((p) => ({
       idx: p.idx, name: p.name, team: p.team, me: !!me && p.idx === me.idx,
+      verified: !!p.verified,          // signed in, so the name is really theirs
       // I can pair with them unless we're already partners, and either they
       // have a free seat beside them, or we're both free and a team is empty
       pairable: !!me && p.idx !== me.idx
@@ -113,7 +155,7 @@ function viewFor(room, seat) {
   // everyone at the table, described relative to the viewer:
   //   0 = me, 1 = next to play (left), 2 = across (partner in 2v2), 3 = right
   const seats = room.players.map((p) => ({
-    seat: p.seat, name: p.name,
+    seat: p.seat, name: p.name, verified: !!p.verified,
     count: g.hands[p.seat].length,
     rel: (p.seat - seat + room.size) % room.size,
     team: Ozi.teamOf(g, p.seat),
@@ -426,8 +468,11 @@ io.on("connection", (socket) => {
      with every live game on it. So no handler is registered directly: they all
      go through here, which guarantees an object and swallows the fall. */
   const on = (event, fn) => socket.on(event, (payload) => {
-    try { fn(payload && typeof payload === "object" ? payload : {}); }
-    catch (err) { console.error(`[${event}] ignored:`, (err && err.message) || err); }
+    const oops = (err) => console.error(`[${event}] ignored:`, (err && err.message) || err);
+    try {
+      const r = fn(payload && typeof payload === "object" ? payload : {});
+      if (r && typeof r.then === "function") r.catch(oops);   // handlers may be async
+    } catch (err) { oops(err); }
   });
 
   // A name is typed by a stranger and shown to everyone else: keep it short,
@@ -436,14 +481,26 @@ io.on("connection", (socket) => {
     .replace(/[\u0000-\u001f\u007f<>]/g, " ")   // control chars and tag brackets
     .trim().slice(0, 14).trim() || "სტუმარი";
 
-  function seat(room, name, token) {
-    let nm = clean(name);
+  // Work out who this is before seating them. A Google token is checked with
+  // Google; anything else is a guest, taken at their word — which is exactly
+  // why only a signed-in name is ever marked verified.
+  async function identify(auth, name) {
+    if (auth && auth.kind === "google" && auth.idToken) {
+      const ok = await verifyGoogle(auth.idToken);
+      if (ok) return { name: ok.name || name, account: ok.account, verified: true };
+    }
+    return { name, account: null, verified: false };
+  }
+
+  function seat(room, who, token) {
+    let nm = clean(who && who.name);
     // two players may pick the same name — keep them tellable apart
     if (room.players.some((p) => p.name === nm)) nm = nm + " (2)";
     const idx = room.players.length;
     // team stays null until the player picks a partner (or the table fills up);
     // token is how we recognise them if their connection drops
     room.players.push({ id: socket.id, name: nm, idx, seat: idx, team: null,
+      account: (who && who.account) || null, verified: !!(who && who.verified),
       token: token || ("t" + Math.random().toString(36).slice(2)), online: true });
     socket.data.roomId = room.id;
     socket.join(room.id);
@@ -451,13 +508,14 @@ io.on("connection", (socket) => {
   }
 
   // --- quick match: pair with anyone waiting on the same target AND table size ---
-  on("quickJoin", ({ target, name, size, token }) => {
+  on("quickJoin", async ({ target, name, size, token, auth }) => {
     const t = TARGETS.includes(target) ? target : 175;
     const sz = size === 4 ? 4 : 2;
+    const who = await identify(auth, name);
     const key = waitKey(t, sz);
     let room = waiting.has(key) ? rooms.get(waiting.get(key)) : null;
     if (room && room.players.length < room.size) {
-      seat(room, name, token);
+      seat(room, who, token);
       if (room.players.length >= room.size) waiting.delete(key);
       say(room, room.players.length >= room.size
         ? (sz === 4 ? "მაგიდა შედგა — აირჩიეთ წყვილები" : "მოწინააღმდეგე მოიძებნა!")
@@ -465,7 +523,7 @@ io.on("connection", (socket) => {
       if (!maybeStart(room)) pushState(room);
     } else {
       room = createRoom(t, false, sz);
-      seat(room, name, token);
+      seat(room, who, token);
       waiting.set(key, room.id);
       say(room, `ველოდებით — 1/${sz}`);
       pushState(room);
@@ -473,19 +531,22 @@ io.on("connection", (socket) => {
   });
 
   // --- private table: create / join by code ---
-  on("createTable", ({ target, name, size, token }) => {
+  on("createTable", async ({ target, name, size, token, auth }) => {
     const t = TARGETS.includes(target) ? target : 175;
+    const who = await identify(auth, name);
     const room = createRoom(t, true, size === 4 ? 4 : 2);
-    seat(room, name, token);
+    seat(room, who, token);
     say(room, "გაუზიარე კოდი მეგობრებს");
     pushState(room);
   });
 
-  on("joinTable", ({ code, name, token }) => {
+  on("joinTable", async ({ code, name, token, auth }) => {
     const room = [...rooms.values()].find((r) => r.code === String(code || "").toUpperCase());
     if (!room) return socket.emit("joinError", "ასეთი მაგიდა ვერ მოიძებნა");
     if (room.players.length >= room.size) return socket.emit("joinError", "მაგიდა უკვე სავსეა");
-    seat(room, name, token);
+    const who = await identify(auth, name);
+    if (room.players.length >= room.size) return socket.emit("joinError", "მაგიდა უკვე სავსეა");
+    seat(room, who, token);
     say(room, room.players.length >= room.size
       ? (room.size === 4 ? "მაგიდა შედგა — აირჩიეთ წყვილები" : "მეგობარი შემოვიდა!")
       : `ველოდებით — ${room.players.length}/${room.size}`);

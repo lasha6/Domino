@@ -100,6 +100,7 @@
   <!-- bundled, so the app opens instantly and works from the APK's own files -->
   <script src="js/socket.io.min.js"></script>
   <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
   <script src="js/ozi.js"></script>
   <script src="js/render.js"></script>
   <script src="js/coins.js"></script>
@@ -111,7 +112,10 @@
     const TARGET = [75,175,255,355].includes(+qs.get("target")) ? +qs.get("target") : 175;
     const CODE   = (qs.get("code") || "").toUpperCase();
     const SIZE   = qs.get("size") === "4" ? 4 : 2;      // 2 = 1v1, 4 = 2v2
-    const NAME   = (localStorage.getItem("dominoName") || "").trim() || "სტუმარი";
+    // guest or signed in — `WHO` carries whichever it is to the server, which
+    // checks a Google token itself before it will show the name as verified
+    const WHO    = Auth.credentials();
+    const NAME   = WHO.name || "სტუმარი";
 
     // A lasting id for this device. If the connection drops, the server matches
     // this to the seat it is holding open and we carry on in the same hand.
@@ -146,9 +150,10 @@
       hideNetTrouble();
       // socket.io reconnects on its own — don't join a second table, resume
       if (seated) { socket.emit("resume", { token: TOKEN }); return; }
-      if (MODE === "quick")       socket.emit("quickJoin",   { target: TARGET, name: NAME, size: SIZE, token: TOKEN });
-      else if (MODE === "friend") socket.emit("createTable", { target: TARGET, name: NAME, size: SIZE, token: TOKEN });
-      else                        socket.emit("joinTable",   { code: CODE,     name: NAME, token: TOKEN });
+      const who = { name: NAME, token: TOKEN, auth: WHO.auth };
+      if (MODE === "quick")       socket.emit("quickJoin",   { ...who, target: TARGET, size: SIZE });
+      else if (MODE === "friend") socket.emit("createTable", { ...who, target: TARGET, size: SIZE });
+      else                        socket.emit("joinTable",   { ...who, code: CODE });
     });
     socket.on("disconnect", () => showNetTrouble());
     socket.on("resumeFailed", () => {
@@ -259,6 +264,14 @@
         const nameEl = document.createElement("span");
         nameEl.className = "lname";
         nameEl.textContent = p.name + (p.me ? " (შენ)" : "");
+        if (p.verified) {
+          // signed in with Google, so this name is really theirs
+          const tick = document.createElement("span");
+          tick.className = "vtick";
+          tick.textContent = "✓";
+          tick.title = "დამოწმებული სახელი";
+          nameEl.appendChild(tick);
+        }
         row.appendChild(nameEl);
         row.insertAdjacentHTML("beforeend", team);
         if (p.pairable) {

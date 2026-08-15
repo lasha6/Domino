@@ -157,17 +157,43 @@
     </div>
   </div>
 
-  <!-- name: asked once on first launch, changeable from the profile chip -->
+  <!-- who is playing: asked once on first launch, changeable from the profile chip -->
   <div class="roomOverlay" id="nameOverlay">
     <div class="roomModal">
       <h2 id="nameTitle">რა გქვია?</h2>
-      <p class="roomSub">ამ სახელს დაინახავს მოწინააღმდეგე</p>
-      <input id="nameInput" class="bigInput" maxlength="14" placeholder="შენი სახელი" autocomplete="off" />
-      <div style="margin-top:12px;">
-        <button class="room best" style="min-width:auto; padding:11px 26px;" onclick="saveName()">
-          <span class="rName">შენახვა</span>
-        </button>
+
+      <!-- guests: a name is all it takes -->
+      <div id="guestBox">
+        <p class="roomSub">ამ სახელს დაინახავს მოწინააღმდეგე</p>
+        <input id="nameInput" class="bigInput" maxlength="14" placeholder="შენი სახელი" autocomplete="off" />
+        <div style="margin-top:12px;">
+          <button class="room best" style="min-width:auto; padding:11px 26px;" onclick="saveName()">
+            <span class="rName">სტუმრად შესვლა</span>
+          </button>
+        </div>
+        <!-- only shown when the server has Google set up -->
+        <div id="googleBox" class="signinBox" style="display:none">
+          <div class="signinOr"><span>ან</span></div>
+          <p class="roomSub">შედი Google-ით და სახელს ვერავინ მოგპარავს</p>
+          <div id="googleBtn" class="googleBtn"></div>
+          <p class="roomSub signinNote" id="googleNote" style="display:none"></p>
+        </div>
       </div>
+
+      <!-- signed in: show who, and the way out -->
+      <div id="accountBox" style="display:none">
+        <p class="roomSub">Google-ით შესული ხარ — სახელი დამოწმებულია ✓</p>
+        <div class="accountRow">
+          <img id="accountPic" alt="" />
+          <b id="accountName"></b>
+        </div>
+        <div style="margin-top:12px;">
+          <button class="room" style="min-width:auto; padding:11px 26px;" onclick="signOutNow()">
+            <span class="rName">გამოსვლა</span>
+          </button>
+        </div>
+      </div>
+
       <button class="roomClose" id="nameCancel" onclick="closeName()" style="display:none">გაუქმება</button>
     </div>
   </div>
@@ -209,6 +235,7 @@
   <!-- bundled, so the app opens instantly and works from the APK's own files -->
   <script src="js/socket.io.min.js"></script>
   <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
   <script src="js/coins.js"></script>
   <script src="js/sound.js"></script>
   <script>
@@ -230,7 +257,7 @@
     /* ---------------- player name ----------------
        Stored in localStorage and sent to the server when joining a table,
        so the opponent sees a real name instead of "მოთამაშე". */
-    function getName(){ return (localStorage.getItem("dominoName") || "").trim(); }
+    function getName(){ return Auth.name(); }
     function showName(){
       const n = getName();
       document.getElementById("pnameLabel").textContent = n || "სტუმარი";
@@ -239,19 +266,62 @@
       // capitalise Latin only — a single Georgian mtavruli letter looks wrong
       av.childNodes[0].nodeValue = /[a-z]/i.test(ch) ? ch.toUpperCase() : ch;
     }
+
+    /* Two ways in. Guest is always there; the Google half only appears once the
+       server says it has a client id, so nothing half-built is ever shown. */
+    function paintSignIn(){
+      const me = Auth.load();
+      const signedIn = !!(me && me.kind === "google");
+      document.getElementById("guestBox").style.display   = signedIn ? "none" : "block";
+      document.getElementById("accountBox").style.display = signedIn ? "block" : "none";
+      if (signedIn) {
+        document.getElementById("accountName").textContent = me.name;
+        const pic = document.getElementById("accountPic");
+        if (me.picture) { pic.src = me.picture; pic.style.display = "block"; }
+        else pic.style.display = "none";
+      }
+    }
+    let googleMounted = false;
+    function offerGoogle(){
+      if (googleMounted) return;
+      Auth.config().then(cfg => {
+        if (!cfg.google) return;                       // not set up — guests only
+        googleMounted = true;
+        document.getElementById("googleBox").style.display = "block";
+        Auth.mountGoogleButton(
+          document.getElementById("googleBtn"),
+          me => { paintSignIn(); showName(); closeName(); toast("გამარჯობა, " + me.name); },
+          () => {
+            googleMounted = false;
+            const note = document.getElementById("googleNote");
+            note.textContent = "Google ვერ ჩაიტვირთა — სტუმრად მაინც შეგიძლია თამაში";
+            note.style.display = "block";
+          }
+        );
+      });
+    }
+    function signOutNow(){
+      Auth.signOut();
+      paintSignIn(); showName();
+      toast("გამოხვედი");
+      openName(true);
+    }
+
     function openName(canCancel){
       const input = document.getElementById("nameInput");
       input.value = getName();
-      document.getElementById("nameTitle").textContent = canCancel ? "შენი სახელი" : "რა გქვია?";
+      document.getElementById("nameTitle").textContent = canCancel ? "შენ ვინ ხარ" : "როგორ შემოხვალ?";
       document.getElementById("nameCancel").style.display = canCancel ? "inline-block" : "none";
       document.getElementById("nameOverlay").classList.add("show");
-      setTimeout(()=>input.focus(), 50);
+      paintSignIn();
+      offerGoogle();
+      if(!Auth.isGoogle()) setTimeout(()=>input.focus(), 50);
     }
     function closeName(){ document.getElementById("nameOverlay").classList.remove("show"); }
     function saveName(){
       const v = document.getElementById("nameInput").value.trim().slice(0,14);
       if(v.length < 2) return toast("სახელი მინიმუმ 2 სიმბოლო");
-      localStorage.setItem("dominoName", v);
+      Auth.save(Auth.guest(v));
       showName(); closeName();
       toast("სახელი შენახულია: " + v);
     }
@@ -259,6 +329,9 @@
     document.addEventListener("DOMContentLoaded", ()=>{
       showName(); showCoins(); paintSoundBtn();
       if(!getName()) openName(false);
+      // a Google token lasts about an hour; renew it quietly so the server can
+      // still vouch for the name when a table is joined
+      else if (Auth.isGoogle()) Auth.refreshIfStale().then(showName);
     });
     document.getElementById("nameInput").addEventListener("keydown", e=>{
       if(e.key === "Enter") saveName();
