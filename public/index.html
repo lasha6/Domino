@@ -216,8 +216,16 @@
     const socket = SERVER_URL ? io(SERVER_URL, { transports: ["websocket", "polling"] }) : io();
     const dot = document.getElementById("statusDot");
     const stext = document.getElementById("statusText");
-    socket.on("connect", () => { dot.classList.remove("off"); stext.textContent = "ონლაინ"; });
-    socket.on("disconnect", () => { dot.classList.add("off"); stext.textContent = "ოფლაინ"; });
+    /* The hosted server goes to sleep when nobody is playing and takes up to a
+       minute to get up. Silence looks broken, so say what is happening. */
+    let waking = setTimeout(() => { stext.textContent = "სერვერს ვაღვიძებ… (ერთი წუთი)"; }, 3000);
+    socket.on("connect", () => {
+      clearTimeout(waking);
+      dot.classList.remove("off"); stext.textContent = "ონლაინ";
+    });
+    socket.on("disconnect", () => {
+      dot.classList.add("off"); stext.textContent = "კავშირი გაწყდა — ვცდილობ…";
+    });
 
     /* ---------------- player name ----------------
        Stored in localStorage and sent to the server when joining a table,

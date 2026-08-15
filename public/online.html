@@ -134,7 +134,15 @@
     let selIdx = null;   // selected hand tile
     let seated = false;  // have we been given a seat yet?
 
+    /* The hosted server sleeps when nobody is playing and can take up to a
+       minute to wake. Without a word, the wait screen looks stuck. */
+    let waking = setTimeout(() => {
+      if (!seated) document.getElementById("waitText").textContent = "სერვერს ვაღვიძებ… ერთი წუთი დასჭირდება";
+    }, 3000);
+
     socket.on("connect", () => {
+      clearTimeout(waking);
+      if (!seated) document.getElementById("waitText").textContent = "სერვერს ვუკავშირდები";
       hideNetTrouble();
       // socket.io reconnects on its own — don't join a second table, resume
       if (seated) { socket.emit("resume", { token: TOKEN }); return; }
