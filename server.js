@@ -420,7 +420,21 @@ function endRound(room, winnerSeat) {
  * sockets
  * ------------------------------------------------------------------ */
 io.on("connection", (socket) => {
-  const clean = (n) => String(n || "").trim().slice(0, 14) || "სტუმარი";
+  /* Anyone on the internet can send us anything at all, including nothing.
+     A missing payload used to throw straight out of the handler while
+     destructuring, and an uncaught throw here takes the whole process down —
+     with every live game on it. So no handler is registered directly: they all
+     go through here, which guarantees an object and swallows the fall. */
+  const on = (event, fn) => socket.on(event, (payload) => {
+    try { fn(payload && typeof payload === "object" ? payload : {}); }
+    catch (err) { console.error(`[${event}] ignored:`, (err && err.message) || err); }
+  });
+
+  // A name is typed by a stranger and shown to everyone else: keep it short,
+  // one line, and free of the characters that turn text into markup.
+  const clean = (n) => String(n == null ? "" : n)
+    .replace(/[\u0000-\u001f\u007f<>]/g, " ")   // control chars and tag brackets
+    .trim().slice(0, 14).trim() || "სტუმარი";
 
   function seat(room, name, token) {
     let nm = clean(name);
@@ -437,7 +451,7 @@ io.on("connection", (socket) => {
   }
 
   // --- quick match: pair with anyone waiting on the same target AND table size ---
-  socket.on("quickJoin", ({ target, name, size, token }) => {
+  on("quickJoin", ({ target, name, size, token }) => {
     const t = TARGETS.includes(target) ? target : 175;
     const sz = size === 4 ? 4 : 2;
     const key = waitKey(t, sz);
@@ -459,7 +473,7 @@ io.on("connection", (socket) => {
   });
 
   // --- private table: create / join by code ---
-  socket.on("createTable", ({ target, name, size, token }) => {
+  on("createTable", ({ target, name, size, token }) => {
     const t = TARGETS.includes(target) ? target : 175;
     const room = createRoom(t, true, size === 4 ? 4 : 2);
     seat(room, name, token);
@@ -467,7 +481,7 @@ io.on("connection", (socket) => {
     pushState(room);
   });
 
-  socket.on("joinTable", ({ code, name, token }) => {
+  on("joinTable", ({ code, name, token }) => {
     const room = [...rooms.values()].find((r) => r.code === String(code || "").toUpperCase());
     if (!room) return socket.emit("joinError", "ასეთი მაგიდა ვერ მოიძებნა");
     if (room.players.length >= room.size) return socket.emit("joinError", "მაგიდა უკვე სავსეა");
@@ -479,7 +493,7 @@ io.on("connection", (socket) => {
   });
 
   // --- 2v2 waiting room: pick who you play with ---
-  socket.on("choosePartner", ({ idx }) => {
+  on("choosePartner", ({ idx }) => {
     const room = roomOf(socket); if (!room || room.phase !== "wait" || room.size !== 4) return;
     const me = room.players.find((p) => p.id === socket.id);
     const other = room.players.find((p) => p.idx === idx);
@@ -498,7 +512,7 @@ io.on("connection", (socket) => {
     if (!maybeStart(room)) pushState(room);
   });
 
-  socket.on("stayAlone", () => {
+  on("stayAlone", () => {
     const room = roomOf(socket); if (!room || room.phase !== "wait" || room.size !== 4) return;
     const me = room.players.find((p) => p.id === socket.id);
     if (!me) return;
@@ -508,7 +522,7 @@ io.on("connection", (socket) => {
   });
 
   // --- moves ---
-  socket.on("play", ({ tile, side }) => {
+  on("play", ({ tile, side }) => {
     const room = roomOf(socket); if (!room || room.phase !== "play" || room.paused) return;
     const s = seatOf(room, socket); const g = room.g;
     if (s < 0 || g.turn !== s) return;
@@ -525,7 +539,7 @@ io.on("connection", (socket) => {
     advance(room);
   });
 
-  socket.on("draw", ({ slot }) => {
+  on("draw", ({ slot }) => {
     const room = roomOf(socket); if (!room || room.phase !== "draw" || room.paused) return;
     const s = seatOf(room, socket); const g = room.g;
     if (s < 0 || g.turn !== s) return;
@@ -536,12 +550,12 @@ io.on("connection", (socket) => {
     advance(room);   // may need to draw again, or can now play
   });
 
-  socket.on("leaveRoom", () => leave(socket, true));   // deliberate exit
-  socket.on("disconnect", () => leave(socket, false)); // dropped — hold the seat
+  on("leaveRoom", () => leave(socket, true));   // deliberate exit
+  on("disconnect", () => leave(socket, false)); // dropped — hold the seat
 
   // Coming back after a drop: the browser remembers a token, we match it to the
   // held seat and carry on from exactly where the hand was.
-  socket.on("resume", ({ token }) => {
+  on("resume", ({ token }) => {
     if (!token) return socket.emit("resumeFailed");
     const room = [...rooms.values()].find((r) => r.players.some((p) => p.token === token));
     if (!room || room.phase === "over") return socket.emit("resumeFailed");

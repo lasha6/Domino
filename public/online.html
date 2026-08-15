@@ -187,8 +187,12 @@
       pauseTimer = setInterval(()=>{ pauseLeft = Math.max(0, pauseLeft-1); paintPause(); }, 1000);
     }
     function paintPause(){
-      document.getElementById("pauseText").innerHTML =
-        "ველოდებით — <b>" + pauseWho + "</b>" + (pauseLeft ? " · " + pauseLeft + " წმ" : "");
+      const el = document.getElementById("pauseText");
+      el.textContent = "ველოდებით — ";           // pauseWho is someone else's name
+      const who = document.createElement("b");
+      who.textContent = pauseWho;
+      el.appendChild(who);
+      if (pauseLeft) el.appendChild(document.createTextNode(" · " + pauseLeft + " წმ"));
     }
     function hidePaused(){
       document.getElementById("pauseOverlay").classList.remove("show");
@@ -243,7 +247,12 @@
         const team = p.team === 0 ? '<span class="lteam t0">წყვილი A</span>'
                    : p.team === 1 ? '<span class="lteam t1">წყვილი B</span>'
                    : '<span class="lteam">უწყვილო</span>';
-        row.innerHTML = '<span class="lname">' + p.name + (p.me ? " (შენ)" : "") + "</span>" + team;
+        // a name is typed by a stranger — never let it become markup
+        const nameEl = document.createElement("span");
+        nameEl.className = "lname";
+        nameEl.textContent = p.name + (p.me ? " (შენ)" : "");
+        row.appendChild(nameEl);
+        row.insertAdjacentHTML("beforeend", team);
         if (p.pairable) {
           const b = document.createElement("button");
           b.textContent = "დაწყვილდი";
