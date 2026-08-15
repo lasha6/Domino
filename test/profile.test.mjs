@@ -154,6 +154,36 @@ test("the daily reward can only be taken once, however often it is asked for", a
   assert.equal(after.daily.canClaim, false);
 });
 
+test("a wrong database address does not take the game down", async () => {
+  // One mistyped character in a connection string must not stop anyone playing:
+  // the server says why and carries on keeping progress in a file.
+  const spare = await mkdtemp(path.join(tmpdir(), "domino-badurl-"));
+  const bad = spawn(process.execPath, ["server.js"], {
+    cwd: CWD,
+    env: { ...process.env, PORT: "3979", DATA_DIR: spare, GOOGLE_CLIENT_ID: "",
+           DATABASE_URL: "postgresql://nobody:nothing@127.0.0.1:59999/nope" },
+  });
+  let log = "", exited = null;
+  bad.stdout.on("data", (d) => { log += d; });
+  bad.stderr.on("data", (d) => { log += d; });
+  bad.on("exit", (c, s) => { exited = `code=${c} signal=${s}`; });
+  for (let i = 0; i < 80 && !log.includes("running"); i++) await wait(150);
+
+  assert.equal(exited, null, `it stayed up: ${log}`);
+  assert.match(log, /Postgres unavailable/, "and said what was wrong");
+  assert.match(log, /progress: file/, "then kept progress somewhere that works");
+
+  const c = io("http://127.0.0.1:3979", { transports: ["websocket"], forceNew: true });
+  const p = await new Promise((resolve) => {
+    c.once("profile", resolve);
+    c.emit("profile", { auth: { kind: "guest", id: "badurl-1" }, name: "ვინმე" });
+  });
+  assert.equal(p.level, 1, "and players could still be served");
+  c.close(); bad.kill();
+  await wait(200);
+  await rm(spare, { recursive: true, force: true });
+});
+
 test("progress is still there after the server restarts", async () => {
   const before = await ask(client(), "profile", { auth: guest("player-a") }, "profile");
   assert.ok(before.xp > 0, "there is something to lose");

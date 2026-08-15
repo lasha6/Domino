@@ -9,15 +9,20 @@
     "test": "node --test \"test/**/*.test.mjs\""
   },
   "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "//": "dependencies = what the SERVER needs to run. devDependencies = what only this computer needs, to build the APK and run the tests. Keeping them apart lets the host install far less on every deploy.",
   "dependencies": {
-    "@capacitor/android": "^8.5.0",
-    "@capacitor/cli": "^8.5.0",
-    "@capacitor/core": "^8.5.0",
     "express": "^5.2.1",
     "google-auth-library": "^11.0.2",
+    "pg": "^8.13.1",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
     "socket.io-client": "^4.8.3"
   }
 }
