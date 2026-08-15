@@ -10,9 +10,16 @@ import { fileURLToPath } from "url";
 import path from "path";
 import { createRequire } from "module";
 
+import { openStore } from "./store.js";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const Ozi = require("./public/js/ozi.js");
+// levels and the daily streak — the browser draws from this same file, so the
+// bar a player watches and the number recorded here cannot drift apart
+const Progress = require("./public/js/progress.js");
+
+const store = await openStore();
 
 const app = express();
 const server = http.createServer(app);
@@ -409,6 +416,73 @@ function advance(room) {
   pushState(room);
 }
 
+/* ------------------------------------------------------------------ *
+ * progress
+ *
+ * Only the server hands out experience, coins or streaks. The browser draws
+ * the same picture from public/js/progress.js, but nothing it says is taken
+ * as fact — otherwise a level is just a number a player can type.
+ * ------------------------------------------------------------------ */
+// The shape the screens read. Levels are worked out from total xp, never
+// stored, so an old record can never disagree with the current curve.
+function summarise(p) {
+  const lv = Progress.levelFromXp(p.xp);
+  return {
+    name: p.name, coins: p.coins,
+    xp: p.xp, level: lv.level, into: lv.into, need: lv.need,
+    stats: p.stats,
+    daily: Progress.dailyState(p.daily),
+  };
+}
+
+function touch(room, p, fn) {
+  if (!p || !p.profile) return;      // a bot, or a player with no id yet
+  fn(p.profile);
+  store.save(p.profile);             // batched by the store; no need to wait
+}
+
+// Everyone at the table gets credit for the hand; the winning side gets more.
+function awardHand(room, winnerSeat) {
+  const g = room.g;
+  const winTeam = winnerSeat == null ? null : Ozi.teamOf(g, winnerSeat);
+  room.players.forEach((p) => {
+    const team = Ozi.teamOf(g, p.seat);
+    const won = winTeam != null && team === winTeam;
+    const scored = g.scores[team] - (p.scoreAtHandStart || 0);
+    touch(room, p, (pr) => {
+      pr.stats.hands++;
+      if (won) pr.stats.handWins++;
+      pr.stats.points += Math.max(0, scored);
+      pr.stats.bestHand = Math.max(pr.stats.bestHand, Math.max(0, scored));
+      pr.xp += Progress.handXp(won, scored);
+    });
+    p.scoreAtHandStart = g.scores[team];
+  });
+}
+
+// The stake per room, and the only place it is settled. It used to be done in
+// the browser, where a player could simply hand themselves the winnings.
+const STAKES = { 75: 50, 175: 100, 255: 250, 355: 500 };
+const stakeFor = (target) => STAKES[target] || STAKES[175];
+
+function awardMatch(room, p, won) {
+  touch(room, p, (pr) => {
+    pr.stats.matches++;
+    if (won) {
+      pr.stats.matchWins++;
+      pr.stats.streak++;
+      pr.stats.bestStreak = Math.max(pr.stats.bestStreak, pr.stats.streak);
+    } else {
+      pr.stats.streak = 0;
+    }
+    pr.xp += Progress.matchXp(won);
+
+    const stake = stakeFor(room.target);
+    pr.coins = Math.max(0, pr.coins + (won ? stake : -stake));
+    p.lastSettle = { stake, delta: won ? stake : -stake, after: pr.coins };
+  });
+}
+
 function endRound(room, winnerSeat) {
   const g = room.g;
   clearClock(room);
@@ -437,14 +511,22 @@ function endRound(room, winnerSeat) {
   say(room, `${text} | ანგარიში ${g.scores[0]} : ${g.scores[1]}`
     + (mr.riba ? " — რიბა! დამატებითი ხელი" : ""));
 
+  // credit the hand before anything else — a match that ends here still counts
+  // the hand that ended it
+  awardHand(room, wasBlocked ? null : room.lastWinner);
+
   if (mr.over) {
     room.phase = "over";
     const champTeam = mr.champTeam;
     room.players.forEach((p) => {
       const s = io.sockets.sockets.get(p.id);
+      const won = Ozi.teamOf(g, p.seat) === champTeam;
+      awardMatch(room, p, won);
       if (s) s.emit("matchOver", {
-        youWon: Ozi.teamOf(g, p.seat) === champTeam,
-        scores: g.scores, myTeam: Ozi.teamOf(g, p.seat), target: g.target, size: room.size });
+        youWon: won,
+        scores: g.scores, myTeam: Ozi.teamOf(g, p.seat), target: g.target, size: room.size,
+        progress: p.profile ? summarise(p.profile) : null,
+        settled: p.lastSettle || null });
     });
     pushState(room);
   } else {
@@ -489,7 +571,18 @@ io.on("connection", (socket) => {
       const ok = await verifyGoogle(auth.idToken);
       if (ok) return { name: ok.name || name, account: ok.account, verified: true };
     }
-    return { name, account: null, verified: false };
+    // A guest still gets progress, kept against the id their device made. It
+    // stays with the device rather than the person — signing in is what
+    // carries a level to a new phone.
+    const id = auth && typeof auth.id === "string" && auth.id.length <= 64 ? auth.id : null;
+    return { name, account: id ? "guest:" + id : null, verified: false };
+  }
+
+  // identify(), then fetch what we already know about them
+  async function whoIs(auth, name) {
+    const who = await identify(auth, name);
+    if (who.account) who.profile = await store.load(who.account, who.verified ? "google" : "guest", who.name);
+    return who;
   }
 
   function seat(room, who, token) {
@@ -501,6 +594,7 @@ io.on("connection", (socket) => {
     // token is how we recognise them if their connection drops
     room.players.push({ id: socket.id, name: nm, idx, seat: idx, team: null,
       account: (who && who.account) || null, verified: !!(who && who.verified),
+      profile: (who && who.profile) || null,
       token: token || ("t" + Math.random().toString(36).slice(2)), online: true });
     socket.data.roomId = room.id;
     socket.join(room.id);
@@ -511,7 +605,7 @@ io.on("connection", (socket) => {
   on("quickJoin", async ({ target, name, size, token, auth }) => {
     const t = TARGETS.includes(target) ? target : 175;
     const sz = size === 4 ? 4 : 2;
-    const who = await identify(auth, name);
+    const who = await whoIs(auth, name);
     const key = waitKey(t, sz);
     let room = waiting.has(key) ? rooms.get(waiting.get(key)) : null;
     if (room && room.players.length < room.size) {
@@ -533,7 +627,7 @@ io.on("connection", (socket) => {
   // --- private table: create / join by code ---
   on("createTable", async ({ target, name, size, token, auth }) => {
     const t = TARGETS.includes(target) ? target : 175;
-    const who = await identify(auth, name);
+    const who = await whoIs(auth, name);
     const room = createRoom(t, true, size === 4 ? 4 : 2);
     seat(room, who, token);
     say(room, "გაუზიარე კოდი მეგობრებს");
@@ -544,7 +638,7 @@ io.on("connection", (socket) => {
     const room = [...rooms.values()].find((r) => r.code === String(code || "").toUpperCase());
     if (!room) return socket.emit("joinError", "ასეთი მაგიდა ვერ მოიძებნა");
     if (room.players.length >= room.size) return socket.emit("joinError", "მაგიდა უკვე სავსეა");
-    const who = await identify(auth, name);
+    const who = await whoIs(auth, name);
     if (room.players.length >= room.size) return socket.emit("joinError", "მაგიდა უკვე სავსეა");
     seat(room, who, token);
     say(room, room.players.length >= room.size
@@ -609,6 +703,33 @@ io.on("connection", (socket) => {
     if (!t) return;
     say(room, `${at(room, s).name} აიღო ბაზრიდან`);
     advance(room);   // may need to draw again, or can now play
+  });
+
+  /* ---------------- profile: level, coins, streaks ---------------- */
+  on("profile", async ({ auth, name }) => {
+    const who = await whoIs(auth, clean(name));
+    if (!who.profile) return socket.emit("profile", null);
+    if (who.name && who.profile.name !== who.name) {
+      who.profile.name = clean(who.name);
+      store.save(who.profile);
+    }
+    socket.emit("profile", { ...summarise(who.profile), verified: who.verified });
+  });
+
+  // The daily reward is worked out and granted here, never asked for. A second
+  // request on the same day simply gets the same "already claimed" answer.
+  on("claimDaily", async ({ auth, name }) => {
+    const who = await whoIs(auth, clean(name));
+    if (!who.profile) return socket.emit("dailyResult", { ok: false, reason: "unknown" });
+    const pr = who.profile;
+    const state = Progress.dailyState(pr.daily);
+    if (!state.canClaim) return socket.emit("dailyResult", { ok: false, reason: "claimed", ...summarise(pr) });
+
+    pr.coins += state.reward;
+    pr.xp += Progress.XP.dailyClaim;
+    pr.daily = { lastClaim: Date.now(), streak: state.streak };
+    await store.save(pr);
+    socket.emit("dailyResult", { ok: true, reward: state.reward, streak: state.streak, day: state.day, ...summarise(pr) });
   });
 
   on("leaveRoom", () => leave(socket, true));   // deliberate exit
@@ -698,3 +819,12 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Domino server running on port ${PORT}`);
 });
+
+// A host restarting us sends SIGTERM; finish writing before going quiet, or
+// somebody loses the match they just won.
+for (const sig of ["SIGTERM", "SIGINT"]) {
+  process.on(sig, async () => {
+    try { await store.close(); } catch (err) {}
+    process.exit(0);
+  });
+}

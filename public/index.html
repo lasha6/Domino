@@ -23,7 +23,7 @@
     <div class="hud">
       <button class="iconbtn" onclick="toast('☰ მენიუ — მალე')">☰</button>
       <button class="iconbtn" id="sndBtn" onclick="toggleSound()" title="ხმა">🔊</button>
-      <div class="playercard" onclick="openName(true)" title="სახელის შეცვლა">
+      <div class="playercard" onclick="openProfile()" title="პროფილი">
         <div class="avatar" id="avatarLetter">ს<span class="lvl">5</span></div>
         <div class="pcol"><b id="pnameLabel">სტუმარი</b><span class="xp"><i></i></span></div>
       </div>
@@ -166,7 +166,7 @@
       <div id="guestBox">
         <p class="roomSub">ამ სახელს დაინახავს მოწინააღმდეგე</p>
         <input id="nameInput" class="bigInput" maxlength="14" placeholder="შენი სახელი" autocomplete="off" />
-        <div style="margin-top:12px;">
+        <div class="modalActions">
           <button class="room best" style="min-width:auto; padding:11px 26px;" onclick="saveName()">
             <span class="rName">სტუმრად შესვლა</span>
           </button>
@@ -184,10 +184,13 @@
       <div id="accountBox" style="display:none">
         <p class="roomSub">Google-ით შესული ხარ — სახელი დამოწმებულია ✓</p>
         <div class="accountRow">
-          <img id="accountPic" alt="" />
+          <!-- Google serves avatars only without a referrer; if it still fails
+               we drop the image rather than show a broken one -->
+          <img id="accountPic" alt="" referrerpolicy="no-referrer"
+               onerror="this.style.display='none'" />
           <b id="accountName"></b>
         </div>
-        <div style="margin-top:12px;">
+        <div class="modalActions">
           <button class="room" style="min-width:auto; padding:11px 26px;" onclick="signOutNow()">
             <span class="rName">გამოსვლა</span>
           </button>
@@ -195,6 +198,48 @@
       </div>
 
       <button class="roomClose" id="nameCancel" onclick="closeName()" style="display:none">გაუქმება</button>
+    </div>
+  </div>
+
+  <!-- profile: level, record, and the daily reward -->
+  <div class="roomOverlay" id="profileOverlay">
+    <div class="roomModal profileModal">
+      <div class="profHead">
+        <div class="profAvatar" id="profAvatar">ს</div>
+        <div class="profWho">
+          <b id="profName">სტუმარი</b>
+          <span id="profKind" class="profKind">სტუმრად თამაშობ</span>
+        </div>
+        <div class="profCoins">🪙 <b id="profCoins">0</b></div>
+      </div>
+
+      <div class="profLevel">
+        <span class="profLvlNum">დონე <b id="profLvl">1</b></span>
+        <div class="profBar"><i id="profBar"></i></div>
+        <span class="profLvlXp" id="profXp">0 / 0</span>
+      </div>
+
+      <div class="profStats" id="profStats"></div>
+
+      <div class="profDaily">
+        <div class="profDailyTop">
+          <b>ყოველდღიური პრიზი</b>
+          <span id="profStreak"></span>
+        </div>
+        <div class="profDays" id="profDays"></div>
+        <div class="modalActions">
+          <button class="room best" id="claimBtn" style="min-width:auto; padding:10px 24px;" onclick="claimDaily()">
+            <span class="rName" id="claimLbl">მიიღე</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="modalActions">
+        <button class="room" style="min-width:auto; padding:9px 20px;" onclick="closeProfile(); openName(true)">
+          <span class="rName" id="profIdentityLbl">სახელის შეცვლა</span>
+        </button>
+      </div>
+      <button class="roomClose" onclick="closeProfile()">დახურვა</button>
     </div>
   </div>
 
@@ -236,6 +281,7 @@
   <script src="js/socket.io.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/progress.js"></script>
   <script src="js/coins.js"></script>
   <script src="js/sound.js"></script>
   <script>
@@ -249,6 +295,7 @@
     socket.on("connect", () => {
       clearTimeout(waking);
       dot.classList.remove("off"); stext.textContent = "ონლაინ";
+      askProfile();               // level, coins and the daily streak live here
     });
     socket.on("disconnect", () => {
       dot.classList.add("off"); stext.textContent = "კავშირი გაწყდა — ვცდილობ…";
@@ -346,6 +393,97 @@
     document.addEventListener("click", (e) => {
       if(e.target.closest("button") && e.target.id !== "sndBtn") Sound.play("tap");
     });
+
+    /* ---------------- profile ----------------
+       Everything here is the server's word. The browser only draws it, using
+       the same rules file the server counts with, so the bar the player watches
+       and the number that was recorded cannot disagree. */
+    let ME = null;                    // the last profile the server sent
+
+    function askProfile(){
+      if (!socket.connected) return;
+      socket.emit("profile", { auth: Auth.credentials().auth, name: Auth.name() });
+    }
+    socket.on("profile", (p) => { if (p) { ME = p; paintProfile(); } });
+    socket.on("dailyResult", (r) => {
+      if (r && r.ok) {
+        ME = r; paintProfile();
+        Sound.play("score"); Fx.confetti(60);
+        toast("🪙 +" + r.reward + " · სერია " + r.streak + " დღე");
+      } else if (r && r.reason === "claimed") {
+        if (r.level) { ME = r; paintProfile(); }
+        toast("დღეს უკვე აიღე — დაბრუნდი ხვალ");
+      }
+    });
+
+    function paintProfile(){
+      if (!ME) return;
+      // the lobby chip: level badge and the bar under the name
+      const badge = document.querySelector("#avatarLetter .lvl");
+      if (badge) badge.textContent = ME.level;
+      const bar = document.querySelector(".playercard .xp i");
+      if (bar) bar.style.width = Math.round(ME.into / ME.need * 100) + "%";
+      document.getElementById("coinLabel").textContent = Coins.format(ME.coins);
+
+      // the profile screen itself
+      const n = ME.name || Auth.name() || "სტუმარი";
+      document.getElementById("profName").textContent = n;
+      document.getElementById("profAvatar").textContent = n[0] || "ს";
+      document.getElementById("profKind").textContent =
+        ME.verified ? "Google-ით შესული ✓" : "სტუმრად თამაშობ";
+      document.getElementById("profIdentityLbl").textContent =
+        ME.verified ? "ანგარიში" : "სახელის შეცვლა";
+      document.getElementById("profCoins").textContent = Coins.format(ME.coins);
+      document.getElementById("profLvl").textContent = ME.level;
+      document.getElementById("profXp").textContent = ME.into + " / " + ME.need;
+      document.getElementById("profBar").style.width = Math.round(ME.into / ME.need * 100) + "%";
+
+      const s = ME.stats;
+      const rate = s.matches ? Math.round(s.matchWins / s.matches * 100) : 0;
+      const cells = [
+        ["ნათამაშები", s.matches], ["მოგებული", s.matchWins], ["მოგების %", rate + "%"],
+        ["ხელები", s.hands], ["საუკეთესო ხელი", s.bestHand], ["საუკ. სერია", s.bestStreak],
+      ];
+      const box = document.getElementById("profStats");
+      box.innerHTML = "";
+      cells.forEach(([label, val]) => {
+        const d = document.createElement("div");
+        d.className = "profStat";
+        const b = document.createElement("b"); b.textContent = val;
+        const sp = document.createElement("span"); sp.textContent = label;
+        d.append(b, sp); box.appendChild(d);
+      });
+
+      // the seven-day strip: which day we are on, and what each is worth
+      const days = document.getElementById("profDays");
+      days.innerHTML = "";
+      Progress.DAILY.forEach((coins, i) => {
+        const d = document.createElement("div");
+        const done = i < ME.daily.day || (!ME.daily.canClaim && i === ME.daily.day);
+        d.className = "profDay" + (done ? " done" : "") + (i === ME.daily.day && ME.daily.canClaim ? " now" : "");
+        const t = document.createElement("b"); t.textContent = i + 1;
+        const c = document.createElement("span"); c.textContent = coins;
+        d.append(t, c); days.appendChild(d);
+      });
+      document.getElementById("profStreak").textContent =
+        ME.daily.streak ? "სერია: " + ME.daily.streak + " დღე" : "";
+      const btn = document.getElementById("claimBtn");
+      btn.disabled = !ME.daily.canClaim;
+      btn.style.opacity = ME.daily.canClaim ? "1" : ".45";
+      document.getElementById("claimLbl").textContent =
+        ME.daily.canClaim ? "მიიღე " + ME.daily.reward + " 🪙" : "დღეს აღებულია";
+    }
+
+    function openProfile(){
+      askProfile();                       // always show the freshest numbers
+      paintProfile();
+      document.getElementById("profileOverlay").classList.add("show");
+    }
+    function closeProfile(){ document.getElementById("profileOverlay").classList.remove("show"); }
+    function claimDaily(){
+      if (!ME || !ME.daily.canClaim) return;
+      socket.emit("claimDaily", { auth: Auth.credentials().auth, name: Auth.name() });
+    }
 
     /* ---------------- coins ---------------- */
     function showCoins(){

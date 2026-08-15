@@ -39,7 +39,10 @@
   --font-ui:"Segoe UI","Noto Sans Georgian",system-ui,-apple-system,sans-serif;
 }
 
-/* ---- signing in: guest, or Google ---- */
+/* ---- signing in: guest, or Google ----
+   `.room` is a flex column, so it fills its line and text-align cannot centre
+   it — the row has to do the centring. */
+.modalActions{ display:flex; justify-content:center; gap:10px; margin-top:12px; }
 .signinBox{ margin-top:14px; }
 .signinOr{ display:flex; align-items:center; gap:10px; margin:6px 0 10px;
   color:var(--cream-dim); font:600 12px/1 var(--font-ui); }
@@ -51,6 +54,53 @@
 .accountRow b{ font:700 17px/1 var(--font-ui); color:var(--cream); }
 /* the tick beside a name nobody can borrow */
 .vtick{ margin-left:5px; color:var(--good); font-size:.85em; }
+
+/* ---- profile: level, record, daily reward ---- */
+.profileModal{ min-width:min(430px, 94vw); }
+.profHead{ display:flex; align-items:center; gap:10px; text-align:left; }
+.profAvatar{ width:40px; height:40px; border-radius:50%; display:grid; place-items:center;
+  font:700 19px/1 var(--font-display); color:var(--ink);
+  background:linear-gradient(160deg,var(--brass-lit),var(--brass)); }
+.profWho{ flex:1; min-width:0; }
+.profWho b{ display:block; font:700 16px/1.2 var(--font-ui); color:var(--cream);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.profKind{ font:600 11px/1 var(--font-ui); color:var(--cream-dim); }
+.profCoins{ font:700 15px/1 var(--font-ui); color:var(--brass-lit); white-space:nowrap; }
+
+.profLevel{ display:flex; align-items:center; gap:9px; margin:12px 0 4px; }
+.profLvlNum{ font:600 12px/1 var(--font-ui); color:var(--cream-dim); white-space:nowrap; }
+.profLvlNum b{ color:var(--cream); font-size:14px; }
+.profBar{ flex:1; height:8px; border-radius:5px; overflow:hidden;
+  background:rgba(3,20,11,.7); border:1px solid var(--line); }
+.profBar i{ display:block; height:100%; width:0;
+  background:linear-gradient(90deg,var(--brass),var(--brass-lit)); transition:width .5s ease; }
+.profLvlXp{ font:600 11px/1 var(--font-ui); color:var(--cream-dim); white-space:nowrap; }
+
+.profStats{ display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin-top:12px; }
+.profStat{ padding:8px 4px; border-radius:10px; background:rgba(3,20,11,.5); border:1px solid var(--line); }
+.profStat b{ display:block; font:700 17px/1.1 var(--font-ui); color:var(--cream); }
+.profStat span{ font:600 10px/1.2 var(--font-ui); color:var(--cream-dim); }
+
+.profDaily{ margin-top:14px; padding-top:12px; border-top:1px solid var(--line); }
+.profDailyTop{ display:flex; justify-content:space-between; align-items:baseline;
+  font:600 12px/1 var(--font-ui); color:var(--cream-dim); }
+.profDailyTop b{ color:var(--cream); font-size:13px; }
+.profDays{ display:grid; grid-template-columns:repeat(7,1fr); gap:5px; margin-top:9px; }
+.profDay{ padding:6px 2px; border-radius:9px; background:rgba(3,20,11,.5);
+  border:1px solid var(--line); }
+.profDay b{ display:block; font:700 12px/1.1 var(--font-ui); color:var(--cream-dim); }
+.profDay span{ font:600 10px/1.2 var(--font-ui); color:var(--brass-dim); }
+.profDay.done{ background:rgba(74,208,125,.14); border-color:rgba(74,208,125,.4); }
+.profDay.done b, .profDay.done span{ color:var(--good); }
+.profDay.now{ background:rgba(242,205,126,.16); border-color:var(--brass); }
+.profDay.now b{ color:var(--cream); } .profDay.now span{ color:var(--brass-lit); }
+
+/* on a short landscape screen the record gives way before the reward does */
+@media (max-height:400px){
+  .profStats{ grid-template-columns:repeat(6,1fr); gap:5px; }
+  .profStat b{ font-size:14px; } .profStat span{ font-size:9px; }
+  .profDaily{ margin-top:10px; padding-top:8px; }
+}
 
 *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 html,body{ height:100%; margin:0; }
