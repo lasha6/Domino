@@ -219,6 +219,12 @@
         <span class="profLvlXp" id="profXp">0 / 0</span>
       </div>
 
+      <div class="profTabs">
+        <button class="profTab on" id="tabStats" onclick="showTab('stats')">მიმოხილვა</button>
+        <button class="profTab" id="tabAch" onclick="showTab('ach')">მიღწევები <span id="achCount"></span></button>
+      </div>
+
+      <div id="paneStats">
       <div class="profStats" id="profStats"></div>
 
       <div class="profDaily">
@@ -233,6 +239,9 @@
           </button>
         </div>
       </div>
+      </div><!-- /paneStats -->
+
+      <div id="paneAch" class="profAchList" style="display:none"></div>
 
       <div class="modalActions">
         <button class="room" style="min-width:auto; padding:9px 20px;" onclick="closeProfile(); openName(true)">
@@ -404,12 +413,17 @@
       if (!socket.connected) return;
       socket.emit("profile", { auth: Auth.credentials().auth, name: Auth.name() });
     }
-    socket.on("profile", (p) => { if (p) { ME = p; paintProfile(); } });
+    socket.on("profile", (p) => {
+      if (!p) return;
+      ME = p; paintProfile();
+      if (document.getElementById("paneAch").style.display !== "none") paintAchievements();
+    });
     socket.on("dailyResult", (r) => {
       if (r && r.ok) {
         ME = r; paintProfile();
         Sound.play("score"); Fx.confetti(60);
         toast("🪙 +" + r.reward + " · სერია " + r.streak + " დღე");
+        celebrate(r.earned);          // a week's streak is an achievement of its own
       } else if (r && r.reason === "claimed") {
         if (r.level) { ME = r; paintProfile(); }
         toast("დღეს უკვე აიღე — დაბრუნდი ხვალ");
@@ -474,9 +488,67 @@
         ME.daily.canClaim ? "მიიღე " + ME.daily.reward + " 🪙" : "დღეს აღებულია";
     }
 
+    /* ---------------- achievements ---------------- */
+    function paintAchievements(){
+      if (!ME || !ME.achievements) return;
+      const done = ME.achievements.filter(a => a.done).length;
+      document.getElementById("achCount").textContent = done + "/" + ME.achievements.length;
+
+      const box = document.getElementById("paneAch");
+      box.innerHTML = "";
+      // Unfinished first, otherwise the order they are written in — which runs
+      // roughly easiest to hardest. Sorting by percentage looked clever and
+      // read badly: "level 5" sits at 20% from the very first game and pushed
+      // "win a match", one win away, below it.
+      const sorted = ME.achievements.slice().sort((a, b) => a.done - b.done);
+      sorted.forEach(a => {
+        const row = document.createElement("div");
+        row.className = "achRow" + (a.done ? " done" : "");
+
+        const mark = document.createElement("div");
+        mark.className = "achMark";
+        mark.textContent = a.done ? "✓" : a.percent + "%";
+
+        const mid = document.createElement("div");
+        mid.className = "achMid";
+        const t = document.createElement("b"); t.textContent = a.title;
+        const h = document.createElement("span"); h.textContent = a.hint;
+        const bar = document.createElement("div"); bar.className = "achBar";
+        const fill = document.createElement("i"); fill.style.width = a.percent + "%";
+        bar.appendChild(fill);
+        mid.append(t, h, bar);
+
+        const prize = document.createElement("div");
+        prize.className = "achPrize";
+        prize.textContent = "🪙 " + a.coins;
+
+        row.append(mark, mid, prize);
+        box.appendChild(row);
+      });
+    }
+    function showTab(which){
+      const stats = which === "stats";
+      document.getElementById("paneStats").style.display = stats ? "block" : "none";
+      document.getElementById("paneAch").style.display   = stats ? "none" : "block";
+      document.getElementById("tabStats").classList.toggle("on", stats);
+      document.getElementById("tabAch").classList.toggle("on", !stats);
+      if (!stats) paintAchievements();
+    }
+
+    // Something new was earned: say so one at a time, so two at once are both seen.
+    function celebrate(earned){
+      if (!earned || !earned.length) return;
+      earned.forEach((a, i) => setTimeout(() => {
+        toast("🏆 " + a.title + " — 🪙 +" + a.coins);
+        Sound.play("score");
+        if (i === 0) Fx.confetti(50);
+      }, i * 2200));
+    }
+
     function openProfile(){
       askProfile();                       // always show the freshest numbers
       paintProfile();
+      showTab("stats");
       document.getElementById("profileOverlay").classList.add("show");
     }
     function closeProfile(){ document.getElementById("profileOverlay").classList.remove("show"); }

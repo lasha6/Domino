@@ -75,16 +75,21 @@ test("the last two tiles of the boneyard can never be taken", () => {
   assert.ok(taken > 0);
 });
 
-test("the spinner is the opening double, or else the first double closed on both sides", () => {
+test("there is one spinner, it is a double on the table, and the arms hang off it", () => {
+  // Note the spinner may sit at either END of the chain: the opening double is
+  // the spinner from the start, and if every later tile happens to go to the
+  // same side it stays on the edge. Its own two open sides are the arms.
   for (let i = 0; i < 2000; i++) {
     const b = randomBoard();
-    if (b.spinnerVal == null) continue;
-    const idx = b.line.findIndex((t) => t[0] === t[1] && t[0] === b.spinnerVal);
-    assert.ok(idx >= 0, "the spinner is a double that is actually on the table");
-    // either it opened the game, or the chain reaches past it on both sides
-    const opened = idx === 0 && b.line.length >= 1 && b.line[0][0] === b.line[0][1];
-    assert.ok(opened || (idx > 0 && idx < b.line.length - 1),
-      "a spinner that did not open the game has tiles on both sides of it");
+    if (b.spinnerVal == null) {
+      assert.equal(b.top.length + b.bottom.length, 0, "no spinner means no arms to hang");
+      continue;
+    }
+    const doubles = b.line.filter((t) => t[0] === t[1] && t[0] === b.spinnerVal);
+    assert.equal(doubles.length, 1, "exactly one tile can be the spinner");
+    for (const arm of ["top", "bottom"])
+      if (b[arm].length)
+        assert.equal(b[arm][0][0], b.spinnerVal, `the ${arm} arm grows out of the spinner`);
   }
 });
 

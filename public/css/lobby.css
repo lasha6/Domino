@@ -223,16 +223,7 @@
   box-shadow:0 0 6px rgba(74,208,125,.7); }
 .dot.off{ background:var(--bad); box-shadow:0 0 6px rgba(226,104,90,.6); }
 
-/* ---------------- toast ---------------- */
-.toast{
-  position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(18px);
-  padding:11px 20px; border-radius:12px; font-size:13.5px; z-index:60;
-  background:linear-gradient(180deg,#0d3f24,#062a17);
-  border:1px solid var(--brass-dim); color:var(--cream);
-  box-shadow:0 10px 30px rgba(0,0,0,.55);
-  opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; max-width:90%;
-}
-.toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+/* the toast itself now lives in base.css — the table screen shows one too */
 
 /* ---------------- pickers (rooms / friend / name / free coins) ---------------- */
 .roomOverlay{

@@ -82,11 +82,17 @@
     </div>
   </div>
 
+  <div class="toast" id="toast"></div>
+
   <!-- result -->
   <div class="overlay" id="resultOverlay">
     <div class="modal">
       <h2 id="resultTitle"></h2>
       <p id="resultText"></p>
+      <!-- what the match did to your level -->
+      <div class="resultLevel" id="resultLevel" style="display:none">
+        <b></b><div class="profBar"><i></i></div><span></span>
+      </div>
       <button onclick="location.href='index.html'">მენიუში დაბრუნება</button>
     </div>
   </div>
@@ -169,9 +175,14 @@
     socket.on("opponentLeft", ({ name }) => {
       showResult("მოწინააღმდეგე გავიდა", name + " დატოვა მაგიდა.");
     });
-    socket.on("matchOver", ({ youWon, scores, target, myTeam, size }) => {
-      const c = Coins.settle(target, youWon);          // winning side takes the stake
+    socket.on("matchOver", ({ youWon, scores, target, myTeam, size, settled, progress, earned }) => {
+      // The server settles the stake now; `settle` here only mirrors it locally
+      // so the balance on screen matches until the lobby refreshes it.
+      const c = settled || Coins.settle(target, youWon);
+      if (settled) Coins.set(settled.after);
       renderCoins(target);
+      if (progress) showLevel(progress);
+      celebrate(earned);
       stopClock();
       Sound.play(youWon ? "win" : "lose");
       if(youWon) Fx.confetti(80, {spread:0.8});
@@ -184,6 +195,33 @@
         + " · " + (c.delta > 0 ? "🪙 +" : "🪙 ") + c.delta
         + "  (ბალანსი " + Coins.format(c.after) + ")", youWon);
     });
+
+    /* ---------------- what the match earned ----------------
+       The server decides all of this; here it is only shown. */
+    let toastTimer = null;
+    function toast(msg){
+      const t = document.getElementById("toast");
+      t.textContent = msg; t.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.remove("show"), 2200);
+    }
+    function showLevel(p){
+      const el = document.getElementById("resultLevel");
+      if (!el) return;
+      el.style.display = "flex";
+      el.querySelector("b").textContent = "დონე " + p.level;
+      el.querySelector("i").style.width = Math.round(p.into / p.need * 100) + "%";
+      el.querySelector("span").textContent = p.into + " / " + p.need;
+    }
+    // one at a time, so two in the same match are both read
+    function celebrate(earned){
+      if (!earned || !earned.length) return;
+      earned.forEach((a, i) => setTimeout(() => {
+        toast("🏆 " + a.title + " — 🪙 +" + a.coins);
+        Sound.play("score");
+        if (i === 0) Fx.confetti(50);
+      }, 900 + i * 2200));
+    }
 
     /* ---------------- connection trouble ---------------- */
     function showNetTrouble(){ document.getElementById("netOverlay").classList.add("show"); }

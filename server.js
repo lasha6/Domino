@@ -432,13 +432,36 @@ function summarise(p) {
     xp: p.xp, level: lv.level, into: lv.into, need: lv.need,
     stats: p.stats,
     daily: Progress.dailyState(p.daily),
+    achievements: Progress.achievementProgress(p),
   };
 }
 
+/* Hand out anything just earned, and return what it was so the screen can
+   celebrate. Awards can cascade — the coins and xp from one achievement can
+   carry a player over a level, which earns another — so this keeps going until
+   nothing new lands, with a stop in case a future goal ever feeds itself. */
+function collect(pr) {
+  const won = [];
+  for (let pass = 0; pass < 5; pass++) {
+    const fresh = Progress.newlyEarned(pr);
+    if (!fresh.length) break;
+    fresh.forEach((a) => {
+      pr.achievements[a.id] = { at: Date.now() };
+      pr.coins += a.coins;
+      pr.xp += a.xp;
+      won.push({ id: a.id, title: a.title, coins: a.coins, xp: a.xp });
+    });
+  }
+  return won;
+}
+
 function touch(room, p, fn) {
-  if (!p || !p.profile) return;      // a bot, or a player with no id yet
+  if (!p || !p.profile) return [];   // a bot, or a player with no id yet
   fn(p.profile);
-  store.save(p.profile);             // batched by the store; no need to wait
+  const won = collect(p.profile);
+  store.save(p.profile);
+  if (won.length) p.lastEarned = (p.lastEarned || []).concat(won);
+  return won;
 }
 
 // Everyone at the table gets credit for the hand; the winning side gets more.
@@ -526,7 +549,9 @@ function endRound(room, winnerSeat) {
         youWon: won,
         scores: g.scores, myTeam: Ozi.teamOf(g, p.seat), target: g.target, size: room.size,
         progress: p.profile ? summarise(p.profile) : null,
-        settled: p.lastSettle || null });
+        settled: p.lastSettle || null,
+        earned: p.lastEarned || [] });
+      p.lastEarned = [];
     });
     pushState(room);
   } else {
@@ -728,8 +753,10 @@ io.on("connection", (socket) => {
     pr.coins += state.reward;
     pr.xp += Progress.XP.dailyClaim;
     pr.daily = { lastClaim: Date.now(), streak: state.streak };
+    const earned = collect(pr);            // a week's streak is an achievement
     await store.save(pr);
-    socket.emit("dailyResult", { ok: true, reward: state.reward, streak: state.streak, day: state.day, ...summarise(pr) });
+    socket.emit("dailyResult", { ok: true, reward: state.reward, streak: state.streak, day: state.day,
+      earned, ...summarise(pr) });
   });
 
   on("leaveRoom", () => leave(socket, true));   // deliberate exit

@@ -65,9 +65,57 @@
     return { canClaim: true, streak, reward: DAILY[(streak - 1) % 7], day: (streak - 1) % 7, broke: last != null && !continues };
   }
 
+  /* ---------------- achievements ----------------
+     Goals along the way, not a checklist to grind. Deliberately mixed: a
+     couple reachable in the first sitting, a few over a week, and two that
+     take real playing — so there is always one within sight and one worth
+     staying for. Each one reads its own number off the profile, so nothing
+     needs counting separately and an old record scores correctly the first
+     time it is looked at. */
+  const level = (p) => levelFromXp(p.xp || 0).level;
+  const st = (p, k) => ((p && p.stats) || {})[k] || 0;
+
+  const ACHIEVEMENTS = [
+    { id: "first-win",  title: "პირველი მოგება", hint: "მოიგე მატჩი",              goal: 1,    coins: 100, xp: 20,  value: (p) => st(p, "matchWins") },
+    { id: "wins-10",    title: "ათი მოგება",     hint: "მოიგე 10 მატჩი",           goal: 10,   coins: 250, xp: 60,  value: (p) => st(p, "matchWins") },
+    { id: "wins-50",    title: "ორმოცდაათი",     hint: "მოიგე 50 მატჩი",           goal: 50,   coins: 750, xp: 200, value: (p) => st(p, "matchWins") },
+    { id: "hands-100",  title: "ასი ხელი",       hint: "ითამაშე 100 ხელი",         goal: 100,  coins: 300, xp: 80,  value: (p) => st(p, "hands") },
+    { id: "big-hand",   title: "დიდი ხელი",      hint: "აიღე 30 ქულა ერთ ხელში",   goal: 30,   coins: 200, xp: 50,  value: (p) => st(p, "bestHand") },
+    { id: "huge-hand",  title: "უზარმაზარი",     hint: "აიღე 50 ქულა ერთ ხელში",   goal: 50,   coins: 500, xp: 150, value: (p) => st(p, "bestHand") },
+    { id: "streak-3",   title: "სამი ზედიზედ",   hint: "მოიგე 3 მატჩი ზედიზედ",    goal: 3,    coins: 300, xp: 80,  value: (p) => st(p, "bestStreak") },
+    { id: "streak-5",   title: "ხუთი ზედიზედ",   hint: "მოიგე 5 მატჩი ზედიზედ",    goal: 5,    coins: 600, xp: 180, value: (p) => st(p, "bestStreak") },
+    { id: "daily-7",    title: "მთელი კვირა",    hint: "შემოდი 7 დღე ზედიზედ",     goal: 7,    coins: 500, xp: 120, value: (p) => (p.daily && p.daily.streak) || 0 },
+    { id: "points-1000",title: "ათასი ქულა",     hint: "დააგროვე 1000 ქულა",       goal: 1000, coins: 400, xp: 100, value: (p) => st(p, "points") },
+    { id: "level-5",    title: "მეხუთე დონე",    hint: "მიაღწიე მე-5 დონეს",       goal: 5,    coins: 250, xp: 0,   value: level },
+    { id: "level-10",   title: "მეათე დონე",     hint: "მიაღწიე მე-10 დონეს",      goal: 10,   coins: 600, xp: 0,   value: level },
+  ];
+
+  const byId = {};
+  ACHIEVEMENTS.forEach((a) => { byId[a.id] = a; });
+
+  // How each one is going, for the screen to draw.
+  function achievementProgress(p) {
+    return ACHIEVEMENTS.map((a) => {
+      const have = Math.max(0, a.value(p) || 0);
+      const done = !!(p.achievements && p.achievements[a.id]);
+      return {
+        id: a.id, title: a.title, hint: a.hint, goal: a.goal, coins: a.coins,
+        have: Math.min(have, a.goal), done,
+        percent: Math.min(100, Math.round(have / a.goal * 100)),
+      };
+    });
+  }
+
+  // Which ones have just been earned. Pure — the server does the awarding,
+  // because a level nobody can check is only a number a player could type.
+  function newlyEarned(p) {
+    return ACHIEVEMENTS.filter((a) => !(p.achievements && p.achievements[a.id]) && (a.value(p) || 0) >= a.goal);
+  }
+
   return {
-    XP, DAILY,
+    XP, DAILY, ACHIEVEMENTS, byId,
     xpForLevel, levelFromXp, handXp, matchXp,
     dailyState, dayNumber,
+    achievementProgress, newlyEarned,
   };
 });

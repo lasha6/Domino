@@ -122,9 +122,14 @@ test("the winner gains the stake and the loser pays it", async () => {
   const b = await ask(client(), "profile", { auth: guest("player-b") }, "profile");
   const stake = 50;                                   // the 75-point table
   const winner = a.stats.matchWins ? a : b, loser = a.stats.matchWins ? b : a;
-  assert.equal(winner.coins, 1000 + stake, "the winner takes it");
-  assert.equal(loser.coins, 1000 - stake, "the loser pays it");
-  assert.equal(winner.coins + loser.coins, 2000, "and nothing is created out of nothing");
+  // achievements pay prizes of their own, so those are counted out first and
+  // what is left has to be exactly the stake moving from one to the other
+  const prizes = (p) => p.achievements.filter((x) => x.done)
+    .reduce((sum, x) => sum + Progress.byId[x.id].coins, 0);
+  assert.equal(winner.coins - prizes(winner), 1000 + stake, "the winner takes the stake");
+  assert.equal(loser.coins - prizes(loser), 1000 - stake, "the loser pays it");
+  assert.equal((winner.coins - prizes(winner)) + (loser.coins - prizes(loser)), 2000,
+    "and the stake itself creates nothing out of nothing");
 });
 
 test("the daily reward can only be taken once, however often it is asked for", async () => {
