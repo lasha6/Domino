@@ -5,7 +5,8 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test \"test/**/*.test.mjs\""
   },
   "license": "MIT",
   "dependencies": {
@@ -14,5 +15,8 @@
     "@capacitor/core": "^8.5.0",
     "express": "^5.2.1",
     "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.3"
   }
 }
