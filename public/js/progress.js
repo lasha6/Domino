@@ -112,8 +112,62 @@
     return ACHIEVEMENTS.filter((a) => !(p.achievements && p.achievements[a.id]) && (a.value(p) || 0) >= a.goal);
   }
 
+  /* ---------------- the shop ----------------
+     Two currencies with different jobs. Coins come and go with every match, so
+     they buy the ordinary things. Gems arrive slowly — two for each level, and
+     a handful from the harder achievements — so they buy what should feel
+     earned. Nothing here changes how the game plays: a bought table deals no
+     better a hand than the one everybody starts with. */
+  const GEMS_PER_LEVEL = 2;
+
+  const SHOP = [
+    // felts
+    { id: "table-classic", kind: "table", title: "კლასიკური მწვანე", price: 0, currency: "coins",
+      vars: { "--baize-lit": "#2b8a52", "--baize": "#0f5230", "--baize-mid": "#116038", "--baize-deep": "#07301c", "--baize-edge": "#04200f" } },
+    { id: "table-royal", kind: "table", title: "სამეფო ლურჯი", price: 1500, currency: "coins",
+      vars: { "--baize-lit": "#2f5f9e", "--baize": "#123258", "--baize-mid": "#173d68", "--baize-deep": "#0a1c33", "--baize-edge": "#05101f" } },
+    { id: "table-crimson", kind: "table", title: "შინდისფერი", price: 2500, currency: "coins",
+      vars: { "--baize-lit": "#96323c", "--baize": "#571b22", "--baize-mid": "#68222a", "--baize-deep": "#310f13", "--baize-edge": "#1d080a" } },
+    { id: "table-night", kind: "table", title: "შუაღამე", price: 20, currency: "gems",
+      vars: { "--baize-lit": "#3a4a5c", "--baize": "#1b2430", "--baize-mid": "#222d3b", "--baize-deep": "#0e141b", "--baize-edge": "#070b0f" } },
+    // tiles
+    { id: "tiles-bone", kind: "tiles", title: "ჩვეულებრივი ქვები", price: 0, currency: "coins",
+      vars: { "--bone-hi": "#fffdf6", "--bone": "#f4eeda", "--bone-lo": "#ddd2b4", "--bone-edge": "#b9ac89", "--pip": "#15150f" } },
+    { id: "tiles-copper", kind: "tiles", title: "სპილენძის წერტილები", price: 1200, currency: "coins",
+      vars: { "--bone-hi": "#fffdf6", "--bone": "#f6efdd", "--bone-lo": "#e0d4b6", "--bone-edge": "#b9ac89", "--pip": "#9a5f22" } },
+    { id: "tiles-obsidian", kind: "tiles", title: "შავი ქვები", price: 15, currency: "gems",
+      vars: { "--bone-hi": "#4a4a52", "--bone": "#2e2e35", "--bone-lo": "#232329", "--bone-edge": "#14141a", "--pip": "#f2cd7e" } },
+  ];
+
+  const shopById = {};
+  SHOP.forEach((i) => { shopById[i.id] = i; });
+
+  // what a player has before they have bought anything
+  const FREE = SHOP.filter((i) => i.price === 0).map((i) => i.id);
+  const DEFAULT_LOOK = { table: "table-classic", tiles: "tiles-bone" };
+
+  const owns = (p, id) => shopById[id] && (shopById[id].price === 0 || !!(p.owned && p.owned[id]));
+
+  // what is actually in use, falling back if a record names something unknown
+  function equipped(p) {
+    const e = { ...DEFAULT_LOOK, ...((p && p.equipped) || {}) };
+    for (const kind of Object.keys(DEFAULT_LOOK))
+      if (!shopById[e[kind]] || !owns(p || {}, e[kind])) e[kind] = DEFAULT_LOOK[kind];
+    return e;
+  }
+
+  function shopState(p) {
+    const now = equipped(p);
+    return SHOP.map((i) => ({
+      id: i.id, kind: i.kind, title: i.title, price: i.price, currency: i.currency,
+      vars: i.vars, owned: owns(p, i.id), equipped: now[i.kind] === i.id,
+    }));
+  }
+
   return {
     XP, DAILY, ACHIEVEMENTS, byId,
+    SHOP, shopById, FREE, DEFAULT_LOOK, GEMS_PER_LEVEL,
+    owns, equipped, shopState,
     xpForLevel, levelFromXp, handXp, matchXp,
     dailyState, dayNumber,
     achievementProgress, newlyEarned,

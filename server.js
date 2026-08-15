@@ -462,7 +462,8 @@ function advance(room) {
 function summarise(p) {
   const lv = Progress.levelFromXp(p.xp);
   return {
-    name: p.name, coins: p.coins, picture: p.picture || null,
+    name: p.name, coins: p.coins, gems: p.gems || 0, picture: p.picture || null,
+    equipped: Progress.equipped(p),
     xp: p.xp, level: lv.level, into: lv.into, need: lv.need,
     stats: p.stats,
     daily: Progress.dailyState(p.daily),
@@ -489,13 +490,27 @@ function collect(pr) {
   return won;
 }
 
+/* Anything that changes a profile goes through here: pay out achievements, and
+   hand over the gems a new level is worth. Gems are the slow currency — two a
+   level and a few from the harder goals — so they are minted in exactly one
+   place, where the level change can actually be seen. */
+function settle(pr, change) {
+  const before = Progress.levelFromXp(pr.xp).level;
+  if (change) change(pr);
+  const earned = collect(pr);
+  const after = Progress.levelFromXp(pr.xp).level;
+  const levels = Math.max(0, after - before);
+  if (levels) pr.gems = (pr.gems || 0) + levels * Progress.GEMS_PER_LEVEL;
+  store.save(pr);
+  return { earned, levels, level: after };
+}
+
 function touch(room, p, fn) {
   if (!p || !p.profile) return [];   // a bot, or a player with no id yet
-  fn(p.profile);
-  const won = collect(p.profile);
-  store.save(p.profile);
-  if (won.length) p.lastEarned = (p.lastEarned || []).concat(won);
-  return won;
+  const r = settle(p.profile, fn);
+  if (r.earned.length) p.lastEarned = (p.lastEarned || []).concat(r.earned);
+  if (r.levels) p.lastLevels = (p.lastLevels || 0) + r.levels;
+  return r.earned;
 }
 
 // Everyone at the table gets credit for the hand; the winning side gets more.
@@ -795,13 +810,53 @@ io.on("connection", (socket) => {
     const state = Progress.dailyState(pr.daily);
     if (!state.canClaim) return socket.emit("dailyResult", { ok: false, reason: "claimed", ...summarise(pr) });
 
-    pr.coins += state.reward;
-    pr.xp += Progress.XP.dailyClaim;
-    pr.daily = { lastClaim: Date.now(), streak: state.streak };
-    const earned = collect(pr);            // a week's streak is an achievement
-    await store.save(pr);
+    const r = settle(pr, () => {
+      pr.coins += state.reward;
+      pr.xp += Progress.XP.dailyClaim;
+      pr.daily = { lastClaim: Date.now(), streak: state.streak };
+    });
     socket.emit("dailyResult", { ok: true, reward: state.reward, streak: state.streak, day: state.day,
-      earned, ...summarise(pr) });
+      earned: r.earned, levels: r.levels, ...summarise(pr) });
+  });
+
+  /* ---------------- the shop ----------------
+     Buying happens here and nowhere else. The browser knows the prices only so
+     it can draw them; if it were trusted to say what was paid, everything would
+     be free to anyone willing to edit a number. */
+  on("shop", async ({ auth, name }) => {
+    const who = await whoIs(auth, clean(name));
+    if (!who.profile) return socket.emit("shop", null);
+    socket.emit("shop", { items: Progress.shopState(who.profile), ...summarise(who.profile) });
+  });
+
+  on("buy", async ({ auth, name, id }) => {
+    const who = await whoIs(auth, clean(name));
+    const pr = who.profile;
+    const item = Progress.shopById[id];
+    const fail = (why) => socket.emit("buyResult", { ok: false, why, ...(pr ? summarise(pr) : {}) });
+    if (!pr) return fail("unknown");
+    if (!item) return fail("no-such-item");
+    if (Progress.owns(pr, id)) return fail("owned");
+
+    const purse = item.currency === "gems" ? (pr.gems || 0) : pr.coins;
+    if (purse < item.price) return fail("poor");
+
+    if (item.currency === "gems") pr.gems = (pr.gems || 0) - item.price;
+    else pr.coins -= item.price;
+    pr.owned[id] = { at: Date.now() };
+    pr.equipped[item.kind] = id;          // wear it straight away, it is why they bought it
+    await store.save(pr);
+    socket.emit("buyResult", { ok: true, id, items: Progress.shopState(pr), ...summarise(pr) });
+  });
+
+  on("equip", async ({ auth, name, id }) => {
+    const who = await whoIs(auth, clean(name));
+    const pr = who.profile;
+    const item = Progress.shopById[id];
+    if (!pr || !item || !Progress.owns(pr, id)) return socket.emit("buyResult", { ok: false, why: "not-owned" });
+    pr.equipped[item.kind] = id;
+    await store.save(pr);
+    socket.emit("buyResult", { ok: true, id, items: Progress.shopState(pr), ...summarise(pr) });
   });
 
   on("leaveRoom", () => leave(socket, true));   // deliberate exit

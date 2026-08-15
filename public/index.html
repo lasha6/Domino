@@ -21,7 +21,7 @@
   <div class="stage">
     <!-- ============ TOP HUD ============ -->
     <div class="hud">
-      <button class="iconbtn" onclick="toast('☰ მენიუ — მალე')">☰</button>
+      <button class="iconbtn" onclick="openMenu()" title="მენიუ">☰</button>
       <button class="iconbtn" id="sndBtn" onclick="toggleSound()" title="ხმა">🔊</button>
       <div class="playercard" onclick="openProfile()" title="პროფილი">
         <!-- the level and the bar stay blank until the server says what they are;
@@ -31,8 +31,8 @@
       </div>
       <div class="spacer"></div>
       <div class="cur">🪙 <span id="coinLabel">0</span><button class="plus" onclick="openFree()">+</button></div>
-      <div class="cur">💎 <span>10</span><button class="plus" onclick="toast('💎 ქოულების მაღაზია — მალე')">+</button></div>
-      <button class="store later" onclick="toast('🛒 მაღაზია — მალე')">🛒 მაღაზია</button>
+      <div class="cur">💎 <span id="gemLabel">0</span><button class="plus" onclick="openShop()">+</button></div>
+      <button class="store" onclick="openShop()">🛒 მაღაზია</button>
     </div>
 
     <!-- ============ BOARD ============ -->
@@ -203,6 +203,60 @@
     </div>
   </div>
 
+  <!-- menu -->
+  <div class="roomOverlay" id="menuOverlay">
+    <div class="roomModal">
+      <h2>მენიუ</h2>
+      <div class="menuList">
+        <button class="menuRow" onclick="closeMenu(); openProfile()"><span>👤</span> პროფილი და მიღწევები</button>
+        <button class="menuRow" onclick="closeMenu(); openShop()"><span>🛒</span> მაღაზია</button>
+        <button class="menuRow" id="menuSound" onclick="toggleSound(); paintMenu()"><span>🔊</span> ხმა</button>
+        <button class="menuRow" onclick="closeMenu(); openRules()"><span>📖</span> როგორ ვთამაშობთ</button>
+      </div>
+      <p class="roomSub" id="menuVersion"></p>
+      <button class="roomClose" onclick="closeMenu()">დახურვა</button>
+    </div>
+  </div>
+
+  <!-- rules -->
+  <div class="roomOverlay" id="rulesOverlay">
+    <div class="roomModal profileModal">
+      <h2>ქართული "ოზი"</h2>
+      <div class="rulesText">
+        <p><b>მიზანი.</b> პირველმა დააგროვე ოთახის ქულა — 75, 175, 255 ან 355.</p>
+        <p><b>ქულა.</b> ყოველი დადების შემდეგ დაითვალე მაგიდის ღია ბოლოები.
+           თუ ჯამი 5-ზე იყოფა, ეს ქულა შენია.</p>
+        <p><b>სტავკა.</b> პირველი დადებული დუბლი (ან პირველი, რომელსაც ორივე
+           მხრიდან ქვა დაედება) ხდება სტავკა — მას ორი დამატებითი მკლავი აქვს.</p>
+        <p><b>ბაზარი.</b> სვლა თუ არ გაქვს, აიღე ქვა. ბოლო ორი ქვა არასდროს იღება.</p>
+        <p><b>ხელის დასასრული.</b> ვინც ქვებს ადრე მორჩება, იღებს მოწინააღმდეგის
+           ხელში დარჩენილ ქულებს — მრგვალდება 5-მდე ზემოთ.</p>
+        <p><b>ბლოკი.</b> თუ სვლა არავის აქვს, იგებს ის, ვისაც ხელში ნაკლები დარჩა.</p>
+        <p><b>რიბა.</b> თუ ვინმემ მიზანს მიაღწია, მაგრამ ხელი ბლოკით დასრულდა,
+           ინიშნება დამატებითი ხელი — მოწინააღმდეგეს კიდევ აქვს შანსი.</p>
+      </div>
+      <button class="roomClose" onclick="closeRules()">დახურვა</button>
+    </div>
+  </div>
+
+  <!-- shop -->
+  <div class="roomOverlay" id="shopOverlay">
+    <div class="roomModal profileModal">
+      <div class="shopHead">
+        <h2 style="margin:0">მაღაზია</h2>
+        <span class="shopPurse">🪙 <b id="shopCoins">0</b> &nbsp; 💎 <b id="shopGems">0</b></span>
+      </div>
+      <p class="roomSub">გარეგნობა — თამაშზე არაფერს ცვლის</p>
+      <div class="profTabs">
+        <button class="profTab on" id="shopTabTable" onclick="showShop('table')">მაგიდა</button>
+        <button class="profTab" id="shopTabTiles" onclick="showShop('tiles')">ქვები</button>
+      </div>
+      <div class="shopGrid" id="shopGrid"></div>
+      <p class="roomSub" id="gemHint">💎 გროვდება დონეებით — ყოველ დონეზე 2</p>
+      <button class="roomClose" onclick="closeShop()">დახურვა</button>
+    </div>
+  </div>
+
   <!-- profile: level, record, and the daily reward -->
   <div class="roomOverlay" id="profileOverlay">
     <div class="roomModal profileModal">
@@ -293,6 +347,7 @@
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/progress.js"></script>
+  <script src="js/theme.js"></script>
   <script src="js/coins.js"></script>
   <script src="js/sound.js"></script>
   <script>
@@ -483,6 +538,8 @@
       const bar = document.querySelector(".playercard .xp i");
       if (bar) bar.style.width = Math.round(ME.into / ME.need * 100) + "%";
       document.getElementById("coinLabel").textContent = Coins.format(ME.coins);
+      document.getElementById("gemLabel").textContent = ME.gems || 0;
+      Look.remember(ME.equipped);          // wear what this account has on
 
       // the profile screen itself
       const n = ME.name || Auth.name() || "სტუმარი";
@@ -536,6 +593,91 @@
       btn.style.opacity = ME.daily.canClaim ? "1" : ".45";
       document.getElementById("claimLbl").textContent =
         ME.daily.canClaim ? "მიიღე " + ME.daily.reward + " 🪙" : "დღეს აღებულია";
+    }
+
+    /* ---------------- menu ---------------- */
+    function openMenu(){ paintMenu(); document.getElementById("menuOverlay").classList.add("show"); }
+    function closeMenu(){ document.getElementById("menuOverlay").classList.remove("show"); }
+    function paintMenu(){
+      const row = document.getElementById("menuSound");
+      row.querySelector("span").textContent = Sound.muted() ? "🔇" : "🔊";
+      row.childNodes[row.childNodes.length - 1].nodeValue = Sound.muted() ? " ხმა — გამორთული" : " ხმა — ჩართული";
+      paintSoundBtn();
+    }
+    function openRules(){ document.getElementById("rulesOverlay").classList.add("show"); }
+    function closeRules(){ document.getElementById("rulesOverlay").classList.remove("show"); }
+
+    /* ---------------- shop ----------------
+       Prices are drawn from the shared rules file, but every purchase is made
+       by the server — the browser is never asked what was paid. */
+    let SHOP = null, shopKind = "table";
+
+    function openShop(){
+      socket.emit("shop", { auth: Auth.credentials().auth, name: Auth.name() });
+      document.getElementById("shopOverlay").classList.add("show");
+      showShop(shopKind);
+    }
+    function closeShop(){ document.getElementById("shopOverlay").classList.remove("show"); }
+    socket.on("shop", (r) => { if (r) { SHOP = r.items; adoptPurse(r); paintShop(); } });
+    socket.on("buyResult", (r) => {
+      if (r && r.ok) {
+        SHOP = r.items; adoptPurse(r); paintShop();
+        Sound.play("score"); toast("მიღებულია!");
+      } else if (r) {
+        toast(r.why === "poor" ? "საკმარისი არ არის" : "ეს ვერ ვიყიდე");
+      }
+    });
+    // the purse and the look travel with every shop reply
+    function adoptPurse(r){
+      if (r.coins != null) { document.getElementById("shopCoins").textContent = Coins.format(r.coins); document.getElementById("coinLabel").textContent = Coins.format(r.coins); }
+      if (r.gems != null)  { document.getElementById("shopGems").textContent = r.gems; document.getElementById("gemLabel").textContent = r.gems; }
+      if (r.equipped) Look.remember(r.equipped);
+      if (ME) { if (r.coins != null) ME.coins = r.coins; if (r.gems != null) ME.gems = r.gems; }
+    }
+    function showShop(kind){
+      shopKind = kind;
+      document.getElementById("shopTabTable").classList.toggle("on", kind === "table");
+      document.getElementById("shopTabTiles").classList.toggle("on", kind === "tiles");
+      paintShop();
+    }
+    function paintShop(){
+      const grid = document.getElementById("shopGrid");
+      grid.innerHTML = "";
+      if (!SHOP) { grid.textContent = "..."; return; }
+      SHOP.filter(i => i.kind === shopKind).forEach(item => {
+        const card = document.createElement("div");
+        card.className = "shopItem" + (item.equipped ? " on" : "");
+
+        // a real swatch of what is being bought, drawn from the item's own colours
+        const sw = document.createElement("div");
+        sw.className = "swatch";
+        if (item.kind === "table") {
+          sw.style.background = `radial-gradient(circle at 50% 40%, ${item.vars["--baize-lit"]}, ${item.vars["--baize"]} 55%, ${item.vars["--baize-deep"]})`;
+        } else {
+          sw.style.background = item.vars["--baize"] || "#0f5230";
+          const t = document.createElement("i");
+          t.style.background = `linear-gradient(180deg, ${item.vars["--bone-hi"]}, ${item.vars["--bone"]})`;
+          t.style.borderColor = item.vars["--bone-edge"];
+          t.style.color = item.vars["--pip"];
+          t.textContent = "••";
+          sw.appendChild(t);
+        }
+
+        const name = document.createElement("b");
+        name.textContent = item.title;
+
+        const btn = document.createElement("button");
+        btn.className = "shopBuy";
+        if (item.equipped)   { btn.textContent = "გამოყენებული"; btn.disabled = true; }
+        else if (item.owned) { btn.textContent = "გამოიყენე"; btn.onclick = () => socket.emit("equip", { auth: Auth.credentials().auth, name: Auth.name(), id: item.id }); }
+        else {
+          btn.textContent = (item.currency === "gems" ? "💎 " : "🪙 ") + item.price;
+          btn.onclick = () => socket.emit("buy", { auth: Auth.credentials().auth, name: Auth.name(), id: item.id });
+        }
+
+        card.append(sw, name, btn);
+        grid.appendChild(card);
+      });
     }
 
     /* ---------------- achievements ---------------- */

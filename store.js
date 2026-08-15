@@ -30,6 +30,9 @@ export function blankProfile(id, kind, name) {
   return {
     id, kind, name: name || "", picture: null,
     coins: START_COINS,
+    gems: 0,
+    owned: {},                       // what has been bought in the shop
+    equipped: {},                    // and what is actually in use
     xp: 0, level: 1,
     stats: {
       matches: 0, matchWins: 0,
@@ -53,6 +56,8 @@ function complete(p, id, kind, name) {
     stats: { ...base.stats, ...(p.stats || {}) },
     daily: { ...base.daily, ...(p.daily || {}) },
     achievements: { ...(p.achievements || {}) },
+    owned: { ...(p.owned || {}) },
+    equipped: { ...(p.equipped || {}) },
     id, kind: p.kind || kind,
   };
 }
