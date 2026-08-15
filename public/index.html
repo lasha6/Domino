@@ -24,8 +24,10 @@
       <button class="iconbtn" onclick="toast('☰ მენიუ — მალე')">☰</button>
       <button class="iconbtn" id="sndBtn" onclick="toggleSound()" title="ხმა">🔊</button>
       <div class="playercard" onclick="openProfile()" title="პროფილი">
-        <div class="avatar" id="avatarLetter">ს<span class="lvl">5</span></div>
-        <div class="pcol"><b id="pnameLabel">სტუმარი</b><span class="xp"><i></i></span></div>
+        <!-- the level and the bar stay blank until the server says what they are;
+             a number filled in here would be a guess the player would believe -->
+        <div class="avatar" id="avatarLetter">ს<span class="lvl" style="display:none"></span></div>
+        <div class="pcol"><b id="pnameLabel">სტუმარი</b><span class="xp"><i style="width:0"></i></span></div>
       </div>
       <div class="spacer"></div>
       <div class="cur">🪙 <span id="coinLabel">0</span><button class="plus" onclick="openFree()">+</button></div>
@@ -413,11 +415,31 @@
       if (!socket.connected) return;
       socket.emit("profile", { auth: Auth.credentials().auth, name: Auth.name() });
     }
+    /* The server answers with null when it has nothing to look the player up
+       by. For someone signed in that almost always means the Google token has
+       aged out (they last about an hour), so try once to renew it quietly and
+       ask again. If that fails too they carry on under this device's own
+       progress — never with an empty screen. */
+    let retried = false;
     socket.on("profile", (p) => {
-      if (!p) return;
+      if (!p) {
+        if (retried) { profileUnavailable(); return; }
+        retried = true;
+        Auth.refreshIfStale().then(() => askProfile());
+        return;
+      }
+      retried = false;
       ME = p; paintProfile();
       if (document.getElementById("paneAch").style.display !== "none") paintAchievements();
     });
+
+    // Say so, rather than showing zeros that look like lost progress.
+    function profileUnavailable(){
+      document.getElementById("profKind").textContent = "პროგრესი ვერ ჩავტვირთე — სცადე თავიდან შესვლა";
+      document.getElementById("profStats").innerHTML = "";
+      document.getElementById("profDays").innerHTML = "";
+      document.getElementById("claimBtn").disabled = true;
+    }
     socket.on("dailyResult", (r) => {
       if (r && r.ok) {
         ME = r; paintProfile();
@@ -434,7 +456,7 @@
       if (!ME) return;
       // the lobby chip: level badge and the bar under the name
       const badge = document.querySelector("#avatarLetter .lvl");
-      if (badge) badge.textContent = ME.level;
+      if (badge) { badge.textContent = ME.level; badge.style.display = ""; }
       const bar = document.querySelector(".playercard .xp i");
       if (bar) bar.style.width = Math.round(ME.into / ME.need * 100) + "%";
       document.getElementById("coinLabel").textContent = Coins.format(ME.coins);

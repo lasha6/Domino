@@ -617,6 +617,9 @@ io.on("connection", (socket) => {
     if (auth && auth.kind === "google" && auth.idToken) {
       const ok = await verifyGoogle(auth.idToken);
       if (ok) return { name: ok.name || name, account: ok.account, verified: true };
+      // The token did not check out — usually just old, since Google's last
+      // about an hour. They keep playing under the device's own progress
+      // rather than being left with nothing, and the name loses its tick.
     }
     // A guest still gets progress, kept against the id their device made. It
     // stays with the device rather than the person — signing in is what

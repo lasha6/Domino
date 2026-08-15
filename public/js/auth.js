@@ -43,12 +43,7 @@
     return me;
   }
   function guest(name) {
-    let id = localStorage.getItem("dominoGuestId");
-    if (!id) {
-      id = "g" + Math.random().toString(36).slice(2) + Date.now().toString(36);
-      localStorage.setItem("dominoGuestId", id);
-    }
-    return { kind: "guest", id, name: String(name || "").trim().slice(0, 14) };
+    return { kind: "guest", id: deviceId(), name: String(name || "").trim().slice(0, 14) };
   }
 
   const listeners = [];
@@ -58,10 +53,25 @@
   // taken at their word, which is why a guest name is never shown as verified.
   function credentials() {
     const me = load();
-    if (!me) return { name: "სტუმარი", auth: { kind: "guest" } };
+    // The device id always goes along, even when signed in. A Google token
+    // only lasts about an hour, and without something to fall back on a
+    // signed-in player whose token went stale was left with no profile at all
+    // — worse off than a guest. Now the server can always seat them.
+    const id = deviceId();
+    if (!me) return { name: "სტუმარი", auth: { kind: "guest", id } };
     if (me.kind === "google" && me.idToken)
-      return { name: me.name, auth: { kind: "google", idToken: me.idToken } };
-    return { name: me.name, auth: { kind: "guest", id: me.id } };
+      return { name: me.name, auth: { kind: "google", idToken: me.idToken, id } };
+    return { name: me.name, auth: { kind: "guest", id: me.id || id } };
+  }
+
+  // one lasting id per device, made once and kept
+  function deviceId() {
+    let id = localStorage.getItem("dominoGuestId");
+    if (!id) {
+      id = "g" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem("dominoGuestId", id);
+    }
+    return id;
   }
 
   /* ---------------- is Google set up on this server? ---------------- */
@@ -163,7 +173,7 @@
 
   global.Auth = {
     load, save, guest, credentials, config, signOut, refreshIfStale,
-    mountGoogleButton, fromIdToken,
+    mountGoogleButton, fromIdToken, deviceId,
     name: () => { const m = load(); return (m && m.name) || ""; },
     isGoogle: () => { const m = load(); return !!(m && m.kind === "google"); },
     onChange: (fn) => listeners.push(fn),

@@ -114,6 +114,27 @@ test("nonsense where a token should be does not upset the server", async () => {
   assert.ok(await until(() => fresh.last && fresh.last.lobby), "and still seating players");
 });
 
+test("a signed-in player whose token went stale is never left with nothing", async () => {
+  // Google tokens last about an hour. When one ages out the player must keep
+  // playing under this device's own progress — for a while they were left with
+  // no profile at all, which is worse than never having signed in.
+  const c = client(WITH_GOOGLE);
+  const asGuest = await new Promise((r) => {
+    c.once("profile", r);
+    c.emit("profile", { auth: { kind: "guest", id: "stale-device" }, name: "ლაშა" });
+  });
+  assert.ok(asGuest, "the device has progress of its own");
+
+  const asStale = await new Promise((r) => {
+    c.once("profile", r);
+    // exactly what the browser sends: an expired token, plus the device id
+    c.emit("profile", { auth: { kind: "google", idToken: FORGED, id: "stale-device" }, name: "ლაშა" });
+  });
+  assert.ok(asStale, "and it is still handed back when the token fails");
+  assert.equal(asStale.coins, asGuest.coins, "the same progress, not a blank one");
+  assert.equal(asStale.verified, false, "but the name loses its tick");
+});
+
 test("a claim to be signed in is worthless without a token", async () => {
   const c = client(WITH_GOOGLE);
   c.emit("createTable", { target: 355, size: 4, name: "ვითომ", auth: { kind: "google" } });
