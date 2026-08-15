@@ -652,7 +652,10 @@
         const sw = document.createElement("div");
         sw.className = "swatch";
         if (item.kind === "table") {
-          sw.style.background = `radial-gradient(circle at 50% 40%, ${item.vars["--baize-lit"]}, ${item.vars["--baize"]} 55%, ${item.vars["--baize-deep"]})`;
+          // the surface is what a player sees most of, so show that, ringed by its felt
+          sw.style.background = `linear-gradient(160deg, ${item.vars["--wood-hi"]}, ${item.vars["--wood"]} 45%, ${item.vars["--wood-lo"]})`;
+          sw.style.borderColor = item.vars["--baize-lit"];
+          sw.style.boxShadow = `0 0 0 3px ${item.vars["--baize"]}`;
         } else {
           sw.style.background = item.vars["--baize"] || "#0f5230";
           const t = document.createElement("i");
@@ -668,7 +671,7 @@
 
         const btn = document.createElement("button");
         btn.className = "shopBuy";
-        if (item.equipped)   { btn.textContent = "გამოყენებული"; btn.disabled = true; }
+        if (item.equipped)   { btn.textContent = "არჩეული"; btn.disabled = true; }
         else if (item.owned) { btn.textContent = "გამოიყენე"; btn.onclick = () => socket.emit("equip", { auth: Auth.credentials().auth, name: Auth.name(), id: item.id }); }
         else {
           btn.textContent = (item.currency === "gems" ? "💎 " : "🪙 ") + item.price;

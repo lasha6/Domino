@@ -120,16 +120,23 @@
      better a hand than the one everybody starts with. */
   const GEMS_PER_LEVEL = 2;
 
+  /* A table look has to move BOTH sets of colours. The surface the tiles are
+     played on is the wood, not the baize — the baize is the surround — so
+     changing only the felt left the table looking exactly as it was. */
   const SHOP = [
-    // felts
-    { id: "table-classic", kind: "table", title: "კლასიკური მწვანე", price: 0, currency: "coins",
-      vars: { "--baize-lit": "#2b8a52", "--baize": "#0f5230", "--baize-mid": "#116038", "--baize-deep": "#07301c", "--baize-edge": "#04200f" } },
+    // tables: the surface first, then the felt around it
+    { id: "table-classic", kind: "table", title: "კლასიკური", price: 0, currency: "coins",
+      vars: { "--wood-hi": "#7d5228", "--wood": "#4e3016", "--wood-lo": "#2a1809",
+              "--baize-lit": "#2b8a52", "--baize": "#0f5230", "--baize-mid": "#116038", "--baize-deep": "#07301c", "--baize-edge": "#04200f" } },
     { id: "table-royal", kind: "table", title: "სამეფო ლურჯი", price: 1500, currency: "coins",
-      vars: { "--baize-lit": "#2f5f9e", "--baize": "#123258", "--baize-mid": "#173d68", "--baize-deep": "#0a1c33", "--baize-edge": "#05101f" } },
+      vars: { "--wood-hi": "#3a6ba8", "--wood": "#1d3f6b", "--wood-lo": "#0d2038",
+              "--baize-lit": "#2f5f9e", "--baize": "#123258", "--baize-mid": "#173d68", "--baize-deep": "#0a1c33", "--baize-edge": "#05101f" } },
     { id: "table-crimson", kind: "table", title: "შინდისფერი", price: 2500, currency: "coins",
-      vars: { "--baize-lit": "#96323c", "--baize": "#571b22", "--baize-mid": "#68222a", "--baize-deep": "#310f13", "--baize-edge": "#1d080a" } },
+      vars: { "--wood-hi": "#a8434b", "--wood": "#6b222a", "--wood-lo": "#3a1014",
+              "--baize-lit": "#96323c", "--baize": "#571b22", "--baize-mid": "#68222a", "--baize-deep": "#310f13", "--baize-edge": "#1d080a" } },
     { id: "table-night", kind: "table", title: "შუაღამე", price: 20, currency: "gems",
-      vars: { "--baize-lit": "#3a4a5c", "--baize": "#1b2430", "--baize-mid": "#222d3b", "--baize-deep": "#0e141b", "--baize-edge": "#070b0f" } },
+      vars: { "--wood-hi": "#4d5a6b", "--wood": "#28323f", "--wood-lo": "#141a22",
+              "--baize-lit": "#3a4a5c", "--baize": "#1b2430", "--baize-mid": "#222d3b", "--baize-deep": "#0e141b", "--baize-edge": "#070b0f" } },
     // tiles
     { id: "tiles-bone", kind: "tiles", title: "ჩვეულებრივი ქვები", price: 0, currency: "coins",
       vars: { "--bone-hi": "#fffdf6", "--bone": "#f4eeda", "--bone-lo": "#ddd2b4", "--bone-edge": "#b9ac89", "--pip": "#15150f" } },
