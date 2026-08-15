@@ -57,6 +57,28 @@ app.get("/auth/config", (_req, res) => {
   res.json({ google: !!googleClient, clientId: GOOGLE_CLIENT_ID || null });
 });
 
+/* A plain answer to "is this set up properly?" — the startup log says all this,
+   but reading a host's log means finding the dashboard first. Nothing secret
+   goes in here: no connection string, no keys, only what is switched on. */
+app.get("/status", (_req, res) => {
+  const keeps = store.kind === "postgres";
+  res.json({
+    ok: true,
+    progress: {
+      where: store.kind,                       // postgres | file | memory
+      survivesRedeploy: keeps,
+      note: keeps
+        ? "პროგრესი ბაზაშია — განახლებისას არ იკარგება"
+        : store.kind === "file"
+          ? "პროგრესი ფაილშია — ჰოსტინგი მას განახლებისას შლის. დააყენე DATABASE_URL"
+          : "პროგრესი მეხსიერებაშია — გადატვირთვისას იკარგება. დააყენე DATABASE_URL",
+    },
+    googleSignIn: !!googleClient,
+    upSince: new Date(startedAt).toISOString(),
+  });
+});
+const startedAt = Date.now();
+
 // Returns a verified identity, or null for anyone we cannot vouch for. Never
 // throws: a bad token just means "play as a guest".
 async function verifyGoogle(idToken) {

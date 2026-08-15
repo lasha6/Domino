@@ -154,6 +154,19 @@ test("the daily reward can only be taken once, however often it is asked for", a
   assert.equal(after.daily.canClaim, false);
 });
 
+test("the server can say plainly whether progress is safe", async () => {
+  const r = await fetch(`${ADDR}/status`);
+  assert.equal(r.status, 200);
+  const s = await r.json();
+  assert.equal(s.progress.where, "file", "this test runs without a database");
+  assert.equal(s.progress.survivesRedeploy, false, "and says so rather than implying otherwise");
+  assert.ok(s.progress.note.includes("DATABASE_URL"), "and what to do about it");
+  assert.equal(s.googleSignIn, false);
+  // nothing in here may be a secret — it is a public address
+  const body = JSON.stringify(s);
+  assert.ok(!/postgres:|postgresql:|password|secret/i.test(body), `leaked something: ${body}`);
+});
+
 test("a wrong database address does not take the game down", async () => {
   // One mistyped character in a connection string must not stop anyone playing:
   // the server says why and carries on keeping progress in a file.
