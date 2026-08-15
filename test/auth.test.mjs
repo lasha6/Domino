@@ -114,6 +114,23 @@ test("nonsense where a token should be does not upset the server", async () => {
   assert.ok(await until(() => fresh.last && fresh.last.lobby), "and still seating players");
 });
 
+test("the app can read the sign-in settings from its own origin", async () => {
+  // The Android app's pages come from inside the APK, so its requests arrive
+  // from https://localhost. Without permission the browser hides the reply and
+  // the app decides Google sign-in is off — which is what happened.
+  for (const p of ["/auth/config", "/status"]) {
+    const r = await fetch(`http://127.0.0.1:${WITH_GOOGLE}${p}`, {
+      headers: { Origin: "https://localhost" },
+    });
+    assert.equal(r.status, 200, `${p} answered`);
+    assert.equal(r.headers.get("access-control-allow-origin"), "*",
+      `${p} must let the app read it`);
+  }
+  const cfg = await (await fetch(`http://127.0.0.1:${WITH_GOOGLE}/auth/config`,
+    { headers: { Origin: "https://localhost" } })).json();
+  assert.equal(cfg.google, true, "and the app sees that Google is available");
+});
+
 test("a signed-in player whose token went stale is never left with nothing", async () => {
   // Google tokens last about an hour. When one ages out the player must keep
   // playing under this device's own progress — for a while they were left with

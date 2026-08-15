@@ -79,8 +79,11 @@
   function config() {
     if (!configPromise) {
       configPromise = fetch(base() + "/auth/config", { cache: "no-store" })
-        .then((r) => (r.ok ? r.json() : { google: false }))
-        .catch(() => ({ google: false }));   // offline, or an older server
+        .then((r) => (r.ok ? r.json() : { google: false, unreachable: true }))
+        // Offline, an older server, or a reply the app is not allowed to read.
+        // Marked apart from a plain "off" so the screen can say which it was —
+        // silently hiding the button made a broken setup look deliberate.
+        .catch(() => ({ google: false, unreachable: true }));
     }
     return configPromise;
   }

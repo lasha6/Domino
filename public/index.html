@@ -343,7 +343,17 @@
     function offerGoogle(){
       if (googleMounted) return;
       Auth.config().then(cfg => {
-        if (!cfg.google) return;                       // not set up — guests only
+        if (!cfg.google) {
+          // Could not ask at all is not the same as switched off: say so,
+          // rather than leaving the player wondering where the button went.
+          if (cfg.unreachable) {
+            document.getElementById("googleBox").style.display = "block";
+            const note = document.getElementById("googleNote");
+            note.textContent = "სერვერს ვერ დავუკავშირდი — Google-ით შესვლა ახლა ვერ მოხერხდება";
+            note.style.display = "block";
+          }
+          return;                                      // guests are unaffected
+        }
         googleMounted = true;
         document.getElementById("googleBox").style.display = "block";
         Auth.mountGoogleButton(

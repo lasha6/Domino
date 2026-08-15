@@ -53,6 +53,17 @@ if (GOOGLE_CLIENT_ID) {
   console.log("👤 guests only — set GOOGLE_CLIENT_ID to offer Google sign-in");
 }
 
+/* The Android app's pages come from inside the APK, so to this server they
+   arrive from another origin (https://localhost) and the browser will not hand
+   the app a reply without being told it may. Socket.io was configured for that
+   from the start; these plain routes were not, so the app could not read them
+   and quietly decided Google sign-in was switched off.
+   Nothing here is private and nothing is read from a cookie, so anyone may ask. */
+app.use(["/auth/config", "/status"], (_req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  next();
+});
+
 app.get("/auth/config", (_req, res) => {
   res.json({ google: !!googleClient, clientId: GOOGLE_CLIENT_ID || null });
 });
