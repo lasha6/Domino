@@ -117,17 +117,20 @@
         turnEarly = crosses(ny, nh);
       }
 
-      /* Two reasons to turn, and they are not equal. Running out of lane is a
-         preference, and gives way to the tidiness rules: no corner flat against
-         a double, and none on the last tile. Reaching the chain is not a
-         preference — carrying on would put a tile on top of the chain — so it
-         turns regardless. That distinction is the whole fix: the last tile of a
-         long arm used to be refused its turn and landed on the chain, which
-         disqualified every folded layout and left the arms growing straight
-         until the tiles were unreadable. */
-      const mayCorner = i < arm.length - 1 && !dbl && !prevDbl;
-      const wantTurn = (inLane >= per || turnEarly) && mayCorner;
-      if (per > 0 && (wantTurn || wouldReachChain)) {           // turn: lay it flat
+      /* A double is NEVER the corner, and never sits right after one. On a real
+         table a double is stood across its run and the chain continues through
+         it; laying it flat to turn on looks wrong, and no amount of saved space
+         buys that back. So this is absolute, even when the arm is about to run
+         into the chain: the turn simply cannot happen here. Such a layout then
+         collides and is thrown out, and one of the other fold combinations —
+         a different lane length, or folding to the other side — is used instead.
+
+         Everything else is a preference. Running out of lane wants a turn; so
+         does seeing that the NEXT tile would hit the chain, which is how the
+         arm turns a tile early instead of being cornered later. */
+      const mayCorner = !dbl && !prevDbl;
+      const wantTurn = (inLane >= per && i < arm.length - 1) || turnEarly || wouldReachChain;
+      if (per > 0 && mayCorner && wantTurn) {                   // turn: lay it flat
         const w = HW, h = HH;
         const x = side > 0 ? lane + INSET : lane + INSET - (HW - VW);
         const y = dir < 0 ? cursor - GAP - h : cursor + GAP;

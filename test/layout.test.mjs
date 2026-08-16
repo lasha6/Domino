@@ -128,37 +128,30 @@ test("the chain itself never puts a corner flat against a double", () => {
     }
 });
 
-test("an arm turns a tile early rather than corner against a double", () => {
-  /* An arm cannot always avoid it: when the chain is close the turn has to
-     happen, and if the tile before the double could not be a corner either
-     there is nowhere left to go. It must stay rare, and the screen must not
-     choose one when a clean layout of much the same size exists. */
-  let boardsSeen = 0, awkward = 0;
-  for (const b of boards(200)) {
+test("a double is never turned on, and no corner is laid against one", () => {
+  /* The rule the player stated: a double stands across its run and the chain
+     carries on through it. Turning on one, or cornering right beside one, reads
+     as a broken table — and no amount of saved space buys that back. Absolute
+     in every layout the screen may pick, not merely usually. */
+  let seen = 0;
+  for (const b of boards(220)) {
     const pick = chosen(b);
     if (!pick) continue;
-    boardsSeen++;
-    const bad = awkwardCorners(pick.L.boxes);
-    if (!bad) continue;
-    awkward++;
-    // it was taken only because avoiding it costs real size
-    const clean = [];
-    for (const armPer of ARM_FOLDS)
-      for (const top of [+1, -1]) for (const bottom of [-1, +1])
-        for (let rows = 1; rows <= MAX_ROWS; rows++) {
-          const L = buildLayout(b, rows, armPer, { top, bottom });
-          if (!L || overlapCount(L.boxes) || awkwardCorners(L.boxes)) continue;
-          const xs = L.boxes.map((x) => x.x), ys = L.boxes.map((x) => x.y);
-          const wide = Math.max(...L.boxes.map((x) => x.x + x.w)) - Math.min(...xs);
-          const tall = Math.max(...L.boxes.map((x) => x.y + x.h)) - Math.min(...ys);
-          clean.push(Math.min(MAXSCALE, 760 / wide, 210 / tall));
-        }
-    const bestClean = clean.length ? Math.max(...clean) : 0;
-    assert.ok(pick.scale >= bestClean - 0.001,
-      `took an awkward corner while a clean layout was as big (${pick.scale} vs ${bestClean})`);
+    seen++;
+    assert.equal(awkwardCorners(pick.L.boxes), 0,
+      `a corner sits against a double on ${JSON.stringify(b)}`);
+
+    // a double that moved the lane is a double used as a corner
+    for (const side of ["top", "bottom"]) {
+      const arm = pick.L.boxes.filter((x) => x.arm === side);
+      for (let i = 0; i < arm.length - 1; i++) {
+        if (arm[i].e[0] !== arm[i].e[1]) continue;
+        const moved = Math.abs(arm[i + 1].x - arm[i].x) > 20 && Math.abs(arm[i + 1].y - arm[i].y) < 30;
+        assert.ok(!moved, `the double ${JSON.stringify(arm[i].e)} was used to turn on`);
+      }
+    }
   }
-  assert.ok(awkward / boardsSeen < 0.2,
-    `awkward corners on ${(awkward / boardsSeen * 100).toFixed(1)}% of boards — too many`);
+  assert.ok(seen > 200, `checked ${seen} boards`);
 });
 
 test("folding keeps the tiles readable", () => {
