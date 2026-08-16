@@ -17,10 +17,29 @@ const Ozi = require("../public/js/ozi.js");
 // render.js is written for the browser and only exposes what a screen needs,
 // so lift the layout internals out without touching the shipped file
 const src = readFileSync(new URL("../public/js/render.js", import.meta.url), "utf8")
-  .replace("global.Tiles = {", "global.__T = { buildLayout, overlapCount, ARM_FOLDS, MAX_ROWS };\n  global.Tiles = {");
+  .replace("global.Tiles = {", "global.__T = { buildLayout, overlapCount, awkwardCorners, ARM_FOLDS, MAX_ROWS, MAXSCALE };\n  global.Tiles = {");
 const w = { document: { createElement: () => ({ style: {}, classList: { add() {} } }) } };
 new Function("window", "document", src)(w, w.document);
-const { buildLayout, overlapCount, ARM_FOLDS, MAX_ROWS } = w.__T;
+const { buildLayout, overlapCount, awkwardCorners, ARM_FOLDS, MAX_ROWS, MAXSCALE } = w.__T;
+
+// what the screen would actually pick, for a board area the size of a phone's
+function chosen(board, availW = 760, availH = 210) {
+  let best = null;
+  for (const armPer of ARM_FOLDS)
+    for (const top of [+1, -1]) for (const bottom of [-1, +1])
+      for (let rows = 1; rows <= MAX_ROWS; rows++) {
+        const L = buildLayout(board, rows, armPer, { top, bottom });
+        if (!L) continue;
+        const xs = L.boxes.map((b) => b.x), ys = L.boxes.map((b) => b.y);
+        const wide = Math.max(...L.boxes.map((b) => b.x + b.w)) - Math.min(...xs);
+        const tall = Math.max(...L.boxes.map((b) => b.y + b.h)) - Math.min(...ys);
+        const scale = Math.min(MAXSCALE, availW / wide, availH / tall);
+        const rank = scale - overlapCount(L.boxes) * 100 - awkwardCorners(L.boxes) * 0.08;
+        if (!best || rank > best.rank + 0.001) best = { L, scale, rank, armPer };
+        if (rows >= board.line.length) break;
+      }
+  return best;
+}
 
 const DECK = [];
 for (let a = 0; a <= 6; a++) for (let b = a; b <= 6; b++) DECK.push([a, b]);
@@ -94,20 +113,68 @@ test("in any layout without overlaps, every tile touches the one before it", () 
     }
 });
 
-test("a corner never lies flat against a double", () => {
-  // a double already sits crosswise, so a corner beside one touches it along
-  // the side instead of end to end, and the chain reads as broken
+test("the chain itself never puts a corner flat against a double", () => {
+  // the chain has room to turn a tile earlier, so here it is absolute
   for (const b of boards(150))
     for (const { L } of layouts(b)) {
       if (overlapCount(L.boxes) > 0) continue;
-      for (const seq of [chainOf(L), armOf(L, "top"), armOf(L, "bottom")])
-        for (let i = 1; i < seq.length; i++) {
-          const p = seq[i - 1], c = seq[i];
-          if (isDouble(p) || isDouble(c))
-            assert.ok(!alongside(p, c),
-              `${JSON.stringify(p.e)} and ${JSON.stringify(c.e)} lie side by side`);
-        }
+      const seq = chainOf(L);
+      for (let i = 1; i < seq.length; i++) {
+        const p = seq[i - 1], c = seq[i];
+        if (isDouble(p) || isDouble(c))
+          assert.ok(!alongside(p, c),
+            `${JSON.stringify(p.e)} and ${JSON.stringify(c.e)} lie side by side`);
+      }
     }
+});
+
+test("an arm turns a tile early rather than corner against a double", () => {
+  /* An arm cannot always avoid it: when the chain is close the turn has to
+     happen, and if the tile before the double could not be a corner either
+     there is nowhere left to go. It must stay rare, and the screen must not
+     choose one when a clean layout of much the same size exists. */
+  let boardsSeen = 0, awkward = 0;
+  for (const b of boards(200)) {
+    const pick = chosen(b);
+    if (!pick) continue;
+    boardsSeen++;
+    const bad = awkwardCorners(pick.L.boxes);
+    if (!bad) continue;
+    awkward++;
+    // it was taken only because avoiding it costs real size
+    const clean = [];
+    for (const armPer of ARM_FOLDS)
+      for (const top of [+1, -1]) for (const bottom of [-1, +1])
+        for (let rows = 1; rows <= MAX_ROWS; rows++) {
+          const L = buildLayout(b, rows, armPer, { top, bottom });
+          if (!L || overlapCount(L.boxes) || awkwardCorners(L.boxes)) continue;
+          const xs = L.boxes.map((x) => x.x), ys = L.boxes.map((x) => x.y);
+          const wide = Math.max(...L.boxes.map((x) => x.x + x.w)) - Math.min(...xs);
+          const tall = Math.max(...L.boxes.map((x) => x.y + x.h)) - Math.min(...ys);
+          clean.push(Math.min(MAXSCALE, 760 / wide, 210 / tall));
+        }
+    const bestClean = clean.length ? Math.max(...clean) : 0;
+    assert.ok(pick.scale >= bestClean - 0.001,
+      `took an awkward corner while a clean layout was as big (${pick.scale} vs ${bestClean})`);
+  }
+  assert.ok(awkward / boardsSeen < 0.2,
+    `awkward corners on ${(awkward / boardsSeen * 100).toFixed(1)}% of boards — too many`);
+});
+
+test("folding keeps the tiles readable", () => {
+  // the complaint that started this: arms grew straight until nothing could be
+  // read. Measure what the screen would actually choose.
+  let tiny = 0, seen = 0;
+  for (const b of boards(200)) {
+    if (b.top.length + b.bottom.length < 4) continue;
+    const pick = chosen(b);
+    if (!pick) continue;
+    seen++;
+    if (pick.scale < 0.35) tiny++;
+  }
+  assert.ok(seen > 200, `checked ${seen} boards with arms`);
+  assert.ok(tiny / seen < 0.06,
+    `${(tiny / seen * 100).toFixed(1)}% of boards draw at under a third size`);
 });
 
 test("the chain never folds on the spinner — its arms need that space", () => {

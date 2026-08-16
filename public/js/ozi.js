@@ -198,20 +198,30 @@
     return { line: b.line.map((e) => e.slice()), top: b.top.map((e) => e.slice()),
       bottom: b.bottom.map((e) => e.slice()), spinnerVal: b.spinnerVal };
   }
+  /* What a move is worth. One exception to the divide-by-five rule: the very
+     first tile on an empty table scores only when it is the 5-5. Other opening
+     tiles do add up to a multiple of five — 2-3 makes five, 4-6 makes ten —
+     but by the rules of the game those do not count. */
+  function scoreFor(board, wasEmpty, tile) {
+    if (wasEmpty && !(tile[0] === 5 && tile[1] === 5)) return 0;
+    const s = openSum(board);
+    return (s > 0 && s % 5 === 0) ? s : 0;
+  }
+
   function movePoints(b, tile, side) {
+    const wasEmpty = b.line.length === 0;
     const c = cloneBoard(b);
     place(c, tile, side);
-    const s = openSum(c);
-    return (s > 0 && s % 5 === 0) ? s : 0;
+    return scoreFor(c, wasEmpty, tile);
   }
 
   function applyMove(g, playerIdx, tile, side) {
     const hand = g.hands[playerIdx];
     const idx = hand.findIndex((t) => sameTile(t, tile));
     if (idx >= 0) hand.splice(idx, 1);
+    const wasEmpty = g.line.length === 0;
     place(g, tile, side);
-    const s = openSum(g);
-    const pts = (s > 0 && s % 5 === 0) ? s : 0;
+    const pts = scoreFor(g, wasEmpty, tile);
     if (pts) g.scores[teamOf(g, playerIdx)] += pts;   // partners share a score
     return pts;
   }

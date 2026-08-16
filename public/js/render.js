@@ -85,14 +85,49 @@
   /* ---------- an arm: runs up or down, folds sideways ---------- */
   function placeArm(boxes, arm, cx, startEdge, dirY, per, side) {
     let lane = cx - VW / 2 - INSET;       // left edge of the current column lane
-    let dir = dirY, cursor = startEdge, noGap = false, inLane = 0, prevDbl = false;
+    let dir = dirY, cursor = startEdge, noGap = false, inLane = 0, prevDbl = false, justTurned = null;
 
     arm.forEach((e, i) => {
       const dbl = e[0] === e[1];
-      // Same rule as the chain: a corner must never lie flat against a double,
-      // or the two touch along their sides and the arm reads as broken — and
-      // never turn on the last tile, which would leave it flat at the open end.
-      if (per > 0 && inLane >= per && i < arm.length - 1 && !dbl && !prevDbl) {  // turn: lay it flat
+      const w0 = dbl ? HW : VW, h0 = dbl ? HH : VH;
+      const g0 = noGap ? 0 : GAP;
+      const y0 = dir < 0 ? cursor - g0 - h0 : cursor + g0;   // only to test the boundary
+
+      /* A folded arm doubles back, and a lane running back towards the table
+         would land on the chain — which is why folding used to be rejected and
+         the arms simply grew until the tiles were unreadable. The return legs
+         stop at the spinner's edge and turn again instead, so the arm stays in
+         a band on its own side and never meets the chain. */
+      const headingBack = dir === -dirY;
+      const crosses = (y, h) => headingBack &&
+        (dirY < 0 ? y + h > startEdge - GAP : y < startEdge + GAP);
+      const wouldReachChain = crosses(y0, h0);
+
+      /* Turn a tile EARLY rather than be forced into a bad one. If the next
+         tile would run into the chain, the turn has to happen — and if that
+         next tile is a double, the corner would end up flat against it, which
+         reads as a broken chain. Turning here instead uses the plain tile in
+         hand as the corner, which is what a player does on a real table. */
+      let turnEarly = false;
+      const next = arm[i + 1];
+      if (next && !crosses(y0, h0)) {
+        const after = dir < 0 ? y0 : y0 + h0;
+        const nh = next[0] === next[1] ? HH : VH;
+        const ny = dir < 0 ? after - GAP - nh : after + GAP;
+        turnEarly = crosses(ny, nh);
+      }
+
+      /* Two reasons to turn, and they are not equal. Running out of lane is a
+         preference, and gives way to the tidiness rules: no corner flat against
+         a double, and none on the last tile. Reaching the chain is not a
+         preference — carrying on would put a tile on top of the chain — so it
+         turns regardless. That distinction is the whole fix: the last tile of a
+         long arm used to be refused its turn and landed on the chain, which
+         disqualified every folded layout and left the arms growing straight
+         until the tiles were unreadable. */
+      const mayCorner = i < arm.length - 1 && !dbl && !prevDbl;
+      const wantTurn = (inLane >= per || turnEarly) && mayCorner;
+      if (per > 0 && (wantTurn || wouldReachChain)) {           // turn: lay it flat
         const w = HW, h = HH;
         const x = side > 0 ? lane + INSET : lane + INSET - (HW - VW);
         const y = dir < 0 ? cursor - GAP - h : cursor + GAP;
@@ -100,14 +135,20 @@
         lane += side * HW;
         dir = -dir;
         cursor = dir < 0 ? y + h : y;
+        // Where the corner ENDS, for the tile that follows. A standing tile
+        // interlocks with the corner — narrow enough to sit beside it — but a
+        // double is laid flat and just as wide, so it has to start past it.
+        justTurned = { far: dir < 0 ? y : y + h };
         noGap = true; inLane = 0; prevDbl = false;
         return;
       }
       // doubles always sit crosswise to the run they're in
-      const w = dbl ? HW : VW, h = dbl ? HH : VH;
+      const w = w0, h = h0;
       const x = dbl ? lane : lane + INSET;
-      const g = noGap ? 0 : GAP; noGap = false;
-      const y = dir < 0 ? cursor - g - h : cursor + g;
+      const base = (justTurned && dbl) ? justTurned.far : cursor;
+      const gap = (justTurned && dbl) ? GAP : (noGap ? 0 : GAP);
+      const y = dir < 0 ? base - gap - h : base + gap;
+      noGap = false; justTurned = null;
       boxes.push({ e, x, y, w, h, orient: dbl ? "h" : "v", flip: dir < 0 });
       cursor = dir < 0 ? y : y + h;
       inLane++; prevDbl = dbl;
@@ -115,7 +156,8 @@
     return { lane, cursor, dir };         // where this arm continues
   }
 
-  function buildLayout(board, rows, armPer) {
+  function buildLayout(board, rows, armPer, sides) {
+    const armSide = sides || { top: +1, bottom: -1 };
     const line = board.line;
     if (!line.length) return null;
     const boxes = [];
@@ -132,10 +174,10 @@
         sb.spinner = true;              // the pivot tile gets its own look
         const cx = sb.x + sb.w / 2;
         const n0 = boxes.length;
-        topTip = placeArm(boxes, board.top,    cx, sb.y,        -1, armPer, +1);
+        topTip = placeArm(boxes, board.top,    cx, sb.y,        -1, armPer, armSide.top);
         for (let i = n0; i < boxes.length; i++) boxes[i].arm = "top";
         const n1 = boxes.length;
-        botTip = placeArm(boxes, board.bottom, cx, sb.y + sb.h, +1, armPer, -1);
+        botTip = placeArm(boxes, board.bottom, cx, sb.y + sb.h, +1, armPer, armSide.bottom);
         for (let i = n1; i < boxes.length; i++) boxes[i].arm = "bottom";
       }
     }
@@ -187,6 +229,32 @@
     return n;
   }
 
+  /* A corner laid flat against a double touches it side to side rather than
+     end to end, and the chain reads as broken there. The arm avoids it by
+     turning a tile early, but when the chain is close and the tile before the
+     double cannot itself be a corner, there is nowhere left to go. Counting
+     them lets the chooser prefer a layout without — while still taking one if
+     the alternative is a board of unreadable tiles. */
+  function awkwardCorners(boxes) {
+    const runs = [
+      boxes.filter((b) => b.idx !== undefined).sort((a, b) => a.idx - b.idx),
+      boxes.filter((b) => b.arm === "top"),
+      boxes.filter((b) => b.arm === "bottom"),
+    ];
+    let n = 0;
+    for (const seq of runs)
+      for (let i = 1; i < seq.length; i++) {
+        const a = seq[i - 1], b = seq[i];
+        if (a.orient !== b.orient) continue;
+        if (a.e[0] !== a.e[1] && b.e[0] !== b.e[1]) continue;    // neither is a double
+        const along = a.orient === "h"
+          ? Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)
+          : Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+        if (along > 20) n++;
+      }
+    return n;
+  }
+
   function renderBoard(boardEl, board, selTile, sides, onDrop) {
     const sel = selTile || null;
     const selDbl = sel ? sel[0] === sel[1] : false;
@@ -202,17 +270,25 @@
     const rect = boardEl.getBoundingClientRect();
     const availW = Math.max(40, rect.width - 16), availH = Math.max(40, rect.height - 16);
 
+    // Each arm may fold to either side. Trying both is what lets a long arm
+    // fold at all: one direction often runs into the chain where the other has
+    // clear space, and the straight, unreadable version used to win by default.
     let best = null;
     for (const armPer of ARM_FOLDS) {
-      for (let rows = 1; rows <= MAX_ROWS; rows++) {
-        const L = buildLayout(board, rows, armPer);
-        if (!L) continue;
-        const all = L.boxes.concat(dropBoxes(L, sides, selDbl));
-        const bb = bounds(all);
-        const scale = Math.min(MAXSCALE, availW / bb.w, availH / bb.h);
-        const rank = scale - overlapCount(L.boxes) * 100;   // overlaps are disqualifying
-        if (!best || rank > best.rank + 0.001) best = { L, bb, scale, all, rank };
-        if (rows >= board.line.length) break;
+      for (const top of [+1, -1]) {
+        for (const bottom of [-1, +1]) {
+          for (let rows = 1; rows <= MAX_ROWS; rows++) {
+            const L = buildLayout(board, rows, armPer, { top, bottom });
+            if (!L) continue;
+            const all = L.boxes.concat(dropBoxes(L, sides, selDbl));
+            const bb = bounds(all);
+            const scale = Math.min(MAXSCALE, availW / bb.w, availH / bb.h);
+            // overlaps are disqualifying; an awkward corner only breaks a tie
+            const rank = scale - overlapCount(L.boxes) * 100 - awkwardCorners(L.boxes) * 0.08;
+            if (!best || rank > best.rank + 0.001) best = { L, bb, scale, all, rank };
+            if (rows >= board.line.length) break;
+          }
+        }
       }
     }
     if (!best) return;
