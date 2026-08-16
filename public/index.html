@@ -14,6 +14,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/lobby.css" />
+  <link rel="stylesheet" href="css/cards.css" />
   <script src="js/viewport.js"></script>
   <script src="js/fullscreen.js"></script>
 </head>
@@ -86,6 +87,7 @@
         <div class="modes">
           <button class="mode" onclick="openFriend()">👥 მეგობართან</button>
           <button class="mode" onclick="openRooms('cpu')">🤖 კომპიუტერთან</button>
+          <button class="mode" onclick="openBura()">🃏 ბურა</button>
         </div>
       </div>
     </div>
@@ -200,6 +202,29 @@
       </div>
 
       <button class="roomClose" id="nameCancel" onclick="closeName()" style="display:none">გაუქმება</button>
+    </div>
+  </div>
+
+  <!-- ბურა: which game, and how long -->
+  <div class="roomOverlay" id="buraOverlay">
+    <div class="roomModal">
+      <h2>ბურა</h2>
+      <p class="roomSub">კომპიუტერთან — პრაქტიკა, მონეტების გარეშე</p>
+      <div class="rooms">
+        <button class="room best" onclick="startBura('5')">
+          <span class="rIco">🃏</span>
+          <span class="rName">ხუთკარტა</span>
+          <span class="rTime">36 კარტი</span>
+        </button>
+        <button class="room" onclick="startBura('3')">
+          <span class="rIco">🂡</span>
+          <span class="rName">სამკარტა</span>
+          <span class="rTime">20 კარტი · „ვარ"</span>
+        </button>
+      </div>
+      <p class="roomSub" style="margin-top:12px">მატჩი რამდენ ქულამდე?</p>
+      <div class="bbar" id="buraTargets"></div>
+      <button class="roomClose" onclick="closeBura()">დახურვა</button>
     </div>
   </div>
 
@@ -610,6 +635,28 @@
       btn.style.opacity = ME.daily.canClaim ? "1" : ".45";
       document.getElementById("claimLbl").textContent =
         ME.daily.canClaim ? "მიიღე " + ME.daily.reward + " 🪙" : "დღეს აღებულია";
+    }
+
+    /* ---------------- ბურა ---------------- */
+    let buraTarget = 11;
+    function openBura(){
+      paintBuraTargets();
+      document.getElementById("buraOverlay").classList.add("show");
+    }
+    function closeBura(){ document.getElementById("buraOverlay").classList.remove("show"); }
+    function paintBuraTargets(){
+      const box = document.getElementById("buraTargets");
+      box.innerHTML = "";
+      [6, 11, 21].forEach(n => {
+        const b = document.createElement("button");
+        b.className = "bbtn" + (n === buraTarget ? "" : " ghost");
+        b.textContent = n;
+        b.onclick = () => { buraTarget = n; paintBuraTargets(); };
+        box.appendChild(b);
+      });
+    }
+    function startBura(variant){
+      location.href = "bura.html?variant=" + variant + "&target=" + buraTarget;
     }
 
     /* ---------------- menu ---------------- */

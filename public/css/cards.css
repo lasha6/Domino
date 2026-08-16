@@ -1,0 +1,90 @@
+/* =====================================================================
+   Playing cards for ბურა. Drawn in CSS — no images, so the app carries
+   nothing extra and the cards stay sharp at any size.
+   ===================================================================== */
+
+.card{
+  position:relative; flex:0 0 auto;
+  width:62px; height:92px; border-radius:8px; cursor:pointer;
+  background:linear-gradient(158deg, var(--bone-hi) 0%, var(--bone) 46%, var(--bone-lo) 100%);
+  border:1px solid var(--bone-edge);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9), 0 3px 6px rgba(0,0,0,.42), 0 8px 16px rgba(0,0,0,.24);
+  transition:transform .12s, box-shadow .12s, border-color .12s;
+  user-select:none;
+}
+.card .rank{
+  position:absolute; left:6px; top:4px;
+  font:700 19px/1 var(--font-ui); letter-spacing:-.5px;
+}
+.card .pip{ position:absolute; right:6px; top:5px; font-size:16px; line-height:1; }
+.card .big{
+  position:absolute; left:50%; top:56%; transform:translate(-50%,-50%);
+  font-size:34px; line-height:1; opacity:.9;
+}
+/* hearts and diamonds are the red pair, as on any deck */
+.card.red{ color:#b3202b; }
+.card.black{ color:#1b1b22; }
+
+.card.sel{ transform:translateY(-14px); border-color:var(--brass); box-shadow:0 0 0 2px var(--brass), 0 10px 18px rgba(0,0,0,.4); }
+.card.dim{ opacity:.42; cursor:default; }
+.card.small{ width:44px; height:66px; }
+.card.small .rank{ font-size:14px; left:4px; }
+.card.small .pip{ font-size:11px; right:4px; }
+.card.small .big{ font-size:24px; }
+
+/* the back, for the opponent's hand and the stock */
+.card.back{
+  background:
+    repeating-linear-gradient(45deg, rgba(0,0,0,.16) 0 5px, transparent 5px 10px),
+    linear-gradient(160deg, var(--wood-hi), var(--wood) 55%, var(--wood-lo));
+  border-color:rgba(0,0,0,.45); cursor:default;
+}
+.card.back .rank, .card.back .pip, .card.back .big{ display:none; }
+
+/* ---- the table ---- */
+.btable{
+  flex:1 1 auto; min-height:0; position:relative; border-radius:16px; padding:8px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+  background:
+    radial-gradient(75% 105% at 50% 22%, rgba(255,240,200,.10), transparent 60%),
+    linear-gradient(180deg, rgba(0,0,0,.10), rgba(0,0,0,.28)),
+    linear-gradient(180deg, var(--baize-mid), var(--baize-deep));
+  background-clip:padding-box; border:3px solid transparent;
+  box-shadow:inset 0 3px 14px rgba(0,0,0,.45), inset 0 0 0 1px rgba(242,205,126,.16);
+}
+.btable::before{
+  content:""; position:absolute; inset:-3px; border-radius:16px; z-index:-1;
+  background:linear-gradient(160deg, var(--wood-hi), var(--wood) 45%, var(--wood-lo));
+}
+.pile{ display:flex; gap:6px; min-height:70px; align-items:center; }
+.pileLbl{ font:600 11px/1 var(--font-ui); color:var(--cream-dim); }
+
+/* the trump, shown under the stock */
+.stock{ position:absolute; left:10px; top:50%; transform:translateY(-50%);
+  display:flex; align-items:center; gap:6px; }
+.stock .count{ font:700 13px/1 var(--font-ui); color:var(--cream); }
+.trumpBox{ position:relative; width:44px; height:66px; }
+.trumpBox .card{ position:absolute; left:0; top:0; }
+.trumpBox .card.turned{ transform:rotate(90deg) translateX(14px); }
+
+/* your hand */
+.bhand{ display:flex; gap:8px; justify-content:center; align-items:flex-end;
+  padding:6px 0 2px; min-height:100px; }
+
+/* the row of buttons under the table */
+.bbar{ display:flex; gap:8px; justify-content:center; align-items:center; padding:4px 0; flex-wrap:wrap; }
+.bbtn{
+  cursor:pointer; padding:9px 18px; border-radius:11px;
+  font:700 13px/1 var(--font-ui); color:var(--ink);
+  background:linear-gradient(180deg,var(--brass-lit),var(--brass)); border:1px solid var(--brass-dim);
+}
+.bbtn.ghost{ color:var(--cream); background:rgba(3,20,11,.55); border-color:var(--line); }
+.bbtn:disabled{ opacity:.4; cursor:default; }
+
+@media (max-height:420px){
+  .card{ width:50px; height:74px; }
+  .card .big{ font-size:26px; }
+  .card .rank{ font-size:16px; }
+  .bhand{ min-height:80px; }
+  .pile{ min-height:56px; }
+}
