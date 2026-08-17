@@ -302,6 +302,23 @@ test("a mixed hand is never an out-of-turn lead", () => {
   assert.equal(B.canUnturned(g, 1, true), false, "four and one is not one suit");
 });
 
+/* ---------------- what the screen may not do ---------------- */
+
+test("the screen never counts the taken points for either player", async () => {
+  /* ვარ is a claim made by eye: you say it because you believe you are past
+     thirty-two. A running total on the wall answers that for you and the call
+     stops meaning anything — so the table shows the match score and nothing
+     else. This guards the rule, not the layout. */
+  const { readFile } = await import("node:fs/promises");
+  const html = await readFile(new URL("../public/bura.html", import.meta.url), "utf8");
+  const hud = html.slice(html.indexOf('<div class="info">'), html.indexOf("</div>", html.indexOf('<div class="info">')));
+  assert.ok(!/handPoints\(g\.taken/.test(html.slice(0, html.indexOf("roundEnded"))) ||
+            !/id="(myPts|opPts)"/.test(html),
+    "the running count must not be painted into the header");
+  assert.ok(!hud.includes("myPts") && !hud.includes("opPts"),
+    "neither player's taken points belong in the header");
+});
+
 /* ---------------- a whole round, played out ---------------- */
 
 test("a full round finishes and the points add up to 120", () => {

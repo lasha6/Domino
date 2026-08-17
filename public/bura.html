@@ -22,10 +22,11 @@
     <div class="top">
       <button class="back" onclick="location.href='index.html'">←</button>
       <div class="score"><span class="me">შენ <b id="s0">0</b></span> : <span class="cpu"><b id="s1">0</b> კომპ.</span></div>
+      <!-- No running point counts, for either side. Counting what has been
+           taken is the game: "ვარ" is a claim you make by eye, and a number on
+           the wall would answer it for you. Only the match score is public. -->
       <div class="info">
         <span class="stat"><span class="k">მიზანი</span><b id="target">11</b></span>
-        <span class="stat"><span class="k">შენი ქულა</span><b id="myPts">0</b></span>
-        <span class="stat"><span class="k">კომპ.</span><b id="opPts">0</b></span>
         <span class="stat"><span class="k">ფასი</span><b id="worth">1</b></span>
         <span class="badge">🎓 პრაქტიკა</span>
       </div>
@@ -45,8 +46,7 @@
         <span class="count" id="deckCount">0</span>
       </div>
       <span class="pileLbl" id="pileLbl">მაგიდა</span>
-      <div class="pile" id="pileLed"></div>
-      <div class="pile" id="pileAns"></div>
+      <div class="trick" id="trick"></div>
     </div>
 
     <div class="bbar" id="bar"></div>
@@ -80,6 +80,11 @@
     const TARGET  = [6, 11, 21].includes(+qs.get("target")) ? +qs.get("target") : 11;
 
     let g = null, sel = [], busy = false;
+
+    /* How fast the computer moves. Deliberately unhurried: nobody is shown a
+       running count in ბურა, so the cards on the table have to be readable
+       long enough to add up by eye. */
+    const PACE = { think: 1500, beforeReply: 1100, beforeLead: 1900 };
 
     function paintSoundBtn(){ document.getElementById("sndBtn").textContent = Sound.muted() ? "🔇" : "🔊"; }
     function toggleSound(){ Sound.toggle(); paintSoundBtn(); if(!Sound.muted()) Sound.play("tap"); }
@@ -118,19 +123,21 @@
       document.getElementById("s0").textContent = g.scores[0];
       document.getElementById("s1").textContent = g.scores[1];
       document.getElementById("target").textContent = g.target;
-      document.getElementById("myPts").textContent = Bura.handPoints(g.taken[0]);
-      document.getElementById("opPts").textContent = Bura.handPoints(g.taken[1]);
       document.getElementById("worth").textContent = Bura.callValue(g.bid.level);
       document.getElementById("deckCount").textContent = g.deck.length;
 
-      // the turned trump, with the stock lying across it
+      // the stock, with the trump face up on top of it so its suit can be read
       const tb = document.getElementById("trumpBox");
       tb.innerHTML = "";
       if (g.trumpCard) {
+        if (g.deck.length > 1) {
+          const back = backEl(true);
+          back.classList.add("deck");
+          tb.appendChild(back);
+        }
         const t = cardEl(g.trumpCard, { small: true });
         t.classList.add("turned");
         tb.appendChild(t);
-        if (g.deck.length > 1) tb.appendChild(backEl(true));
       }
 
       // the opponent's hand, face down
@@ -138,16 +145,7 @@
       oh.innerHTML = "";
       for (let i = 0; i < g.hands[1].length; i++) oh.appendChild(backEl(true));
 
-      // what is on the table
-      const led = document.getElementById("pileLed"), ans = document.getElementById("pileAns");
-      led.innerHTML = ""; ans.innerHTML = "";
-      if (g.lead) {
-        g.lead.cards.forEach((c) => led.appendChild(cardEl(c, { small: true })));
-        document.getElementById("pileLbl").textContent =
-          g.lead.seat === 0 ? "შენ ჩამოხვედი" : "კომპიუტერი ჩამოვიდა";
-      } else {
-        document.getElementById("pileLbl").textContent = "მაგიდა";
-      }
+      paintTrick();
 
       // your hand
       const mh = document.getElementById("myhand");
@@ -160,6 +158,55 @@
       });
 
       paintBar();
+    }
+
+    /* ---------------- what is on the table ----------------
+       The whole trick stays on screen until the next lead: both the cards that
+       came down and the cards that answered them, so it is always readable what
+       cut what, and what was thrown away.
+
+       One exception, and it is a rule rather than a display choice: in the
+       three-card game a card thrown away is thrown FACE DOWN, so the other
+       player never learns what it was. In the five-card game everything is
+       face up. */
+    let lastTrick = null;      // { led, leadSeat, ans, took, hidden }
+
+    function paintTrick(){
+      const box = document.getElementById("trick");
+      const lbl = document.getElementById("pileLbl");
+      box.innerHTML = "";
+
+      const row = (cards, cls, hidden) => {
+        const d = document.createElement("div");
+        d.className = "trickRow " + cls;
+        cards.forEach((c) => d.appendChild(hidden ? backEl(true) : cardEl(c, { small: true })));
+        return d;
+      };
+
+      if (g.lead) {
+        lbl.textContent = g.lead.seat === 0 ? "შენ ჩამოხვედი" : "კომპიუტერი ჩამოვიდა";
+        box.appendChild(row(g.lead.cards, "led"));
+        return;
+      }
+      if (lastTrick) {
+        const l = lastTrick;
+        lbl.textContent = l.took === 0 ? "ხელი შენ აიღე" : "ხელი კომპიუტერმა აიღო";
+        box.appendChild(row(l.led, "led" + (l.took === l.leadSeat ? " took" : "")));
+        box.appendChild(row(l.ans, "answer" + (l.took !== l.leadSeat ? " took" : ""), l.hidden));
+        return;
+      }
+      lbl.textContent = "მაგიდა";
+    }
+
+    // Remember the trick before the engine clears it, and decide whether the
+    // answer is one the other side is allowed to see.
+    function recordTrick(leadCards, leadSeat, ansCards, ansSeat, took){
+      const wasDiscard = took === leadSeat;                  // they could not cut
+      lastTrick = {
+        led: leadCards, leadSeat, ans: ansCards, took,
+        // only the computer's face-down throw is hidden — your own you just made
+        hidden: g.variant === "3" && wasDiscard && ansSeat === 1,
+      };
     }
 
     /* ---------------- picking cards ---------------- */
@@ -229,7 +276,7 @@
       sel = []; Sound.play("place");
       setMsg("ჩამოხვედი " + cards.length + " ქვით");
       render();
-      setTimeout(cpuAnswer, 700);
+      setTimeout(cpuAnswer, PACE.beforeReply);
     }
     function doUnturned(){
       const cards = g.hands[0].slice();
@@ -237,12 +284,14 @@
       sel = []; Sound.play("place");
       setMsg("<b>მალუტკა!</b>");
       render();
-      setTimeout(cpuAnswer, 700);
+      setTimeout(cpuAnswer, PACE.beforeReply);
     }
     function doAnswer(){
       const cards = sel.map((i) => g.hands[0][i]);
+      const led = g.lead.cards.slice(), leadSeat = g.lead.seat;
       const took = Bura.answer(g, 0, cards);
       if (took == null) return toast("ზუსტად " + g.lead.cards.length + " ქვა");
+      recordTrick(led, leadSeat, cards, 0, took);
       sel = [];
       Sound.play(took === 0 ? "score" : "place");
       setMsg(took === 0 ? "<span class='pts'>გაჭერი!</span>" : "ვერ გაიჭერი");
@@ -264,7 +313,7 @@
         if (lvl <= 2) { Bura.acceptCall(g, 1); setMsg("კომპიუტერმა მიიღო"); }
         else { Bura.concede(g, 1); busy = false; roundEnded(); return; }
         busy = false; render();
-      }, 800);
+      }, PACE.think);
     }
     function cpuLead(){
       busy = true; render();
@@ -274,24 +323,26 @@
         Sound.play("place");
         setMsg("კომპიუტერი ჩამოვიდა " + cards.length + " ქვით");
         busy = false; render();
-      }, 800);
+      }, PACE.think);
     }
     function cpuAnswer(){
       busy = true; render();
       setTimeout(() => {
         const cards = Bura.aiAnswer(g, 1);
+        const led = g.lead.cards.slice(), leadSeat = g.lead.seat;
         const took = Bura.answer(g, 1, cards);
+        recordTrick(led, leadSeat, cards, 1, took);
         Sound.play(took === 1 ? "score" : "place");
         setMsg(took === 1 ? "კომპიუტერმა გაჭრა" : "კომპიუტერმა ვერ გაჭრა");
         busy = false; render();
         next();
-      }, 800);
+      }, PACE.think);
     }
 
     function afterAction(){ next(); }
     function next(){
       if (g.phase !== "play") { roundEnded(); return; }
-      if (g.turn === 1 && !g.lead) setTimeout(cpuLead, 600);
+      if (g.turn === 1 && !g.lead) setTimeout(cpuLead, PACE.beforeLead);
       else render();
     }
 
@@ -315,8 +366,8 @@
       }
       Sound.play(won ? "handWin" : "handLose");
       show(title, text, "შემდეგი რაუნდი", () => {
-        Bura.nextRound(g); sel = []; hide(); render();
-        if (g.turn === 1) setTimeout(cpuLead, 600); else setMsg("შენი სვლაა");
+        Bura.nextRound(g); sel = []; lastTrick = null; hide(); render();
+        if (g.turn === 1) setTimeout(cpuLead, PACE.beforeLead); else setMsg("შენი სვლაა");
       });
     }
     function show(title, text, btn, fn){
@@ -331,10 +382,10 @@
     /* ---------------- go ---------------- */
     function startMatch(){
       g = Bura.newGame({ variant: VARIANT, target: TARGET });
-      sel = []; busy = false;
+      sel = []; busy = false; lastTrick = null;
       hide(); render();
       setMsg(g.turn === 0 ? "შენი სვლაა — აირჩიე ქვები" : "კომპიუტერი იწყებს");
-      if (g.turn === 1) setTimeout(cpuLead, 700);
+      if (g.turn === 1) setTimeout(cpuLead, PACE.beforeLead);
     }
     startMatch();
   </script>
