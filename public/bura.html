@@ -84,7 +84,7 @@
     /* How fast the computer moves. Deliberately unhurried: nobody is shown a
        running count in ბურა, so the cards on the table have to be readable
        long enough to add up by eye. */
-    const PACE = { think: 1500, beforeReply: 1100, beforeLead: 1900 };
+    const PACE = { think: 1500, beforeReply: 1100, beforeLead: 900, showTrick: 2300 };
 
     function paintSoundBtn(){ document.getElementById("sndBtn").textContent = Sound.muted() ? "🔇" : "🔊"; }
     function toggleSound(){ Sound.toggle(); paintSoundBtn(); if(!Sound.muted()) Sound.play("tap"); }
@@ -295,8 +295,7 @@
       sel = [];
       Sound.play(took === 0 ? "score" : "place");
       setMsg(took === 0 ? "<span class='pts'>გაჭერი!</span>" : "ვერ გაიჭერი");
-      render();
-      next();
+      settleTrick();
     }
     function doVar(){
       const r = Bura.sayVar(g, 0);
@@ -334,9 +333,23 @@
         recordTrick(led, leadSeat, cards, 1, took);
         Sound.play(took === 1 ? "score" : "place");
         setMsg(took === 1 ? "კომპიუტერმა გაჭრა" : "კომპიუტერმა ვერ გაჭრა");
-        busy = false; render();
-        next();
+        settleTrick();
       }, PACE.think);
+    }
+
+    /* The trick is shown for a moment and then swept off the table — leaving it
+       there until the next lead read as the game being stuck, because nothing
+       ever visibly collected it. */
+    function settleTrick(){
+      busy = true; render();
+      setTimeout(() => {
+        lastTrick = null;
+        busy = false;
+        if (g.phase !== "play") { roundEnded(); return; }
+        setMsg(g.turn === 0 ? "შენი სვლაა — აირჩიე ქვები" : "კომპიუტერის სვლაა");
+        render();
+        if (g.turn === 1 && !g.lead) setTimeout(cpuLead, PACE.beforeLead);
+      }, PACE.showTrick);
     }
 
     function afterAction(){ next(); }
