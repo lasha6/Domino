@@ -199,13 +199,15 @@
     }
 
     // Remember the trick before the engine clears it, and decide whether the
-    // answer is one the other side is allowed to see.
+    // answer is one anybody is allowed to see.
     function recordTrick(leadCards, leadSeat, ansCards, ansSeat, took){
       const wasDiscard = took === leadSeat;                  // they could not cut
       lastTrick = {
         led: leadCards, leadSeat, ans: ansCards, took,
-        // only the computer's face-down throw is hidden — your own you just made
-        hidden: g.variant === "3" && wasDiscard && ansSeat === 1,
+        // In the three-card game a thrown card goes face down — and it does so
+        // for BOTH players. Showing your own while hiding theirs looked like
+        // the machine was being given something you were not.
+        hidden: g.variant === "3" && wasDiscard,
       };
     }
 
