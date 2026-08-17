@@ -67,8 +67,31 @@
         </div>
       </div>
 
-      <!-- center hero -->
-      <div class="center">
+      <!-- ---- which game ---- -->
+      <div class="center" id="pickGame">
+        <h1 class="logo-title">აირჩიე თამაში</h1>
+        <div class="games">
+          <button class="game" onclick="chooseGame('domino')">
+            <span class="gArt gDomino"><i></i><i></i></span>
+            <span class="gName">დომინო</span>
+            <span class="gSub">ქართული წესებით</span>
+          </button>
+          <button class="game" onclick="chooseGame('bura')">
+            <span class="gArt gBura"><i>♠</i><i>♥</i></span>
+            <span class="gName">ბურა</span>
+            <span class="gSub">3 და 5 კარტა</span>
+          </button>
+          <button class="game locked" onclick="toast('ჯოკერი — წესები ჯერ არ გვაქვს')">
+            <span class="gArt gJoker">🃏</span>
+            <span class="gName">ჯოკერი</span>
+            <span class="gSub">მალე</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ---- domino ---- -->
+      <div class="center gameView" id="viewDomino" style="display:none">
+        <button class="backGame" onclick="chooseGame(null)">← თამაშები</button>
         <div class="tiles">
           <div class="tile a">
             <div class="half"><div class="pips"><i></i><span></span><i></i><span></span><i></i><span></span><i></i><span></span><i></i></div></div>
@@ -87,7 +110,21 @@
         <div class="modes">
           <button class="mode" onclick="openFriend()">👥 მეგობართან</button>
           <button class="mode" onclick="openRooms('cpu')">🤖 კომპიუტერთან</button>
-          <button class="mode" onclick="openBura()">🃏 ბურა</button>
+        </div>
+      </div>
+
+      <!-- ---- bura ---- -->
+      <div class="center gameView" id="viewBura" style="display:none">
+        <button class="backGame" onclick="chooseGame(null)">← თამაშები</button>
+        <div class="buraArt"><span>♠</span><span>♥</span><span>♦</span><span>♣</span></div>
+        <h1 class="logo-title">ბურა</h1>
+        <p class="logo-sub" id="buraSub">კომპიუტერთან</p>
+        <button class="play" onclick="openBura()">
+          <span class="arrow">▶</span> ითამაშე
+        </button>
+        <div class="modes">
+          <button class="mode" onclick="toast('ონლაინ ბურა — შემდეგი ნაბიჯია')">🌐 ონლაინ</button>
+          <button class="mode" onclick="toast('ონლაინ ბურა — შემდეგი ნაბიჯია')">👥 მეგობართან</button>
         </div>
       </div>
     </div>
@@ -635,6 +672,22 @@
       btn.style.opacity = ME.daily.canClaim ? "1" : ".45";
       document.getElementById("claimLbl").textContent =
         ME.daily.canClaim ? "მიიღე " + ME.daily.reward + " 🪙" : "დღეს აღებულია";
+    }
+
+    /* ---------------- which game ----------------
+       The picker and each game's own screen live on this one page rather than
+       on separate ones. Everything around them — the profile, the coins, the
+       shop, the menu, signing in — belongs to the player and not to any game,
+       and splitting the page would mean keeping a second copy of all of it in
+       step with the first. */
+    let currentGame = null;
+    function chooseGame(name){
+      currentGame = name;
+      document.getElementById("pickGame").style.display = name ? "none" : "";
+      document.getElementById("viewDomino").style.display = name === "domino" ? "" : "none";
+      document.getElementById("viewBura").style.display   = name === "bura" ? "" : "none";
+      if (name) { Sound.play("tap"); localStorage.setItem("dominoLastGame", name); }
+      else localStorage.removeItem("dominoLastGame");
     }
 
     /* ---------------- ბურა ---------------- */
