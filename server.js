@@ -457,8 +457,9 @@ function buraBotMove(room, force) {
   } else {
     const led = b.lead.cards.slice(), leadSeat = b.lead.seat;
     const cards = Bura.aiAnswer(b, seat);
+    const already = Bura.committed(b, seat);
     const took = Bura.answer(b, seat, cards);
-    recordBuraTrick(room, led, leadSeat, cards, seat, took);
+    recordBuraTrick(room, led, leadSeat, already.concat(cards), seat, took, already.length);
     say(room, took === seat ? p.name + " გაჭრა" : p.name + " ვერ გაჭრა");
   }
   buraAdvance(room);
@@ -470,10 +471,12 @@ function buraMaybeBot(room) {
 
 // What the table last saw. Kept on the room so both players are shown the same
 // trick, and so a card thrown face down stays face down for both of them.
-function recordBuraTrick(room, led, leadSeat, ans, ansSeat, took) {
+function recordBuraTrick(room, led, leadSeat, ans, ansSeat, took, alreadyOpen) {
   room.lastTrick = {
     led, leadSeat, ans, ansSeat, took,
     hidden: room.variant === "3" && took === leadSeat,
+    // a card already led is one both players have seen; it stays face up
+    open: alreadyOpen || 0,
   };
 }
 
@@ -557,6 +560,7 @@ function buraView(room, seat) {
     oppBot: !!opp.bot,
     trump: b.trump, trumpCard: b.trumpCard, deck: b.deck.length,
     lead: b.lead ? { seat: b.lead.seat, cards: b.lead.cards } : null,
+    answerSize: b.lead ? Bura.answerSize(b, seat) : 0,
     lastTrick: room.lastTrick || null,
     scores: b.scores, round: b.round, turn: b.turn,
     myTurn: b.turn === seat && room.phase === "play",
@@ -1025,9 +1029,10 @@ io.on("connection", (socket) => {
     const seat = seatOf(room, socket); if (seat < 0) return;
     if (!Array.isArray(cards)) return;
     const led = room.b.lead.cards.slice(), leadSeat = room.b.lead.seat;
+    const already = Bura.committed(room.b, seat);
     const took = Bura.answer(room.b, seat, cards);
     if (took == null) return;
-    recordBuraTrick(room, led, leadSeat, cards, seat, took);
+    recordBuraTrick(room, led, leadSeat, already.concat(cards), seat, took, already.length);
     say(room, took === seat ? at(room, seat).name + " გაჭრა" : at(room, seat).name + " ვერ გაჭრა");
     buraAdvance(room);
   });

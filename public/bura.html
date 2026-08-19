@@ -178,10 +178,10 @@
       const lbl = document.getElementById("pileLbl");
       box.innerHTML = "";
 
-      const row = (cards, cls, hidden) => {
+      const row = (cards, cls, hidden, openFrom) => {
         const d = document.createElement("div");
         d.className = "trickRow " + cls;
-        cards.forEach((c) => d.appendChild(hidden ? backEl(true) : cardEl(c, { small: true })));
+        cards.forEach((c, i) => d.appendChild((hidden && i >= (openFrom || 0)) ? backEl(true) : cardEl(c, { small: true })));
         return d;
       };
 
@@ -194,7 +194,7 @@
         const l = lastTrick;
         lbl.textContent = l.took === 0 ? "ხელი შენ აიღე" : "ხელი კომპიუტერმა აიღო";
         box.appendChild(row(l.led, "led" + (l.took === l.leadSeat ? " took" : "")));
-        box.appendChild(row(l.ans, "answer" + (l.took !== l.leadSeat ? " took" : ""), l.hidden));
+        box.appendChild(row(l.ans, "answer" + (l.took !== l.leadSeat ? " took" : ""), l.hidden, l.open));
         return;
       }
       lbl.textContent = "მაგიდა";
@@ -202,7 +202,7 @@
 
     // Remember the trick before the engine clears it, and decide whether the
     // answer is one anybody is allowed to see.
-    function recordTrick(leadCards, leadSeat, ansCards, ansSeat, took){
+    function recordTrick(leadCards, leadSeat, ansCards, ansSeat, took, alreadyOpen){
       const wasDiscard = took === leadSeat;                  // they could not cut
       lastTrick = {
         led: leadCards, leadSeat, ans: ansCards, took,
@@ -210,6 +210,9 @@
         // for BOTH players. Showing your own while hiding theirs looked like
         // the machine was being given something you were not.
         hidden: g.variant === "3" && wasDiscard,
+        // a card they had already led is one both players have seen, so it
+        // stays face up however the rest of the answer is thrown
+        open: alreadyOpen || 0,
       };
     }
 
@@ -226,7 +229,7 @@
         sel.push(i);
       } else {
         // answering: exactly as many as were led
-        if (sel.length >= g.lead.cards.length) sel.shift();
+        if (sel.length >= Bura.answerSize(g, 0)) sel.shift();
         sel.push(i);
       }
       Sound.play("tap");
@@ -269,7 +272,7 @@
         if (Bura.isBura(g, 0) && Bura.buraTakesRound(g)) add("ბურა!", doBura, false);
         else if (Bura.canMalutka(g, 0)) add("მალუტკა", doUnturned, true);
       } else {
-        const need = g.lead.cards.length;
+        const need = Bura.answerSize(g, 0);
         add("უპასუხე (" + sel.length + "/" + need + ")", doAnswer, false, sel.length !== need);
         // the price can be raised while looking at what has been led
         const nextCall = Bura.CALLS[g.bid.level];
@@ -299,9 +302,10 @@
     function doAnswer(){
       const cards = sel.map((i) => g.hands[0][i]);
       const led = g.lead.cards.slice(), leadSeat = g.lead.seat;
+      const already = Bura.committed(g, 0);
       const took = Bura.answer(g, 0, cards);
-      if (took == null) return toast("ზუსტად " + g.lead.cards.length + " ქვა");
-      recordTrick(led, leadSeat, cards, 0, took);
+      if (took == null) return toast("ზუსტად " + Bura.answerSize(g, 0) + " ქვა");
+      recordTrick(led, leadSeat, already.concat(cards), 0, took, already.length);
       sel = [];
       Sound.play(took === 0 ? "score" : "place");
       setMsg(took === 0 ? "<span class='pts'>გაჭერი!</span>" : "ვერ გაიჭერი");
@@ -345,8 +349,9 @@
       setTimeout(() => {
         const cards = Bura.aiAnswer(g, 1);
         const led = g.lead.cards.slice(), leadSeat = g.lead.seat;
+        const already = Bura.committed(g, 1);
         const took = Bura.answer(g, 1, cards);
-        recordTrick(led, leadSeat, cards, 1, took);
+        recordTrick(led, leadSeat, already.concat(cards), 1, took, already.length);
         Sound.play(took === 1 ? "score" : "place");
         setMsg(took === 1 ? "კომპიუტერმა გაჭრა" : "კომპიუტერმა ვერ გაჭრა");
         settleTrick();

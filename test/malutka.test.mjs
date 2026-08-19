@@ -26,24 +26,25 @@ test("three of a suit can be turned back at a card just led", () => {
   assert.equal(g.lead.seat, 1, "the malutka is now what is on the table");
   assert.equal(g.lead.cards.length, 3);
   assert.equal(g.turn, 0, "and the player who led must now beat it");
-  assert.deepEqual(g.pot, [c("A", S.spades)], "their card stays on the table");
+  assert.deepEqual(g.answerSoFar, [c("A", S.spades)], "their card stays on the table");
   assert.equal(g.hands[1].length, 0, "the whole hand went down");
 });
 
 test("whoever wins the turned-back trick takes every card on the table", () => {
   const g = B.newGame({ variant: "3" });
   g.trump = S.hearts; g.deck = [];
-  g.hands[0] = [c("A", S.spades), c("J", S.hearts), c("Q", S.hearts), c("K", S.hearts)];
+  g.hands[0] = [c("A", S.spades), c("J", S.hearts), c("Q", S.hearts)];
   g.hands[1] = [c("J", S.clubs), c("Q", S.clubs), c("K", S.clubs)];
   g.turn = 0;
-  B.lead(g, 0, [c("A", S.spades)]);
-  B.malutka(g, 1);
-  // three trumps beat three clubs
-  const took = B.answer(g, 0, [c("J", S.hearts), c("Q", S.hearts), c("K", S.hearts)]);
-  assert.equal(took, 0, "the trumps took it");
-  assert.equal(g.taken[0].length, 7, "all seven cards on the table went with it");
-  assert.equal(B.handPoints(g.taken[0]), 11 + 2 + 3 + 4 + 2 + 3 + 4, "and all of their points");
-  assert.equal(g.pot, null, "the table is clear again");
+  B.lead(g, 0, [c("A", S.spades)]);      // one spade down
+  B.malutka(g, 1);                        // three clubs turned back at them
+  assert.equal(B.answerSize(g, 0), 2, "the spade counts, so two more are asked for");
+
+  // the spade cannot beat a club, so two trumps are not enough to save it
+  const took = B.answer(g, 0, [c("J", S.hearts), c("Q", S.hearts)]);
+  assert.equal(took, 1, "one card of the answer beats nothing, so the malutka takes it");
+  assert.equal(g.taken[1].length, 6, "all six cards on the table went with it");
+  assert.equal(g.answerSoFar, null, "and the table is clear again");
 });
 
 test("a malutka cannot be laid on top of your own lead", () => {
@@ -145,4 +146,54 @@ test("a hand that is not all trumps is not ბურა", () => {
   assert.equal(B.isBura(g, 0), false);
   assert.equal(B.sayBura(g, 0), false, "and claiming it does nothing");
   assert.equal(g.phase, "play", "the round carries on");
+});
+
+test("the card they already led counts towards answering the malutka", () => {
+  /* This locked the game up before: the computer had led one card, so it held
+     two, and was asked to beat a malutka of three. The card it already put
+     down is part of its answer — one down, two added, three against three. */
+  const g = B.newGame({ variant: "3" });
+  g.trump = S.hearts; g.deck = [];
+  g.hands[0] = [c("A", S.spades), c("K", S.spades), c("Q", S.spades)];
+  g.hands[1] = [c("A", S.diamonds), c("J", S.diamonds), c("Q", S.diamonds)];
+  g.turn = 1;
+  B.lead(g, 1, [c("A", S.diamonds)]);            // one card down, two left
+  assert.equal(g.hands[1].length, 2);
+
+  assert.ok(B.malutka(g, 0), "three spades go back at them");
+  assert.equal(g.turn, 1, "and it is their move");
+  assert.equal(B.answerSize(g, 1), 2, "one is already down, so two more are asked for");
+  assert.deepEqual(B.committed(g, 1), [c("A", S.diamonds)], "and that one is theirs to count");
+
+  const reply = B.aiAnswer(g, 1);
+  assert.equal(reply.length, 2, "the computer adds two");
+  const took = B.answer(g, 1, reply);
+  assert.equal(took, 0, "diamonds cannot beat spades here, so the malutka takes it");
+  assert.equal(g.hands[1].length, 0, "their hand is empty");
+  assert.equal(g.taken[0].length, 6, "and all six cards went with the trick");
+});
+
+test("a malutka can be beaten by what the other player already had down plus more", () => {
+  const g = B.newGame({ variant: "3" });
+  g.trump = S.hearts; g.deck = [];
+  g.hands[0] = [c("J", S.spades), c("Q", S.spades), c("K", S.spades)];
+  g.hands[1] = [c("J", S.hearts), c("Q", S.hearts), c("K", S.hearts)];   // all trumps
+  g.turn = 1;
+  B.lead(g, 1, [c("J", S.hearts)]);
+  B.malutka(g, 0);
+  const took = B.answer(g, 1, [c("Q", S.hearts), c("K", S.hearts)]);
+  assert.equal(took, 1, "three trumps, one of them already down, beat three spades");
+  assert.equal(g.taken[1].length, 6);
+});
+
+test("a normal answer is still card for card", () => {
+  const g = B.newGame({ variant: "3" });
+  g.trump = S.hearts; g.deck = [];
+  g.hands[0] = [c("A", S.spades), c("K", S.spades)];
+  g.hands[1] = [c("A", S.diamonds), c("J", S.diamonds)];
+  g.turn = 0;
+  B.lead(g, 0, [c("A", S.spades)]);
+  assert.equal(B.answerSize(g, 1), 1, "one card was led, one answers it");
+  assert.equal(B.canAnswer(g, 1, [c("A", S.diamonds), c("J", S.diamonds)]), false,
+    "two cannot answer one");
 });

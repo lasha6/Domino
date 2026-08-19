@@ -332,10 +332,10 @@
       const box = document.getElementById("trick");
       const lbl = document.getElementById("pileLbl");
       box.innerHTML = "";
-      const row = (cards, cls, hidden) => {
+      const row = (cards, cls, hidden, openFrom) => {
         const d = document.createElement("div");
         d.className = "trickRow " + cls;
-        cards.forEach((c) => d.appendChild(hidden ? backEl(true) : cardEl(c, { small: true })));
+        cards.forEach((c, i) => d.appendChild((hidden && i >= (openFrom || 0)) ? backEl(true) : cardEl(c, { small: true })));
         return d;
       };
       if (S.lead) {
@@ -347,7 +347,7 @@
         const l = S.lastTrick;
         lbl.textContent = l.took === S.seat ? "ხელი შენ აიღე" : "ხელი მოწინააღმდეგემ აიღო";
         box.appendChild(row(l.led, "led" + (l.took === l.leadSeat ? " took" : "")));
-        box.appendChild(row(l.ans, "answer" + (l.took !== l.leadSeat ? " took" : ""), l.hidden));
+        box.appendChild(row(l.ans, "answer" + (l.took !== l.leadSeat ? " took" : ""), l.hidden, l.open));
         return;
       }
       lbl.textContent = "მაგიდა";
@@ -363,7 +363,7 @@
         if (sel.length && S.hand[sel[0]][0] !== suit) sel = [];
         sel.push(i);
       } else {
-        if (sel.length >= S.lead.cards.length) sel.shift();
+        if (sel.length >= (S.answerSize != null ? S.answerSize : S.lead.cards.length)) sel.shift();
         sel.push(i);
       }
       Sound.play("tap");
@@ -399,7 +399,7 @@
         if (S.canBura) add("ბურა!", () => socket.emit("bBura"), false);
         else if (S.canMalutka) add("მალუტკა", () => { socket.emit("bLead", { cards: S.hand.slice(), unturned: true }); sel = []; }, true);
       } else {
-        const need = S.lead.cards.length;
+        const need = S.answerSize != null ? S.answerSize : S.lead.cards.length;
         add("უპასუხე (" + sel.length + "/" + need + ")",
             () => { socket.emit("bAnswer", { cards: sel.map(i => S.hand[i]) }); sel = []; },
             false, sel.length !== need);

@@ -107,7 +107,8 @@
       scores: [0, 0],           // match points
       turn: 0,                  // whose lead it is
       lead: null,               // { seat, cards }
-      pot: null,                // cards left over when a lead was turned back
+      answerSoFar: null,        // cards the answering player already has down
+      answerBy: null,
       phase: "play",            // play | roundOver | over
       round: 1,
       bid: { level: 0, team: null, pending: null },  // pending = a call awaiting an answer
@@ -212,8 +213,9 @@
     if (!canMalutka(g, seat, allowAnySuit)) return false;
     const cards = g.hands[seat].slice();
     if (g.lead) {
-      g.pot = (g.pot || []).concat(g.lead.cards);      // still to be won with the trick
-      g.turnedBack = true;
+      // their card stays where it is and counts towards their answer
+      g.answerSoFar = g.lead.cards.slice();
+      g.answerBy = g.lead.seat;
     }
     removeAll(g.hands[seat], cards);
     g.lead = { seat, cards: cards.map((c) => c.slice()), malutka: true };
@@ -232,10 +234,23 @@
     return true;
   }
 
-  /* ---------------- answering ---------------- */
+  /* ---------------- answering ----------------
+     Card for card — but when a malutka is turned back, the card the other
+     player had already led STAYS on the table and counts as part of their
+     answer. Against a malutka of three they have one down already and add two.
+     That card is left face up: the malutka was played knowing it, so hiding it
+     would only be hiding it from the person who put it there. */
+  function committed(g, seat) {
+    return (g.answerBy === seat && g.answerSoFar) ? g.answerSoFar : [];
+  }
+  function answerSize(g, seat) {
+    if (!g.lead) return 0;
+    const still = g.lead.cards.length - committed(g, seat).length;
+    return Math.max(0, Math.min(still, g.hands[seat].length));
+  }
   function canAnswer(g, seat, cards) {
     if (g.phase !== "play" || !g.lead || g.turn !== seat) return false;
-    if (cards.length !== g.lead.cards.length) return false;
+    if (cards.length !== answerSize(g, seat)) return false;
     return holdsAll(g.hands[seat], cards);
   }
 
@@ -243,10 +258,11 @@
   function answer(g, seat, cards) {
     if (!canAnswer(g, seat, cards)) return null;
     removeAll(g.hands[seat], cards);
-    const took = beatsAll(cards, g.lead.cards, g.trump) ? seat : g.lead.seat;
-    // anything left on the table from a turned-back lead goes with the trick
-    const pot = (g.pot || []).concat(g.lead.cards, cards);
-    g.pot = null; g.turnedBack = false;
+    // whatever they had already put down is part of what they are answering with
+    const full = committed(g, seat).concat(cards);
+    const took = beatsAll(full, g.lead.cards, g.trump) ? seat : g.lead.seat;
+    const pot = g.lead.cards.concat(full);
+    g.answerSoFar = null; g.answerBy = null;
     g.taken[took].push(...pot);
     g.log = took === seat ? "გაიჭრა" : "ვერ გაიჭრა";
     g.lead = null;
@@ -348,7 +364,7 @@
     Object.assign(g, {
       deck: fresh.deck, trumpCard: fresh.trumpCard, trump: fresh.trump,
       hands: fresh.hands, taken: [[], []],
-      turn: starter, lead: null, pot: null, turnedBack: false, phase: "play",
+      turn: starter, lead: null, answerSoFar: null, answerBy: null, phase: "play",
       bid: { level: 0, team: null, pending: null },
       round: g.round + 1, roundWinner: null, roundWorth: 0, log: "",
     });
@@ -364,7 +380,7 @@
     return leads[0];
   }
   function aiAnswer(g, seat) {
-    const hand = g.hands[seat], led = g.lead.cards, n = led.length;
+    const hand = g.hands[seat], led = g.lead.cards, n = answerSize(g, seat);
     // take it if that can be done, spending as little as possible
     const winners = combinations(hand, n).filter((c) => beatsAll(c, led, g.trump));
     if (winners.length) {
@@ -389,7 +405,7 @@
     makeDeck, shuffle, beats, beatsAll, strength,
     newGame, legalLeads, canLead, lead, canUnturned, canMalutka, malutka,
     isBura, sayBura, buraTakesRound,
-    canAnswer, answer, refill,
+    canAnswer, answer, refill, answerSize, committed,
     canCall, call, acceptCall, concede, callValue,
     canSayVar, sayVar,
     roundStanding, finishRound, endRound, nextRound,
