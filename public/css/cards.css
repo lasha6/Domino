@@ -303,7 +303,7 @@
    this game, so a row of backs said nothing and took the room the cross needs. */
 /* The partner across the top is a name over a tally, so the cross starts below
    that and is centred in whatever is left. */
-.btable.jk{ padding-top:52px; justify-content:center; }
+.btable.jk{ justify-content:center; }   /* padding-top is measured, see joker.html */
 .btable.jk .seatBox .fan{ display:none; }
 .btable.jk .seatBox.across{ top:6px; }
 /* The trump goes in the top-left corner. It used to sit at the right edge
@@ -320,7 +320,7 @@
 .btable.jk .stock .card .big { font-size:1.9em; }
 .btable.jk .trumpBox{ width:auto; height:auto; }
 .btable.jk .trumpBox .card{ position:static; }
-.btable.jk .pileLbl{ position:absolute; left:50%; bottom:5px; transform:translateX(-50%); }
+.btable.jk .pileLbl{ position:absolute; left:50%; bottom:7px; transform:translateX(-50%); }
 
 /* your own hand scales with the table too, so nine cards still fit a narrow one */
 .jkHand .card{
@@ -333,7 +333,6 @@
 .jkHand .card.jokerCard .rank{ font-size:.62em; }
 
 @media (max-height:420px){
-  .btable.jk{ padding-top:46px; }
 }
 
 /* ---- the joker's face ----
@@ -341,15 +340,41 @@
    a three-pointed cap with a bell on each point, drawn in the same two colours
    everywhere so a joker is recognised across the table at a glance. */
 .jkArt{
-  position:absolute; left:50%; top:53%; transform:translate(-50%,-50%);
-  width:74%; height:auto; overflow:visible;
+  position:absolute; left:50%; top:52%; transform:translate(-50%,-50%);
+  width:80%; height:auto; overflow:visible;
 }
 .jkArt .capR{ fill:#c8202f; }        /* the red half of the cap */
 .jkArt .capB{ fill:#1f3f8f; }        /* and the blue half — no suit is blue */
-.jkArt .bell{ fill:#2a2a33; }
-.jkArt .face{ fill:var(--bone-hi, #f6efdd); stroke:#2a2a33; stroke-width:1.2; }
-.jkArt .ink { fill:#2a2a33; }
+.jkArt .bell{ fill:#22222a; }
+.jkArt .face{ fill:#faf5e6; stroke:#22222a; stroke-width:2.6; stroke-linejoin:round; }
+.jkArt .ink { fill:#22222a; }
 
 /* the corner word, small and out of the drawing's way */
 .card.jokerCard .rank{ color:#1f3f8f; }
 .card.jokerCard .big, .card.jokerCard .pip{ display:none; }
+
+/* ---- ჯოკერი's top strip ----
+   It carries more than the other screens do: four running scores, four figures
+   and two buttons. On a phone in landscape that ran off the end and cut the
+   last button in half, so the parts that can give way do. */
+.jkScores{ min-width:0; overflow:hidden; flex:1 1 auto; }
+.jkScores .who{ flex:0 1 auto; min-width:0; }
+.jkScores .who span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.top .sndBtn, .top .newgame, .top .back{ flex:none; }
+
+@media (max-width:940px){
+  .stage .top .badge{ display:none; }        /* the practice mark goes first */
+}
+@media (max-width:760px){
+  .jkScores .who span{ max-width:56px; }
+  .jkScores{ gap:4px; }
+  .jkScores .who{ padding:2px 5px; gap:3px; }
+}
+
+/* a seat's running total, under its name — the other three carry their own */
+.seatBox .seatScore{
+  font:800 11px/1 var(--font-ui); color:var(--cream-dim);
+  background:rgba(3,20,11,.5); border:1px solid var(--line);
+  border-radius:7px; padding:2px 7px;
+}
+.seatBox.across{ flex-direction:row; align-items:center; gap:6px; }

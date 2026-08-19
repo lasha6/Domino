@@ -399,3 +399,39 @@ test("a set is only bonused at its last hand", () => {
   assert.equal(g.setBonus, null, "not yet");
   assert.deepEqual(g.scores, [50, 50, 50, 50], "just the hand");
 });
+
+test("whatever is turned for trump is in nobody's hand", () => {
+  /* The player made the point and said it matters: he counts on it. When the
+     turned card is a joker, only ONE joker is still in play, and the table has
+     to be able to say so — which is why the screen draws the turned card itself
+     rather than a word for it. */
+  for (let seed = 1; seed <= 200; seed++) {
+    let n = seed * 613;
+    const rnd = () => ((n = (n * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+    const g = J.newGame({ rnd });
+    g.hand = seed % 8;                        // set I: the hands that turn a card
+    g.phase = "deal";
+    J.deal(g);
+    assert.ok(g.turned, "a card is turned");
+    const held = [].concat(...g.hands);
+    assert.ok(!held.some((c) => J.sameCard(c, g.turned)),
+      `the turned ${J.nameOf(g.turned)} was dealt to somebody as well`);
+  }
+});
+
+test("a turned joker leaves exactly one joker to be played", () => {
+  let seen = 0;
+  for (let seed = 1; seed <= 800 && seen < 5; seed++) {
+    let n = seed * 977;
+    const rnd = () => ((n = (n * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+    const g = J.newGame({ rnd });
+    g.hand = 5; g.phase = "deal";
+    J.deal(g);
+    if (!J.isJoker(g.turned)) continue;
+    seen++;
+    assert.equal(g.trump, J.NOTRUMP, "a turned joker means ბეზი");
+    const inHands = [].concat(...g.hands).filter(J.isJoker).length;
+    assert.ok(inHands <= 1, "and at most one joker can be in a hand");
+  }
+  assert.ok(seen > 0, "some deal turns a joker");
+});

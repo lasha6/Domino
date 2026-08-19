@@ -21,14 +21,15 @@
   <div class="stage">
     <div class="top">
       <button class="back" onclick="location.href='index.html'">←</button>
-      <div class="jkScores" id="scores"></div>
+      <div class="jkScores" id="scores"></div>   <!-- your own running total only -->
       <div class="info">
         <span class="stat"><span class="k">სეტი</span><b id="setNo">1</b></span>
         <span class="stat"><span class="k">ხელი</span><b id="handNo">1/24</b></span>
         <span class="stat"><span class="k">კოზირი</span><b id="trumpLbl">—</b></span>
+        <span class="stat"><span class="k">ბიდი</span><b id="myBid">—</b></span>
         <span class="badge">🎓 პრაქტიკა</span>
       </div>
-      <div class="spacer"></div>
+      <div class="spacer" style="flex:0 1 8px"></div>
       <button class="back sndBtn" id="sndBtn" onclick="toggleSound()" title="ხმა">🔊</button>
       <button class="newgame" onclick="startMatch()">ახალი თამაში</button>
     </div>
@@ -112,31 +113,36 @@
 
     /* ---------------- drawing a card ----------------
        The joker has no suit to print, so it gets the face the card is named
-       after. The shape is the plainest of the classic ones — a split cap over a
-       mask — because it has to survive being dealt at 36px on a narrow table,
-       and the detailed jesters turn to mush at that size.
+       after: a laughing jester in a three-pointed cap with a bell on each
+       outer point. The shape is the plainest of the classic ones, because this
+       card gets dealt at 36px on a narrow table and the detailed jesters are
+       lovely at full size and mush at that one.
 
-       The cap is red and blue rather than the usual red and black: black and
-       red are the two SUIT colours in this deck, and at 36px a joker in them
-       reads as "some red card". Blue belongs to no suit, so it cannot.
+       The cap is red and BLUE, not red and black. Black and red are the two
+       suit colours in this deck, and at 36px a joker in them reads as "some red
+       card". No suit is blue, so it cannot be mistaken for one.
 
        Drawn rather than fetched, like every other card here, so it stays sharp
-       at any size and the app carries no picture files. */
+       at any size and the app carries no picture files. Every curve in it was
+       rendered and looked at rather than guessed. */
     const JESTER =
-      '<svg class="jkArt" viewBox="0 0 44 60" aria-hidden="true">'
-      // the two side prongs, each ending in a bell
-      + '<path class="capR" d="M14.5 21.5 C9.5 15 4 13.6 2.2 17.6 C3.4 23 8.6 27.6 14.6 28.6 Z"/>'
-      + '<path class="capB" d="M29.5 21.5 C34.5 15 40 13.6 41.8 17.6 C40.6 23 35.4 27.6 29.4 28.6 Z"/>'
-      + '<circle class="bell" cx="2.6" cy="17.4" r="2.5"/>'
-      + '<circle class="bell" cx="41.4" cy="17.4" r="2.5"/>'
-      // the tall middle spike, split down the centre
-      + '<path class="capR" d="M22 2.4 C18.4 11 14.6 21 14.2 29.2 L22 30.6 Z"/>'
-      + '<path class="capB" d="M22 2.4 C25.6 11 29.4 21 29.8 29.2 L22 30.6 Z"/>'
-      // the mask under it
-      + '<path class="face" d="M12.6 30.6 C12.6 43.4 16.8 52 22 52 C27.2 52 31.4 43.4 31.4 30.6 C27.6 28.6 16.4 28.6 12.6 30.6 Z"/>'
-      + '<path class="ink" d="M15.6 37.4 C17.4 34.6 20.4 34.6 21.8 37.4 C20.2 39.4 17.2 39.4 15.6 37.4 Z"/>'
-      + '<path class="ink" d="M28.4 37.4 C26.6 34.6 23.6 34.6 22.2 37.4 C23.8 39.4 26.8 39.4 28.4 37.4 Z"/>'
-      + '<path class="ink" d="M16.4 43.4 C19 47.6 25 47.6 27.6 43.4 C24.8 45 19.2 45 16.4 43.4 Z"/>'
+      '<svg class="jkArt" viewBox="0 0 100 132" aria-hidden="true">'
+      // the face first, so the cap can be laid over its forehead
+      + '<path class="face" d="M22 56 C21 80 27 102 39 113 C45 118 55 118 61 113 C73 102 79 80 78 56 Z"/>'
+      // the two outer points, then the tall middle one, split down the centre
+      + '<path class="capR" d="M24 68 C17 56 12 44 11 33 C22 40 30 52 37 66 Z"/>'
+      + '<path class="capB" d="M76 68 C83 56 88 44 89 33 C78 40 70 52 63 66 Z"/>'
+      + '<path class="capR" d="M50 4 C45 24 40 46 39 66 L50 68 Z"/>'
+      + '<path class="capB" d="M50 4 C55 24 60 46 61 66 L50 68 Z"/>'
+      // the band across the brow that ties the three together
+      + '<path class="capR" d="M50 51 C34 51 24 55 18 62 C28 69 38 71 50 71 Z"/>'
+      + '<path class="capB" d="M50 51 C66 51 76 55 82 62 C72 69 62 71 50 71 Z"/>'
+      + '<circle class="bell" cx="10" cy="31" r="6.4"/>'
+      + '<circle class="bell" cx="90" cy="31" r="6.4"/>'
+      // laughing eyes and a wide grin
+      + '<path class="ink" d="M28 78 C33 70 42 73 47 83 C41 78 33 76 28 78 Z"/>'
+      + '<path class="ink" d="M72 78 C67 70 58 73 53 83 C59 78 67 76 72 78 Z"/>'
+      + '<path class="ink" d="M33 94 C40 109 60 109 67 94 C59 100 41 100 33 94 Z"/>'
       + '</svg>';
 
     const RED = [1, 2];                       // hearts and diamonds
@@ -169,39 +175,60 @@
     }
 
     /* ---------------- how big everything is drawn ----------------
-       Measured from the table rather than fixed, and measured again whenever
-       the window changes: a phone in landscape, a tablet and a browser window
-       dragged narrow are three different tables, and one set of pixel sizes
-       cannot suit all three. Everything else is worked out from the card. */
+       Measured from the screen rather than fixed, and measured again whenever
+       it changes: a phone in landscape, a tablet and a browser window dragged
+       narrow are three different tables and one set of pixel sizes cannot suit
+       all three.
+
+       The table is given its share FIRST and the hand takes what is left. The
+       other way round — which is what a plain flex layout does — left the table
+       76px tall with 22px cards on it while the hand below held 48px ones. The
+       trick is the thing being looked at; it does not come second. */
     const RATIO = 1.5;              // a card is half again as tall as it is wide
-    const SIDE = 118;               // the seats sit at the edges; leave them theirs
     function fitTable(){
+      const stage = document.querySelector(".stage");
       const bt = document.getElementById("btable");
+      const hand = document.getElementById("myhand");
+      const h = (s) => { const e = document.querySelector(s);
+                         return e ? e.getBoundingClientRect().height : 0; };
+      const sr = stage.getBoundingClientRect();
+      if (!sr.height) return;
+
+      const free = sr.height - h(".top") - h(".statusrow") - h(".bbar") - 10;
+      if (free < 80) return;
+      const handH = Math.round(Math.max(50, Math.min(96, free * 0.32)));
+      const tableH = Math.max(90, free - handH);
+      hand.style.height = handH + "px";
+      hand.style.minHeight = "0";
+      bt.style.height = tableH + "px";
+      bt.style.flex = "0 0 auto";
+
+      // the partner sits across the top; the cross gets what is under them
+      const across = document.getElementById("seatAcross").getBoundingClientRect().height || 20;
+      const padTop = Math.round(across + 12);
+      bt.style.paddingTop = padTop + "px";
+
       const r = bt.getBoundingClientRect();
-      if (!r.width || !r.height) return;
-      const cs = getComputedStyle(bt);
-      const availH = r.height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 14;
-      const availW = Math.max(90, r.width - SIDE * 2);
+      const availH = tableH - padTop - 8 - 18;         // 18 for the label at the foot
+      // the two side seats keep the edges; the cross gets between them
+      const side = Math.min(150, Math.max(70, r.width * 0.18));
+      const availW = Math.max(90, r.width - side * 2);
       /* the cross is a card plus two offsets each way: 2.16 cards tall and
          3.1 cards wide, which is what the stylesheet builds from --jkDx/--jkDy */
-      let w = Math.min(availW / 3.1, availH / 2.16 / RATIO);
-      w = Math.max(22, Math.min(74, Math.floor(w)));
+      let w = Math.min(availW / 2.9, availH / 2.04 / RATIO);
+      w = Math.max(20, Math.min(78, Math.floor(w)));
       bt.style.setProperty("--jkW", w + "px");
       bt.style.setProperty("--jkH", Math.round(w * RATIO) + "px");
-      bt.style.setProperty("--jkDx", Math.round(w * 1.05) + "px");
-      bt.style.setProperty("--jkDy", Math.round(w * RATIO * 0.58) + "px");
+      bt.style.setProperty("--jkDx", Math.round(w * 0.95) + "px");
+      bt.style.setProperty("--jkDy", Math.round(w * RATIO * 0.52) + "px");
 
-      /* And your own hand, which has to fit however many cards are in it —
-         nine at the widest. Its height budget comes from the stage rather than
-         from the hand itself: measuring a box whose size depends on the cards
-         you are about to resize is a loop that never settles. */
-      const hand = document.getElementById("myhand");
-      const stage = document.querySelector(".stage").getBoundingClientRect();
+      /* And your own hand, which has to fit however many cards are in it — nine
+         at the widest — inside the height it was just given. */
       const n = Math.max(1, (g && g.hands[ME].length) || 1);
       const gap = 8;
       const byWidth = Math.floor((r.width - gap * (n + 1)) / n);
-      const byHeight = Math.floor(Math.max(64, Math.min(112, stage.height * 0.26)) / RATIO);
-      const hw = Math.max(24, Math.min(64, byWidth, byHeight));
+      const byHeight = Math.floor((handH - 8) / RATIO);
+      const hw = Math.max(22, Math.min(72, byWidth, byHeight));
       hand.style.setProperty("--jkHandW", hw + "px");
     }
     addEventListener("resize", () => { fitTable(); });
@@ -217,6 +244,8 @@
       document.getElementById("trumpLbl").textContent =
         g.phase === "choose" ? "—"
         : g.trump === Joker.NOTRUMP ? "ბეზი" : Joker.SUITS[g.trump];
+      document.getElementById("myBid").textContent =
+        g.bids[ME] == null ? "—" : g.bids[ME] + " / " + g.took[ME];
 
       paintScores();
       paintTrump();
@@ -226,33 +255,43 @@
       paintBar();
     }
 
+    /* Only your own total goes up here. The other three carry theirs at their
+       own seat, which is where a player looks for them anyway — and four names
+       plus four figures plus two buttons did not fit a phone in landscape, so
+       the names were being cut to "გიო…". */
     function paintScores(){
       const box = document.getElementById("scores");
       box.innerHTML = "";
-      NAMES.forEach((n, p) => {
-        const d = document.createElement("div");
-        d.className = "who" + (p === ME ? " me" : "") + (g.turn === p && g.phase !== "handOver" ? " turn" : "");
-        const nm = document.createElement("span"); nm.textContent = n;
-        const sc = document.createElement("b"); sc.textContent = g.scores[p];
-        d.appendChild(nm); d.appendChild(sc);
-        box.appendChild(d);
-      });
+      const d = document.createElement("div");
+      d.className = "who me" + (g.turn === ME && g.phase !== "handOver" ? " turn" : "");
+      const nm = document.createElement("span"); nm.textContent = NAMES[ME];
+      const sc = document.createElement("b"); sc.textContent = g.scores[ME];
+      d.appendChild(nm); d.appendChild(sc);
+      box.appendChild(d);
     }
 
-    /* The trump: the card that was turned while there was one to turn, the suit
-       on its own in the nines where nothing is turned, and a word when there is
-       no trump at all. */
+    /* The trump.
+
+       In the hands of one to eight a card is turned, and that CARD is what goes
+       on the table — never a word for it. The player put it plainly: whatever is
+       turned there is not in anybody hand. So when the turned card is a joker,
+       the joker is drawn: the table is telling everyone that only one joker is
+       still in play, and that is worth knowing. The trump is ბეზი in that case,
+       which the bar at the top says.
+
+       Only the nines have nothing to turn — four nines is the whole deck. There
+       the chooser names it, so there is a suit to show, or the word ბეზი, and
+       nothing else to draw. */
     function paintTrump(){
       const tb = document.getElementById("trumpBox");
       tb.innerHTML = "";
       if (g.phase === "choose") return;
-      if (g.trump === Joker.NOTRUMP) {
-        const d = document.createElement("div");
-        d.className = "bezCard"; d.textContent = "ბეზი";
-        tb.appendChild(d);
-        return;
-      }
-      const t = g.turned ? cardEl(g.turned, { small: true }) : suitEl(g.trump, true);
+      let t;
+      if (g.turned) t = cardEl(g.turned, { small: true });          // the card itself
+      else if (g.trump === Joker.NOTRUMP) {
+        t = document.createElement("div");
+        t.className = "bezCard"; t.textContent = "ბეზი";
+      } else t = suitEl(g.trump, true);
       t.classList.add("turned");
       tb.appendChild(t);
     }
@@ -275,6 +314,9 @@
         const tally = document.createElement("div");
         tally.className = "tally";
         tally.textContent = tallyText(seat);
+        const score = document.createElement("div");
+        score.className = "seatScore";
+        score.textContent = g.scores[seat];
         if (g.bids[seat] != null) {
           if (g.took[seat] === g.bids[seat]) tally.classList.add("done");
           else if (g.took[seat] > g.bids[seat]) tally.classList.add("blown");
@@ -283,8 +325,8 @@
         fan.className = "fan";
         for (let k = 0; k < g.hands[seat].length; k++) fan.appendChild(backEl(true));
 
-        if (rel === "across") { box.appendChild(who); box.appendChild(tally); box.appendChild(fan); }
-        else { box.appendChild(fan); box.appendChild(tally); box.appendChild(who); }
+        if (rel === "across") { box.appendChild(who); box.appendChild(tally); box.appendChild(score); box.appendChild(fan); }
+        else { box.appendChild(fan); box.appendChild(score); box.appendChild(tally); box.appendChild(who); }
       }
     }
 
@@ -339,6 +381,10 @@
     function paintBar(){
       const bar = document.getElementById("bar");
       bar.innerHTML = "";
+      /* An empty row still takes forty pixels, and while a hand is being played
+         there is nothing to ask — so it goes away and the table gets the room.
+         Whatever it would have said lives in the strip along the top. */
+      setTimeout(() => { bar.style.display = bar.children.length ? "" : "none"; fitTable(); }, 0);
       const add = (label, fn, cls, off) => {
         const b = document.createElement("button");
         b.className = "bbtn" + (cls ? " " + cls : "");
@@ -375,13 +421,7 @@
       }
       if (g.phase === "play") {
         setMsg(g.turn === ME ? "შენი სვლა" : NAMES[g.turn] + " ფიქრობს");
-        // your own bid, kept where you can see it
-        const b = document.createElement("div");
-        b.className = "bbtn ghost";
-        b.style.cursor = "default";
-        b.textContent = "შენი ბიდი " + g.bids[ME] + " · აღებული " + g.took[ME];
-        bar.appendChild(b);
-        return;
+        return;                       // nothing to ask, so the row goes away
       }
       if (g.phase === "bid") setMsg(NAMES[g.turn] + " ბიდავს");
     }

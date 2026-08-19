@@ -1,0 +1,57 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;height:100%;overflow:hidden}iframe{border:0;width:100vw;height:100vh;display:block}
+</style></head><body>
+<iframe id="f" src="joker.html"></iframe>
+<script>
+/* A throwaway harness for screenshots and measuring. The page's state lives in
+   `let` bindings, which are not on window, so everything goes through eval. */
+const qs = new URLSearchParams(location.search);
+setTimeout(() => {
+  const w = document.getElementById("f").contentWindow;
+  const run = (s) => w.eval(s);
+  run("PACE.bid=20; PACE.think=20; PACE.showTrick=100000; PACE.betweenHands=20;");
+  if (qs.get("hand")) run("g.hand=" + (+qs.get("hand")) + "; g.phase='deal'; Joker.deal(g); render();");
+  setInterval(() => {
+    try {
+      if (run("!g || busy || g.turn !== 0")) return;
+      if (run("!!pending")) {
+        [...w.document.querySelectorAll("#bar .bbtn")].filter(b=>!b.disabled)[0].click(); return;
+      }
+      run("g.phase==='choose' ? chooseTrump(botTrump(0)) : g.phase==='bid' ? makeBid(Joker.aiBid(g,0)) : g.phase==='play' ? pickCard(Joker.legalPlays(g,0)[0]) : 0");
+    } catch (e) {}
+  }, 60);
+  // measurements land in the title, where --dump-dom can read them
+  setInterval(() => {
+    try {
+      const d = w.document;
+      const box = (s) => { const e = d.querySelector(s); if (!e) return null;
+        const r = e.getBoundingClientRect();
+        return [r.left, r.top, r.width, r.height].map(Math.round); };
+      document.title = "M" + JSON.stringify({
+        win: [w.innerWidth, w.innerHeight],
+        table: box("#btable"), trick: box("#trick"), hand: box("#myhand"),
+        bar: box("#bar"), status: box(".statusrow"), top: box(".top"),
+        seatL: box("#seatLeft"), seatA: box("#seatAcross"), seatR: box("#seatRight"),
+        stock: box(".stock"), card: box("#trick .card"), handCard: box("#myhand .card"),
+        cards: d.querySelectorAll("#trick .card").length,
+        turned: run("g.turned ? Joker.nameOf(g.turned) : null"),
+        trump: run("g.trump === Joker.NOTRUMP ? \"bez\" : Joker.SUITS[g.trump]"),
+        trumpLbl: d.getElementById("trumpLbl").textContent,
+        trumpBoxText: (d.querySelector("#trumpBox .card, #trumpBox .bezCard")||{}).textContent,
+        size: run("Joker.spec(g).size"), hand: run("g.hand"),
+      });
+    } catch (e) { document.title = "Merr " + e.message; }
+  }, 200);
+}, 800);
+</script></body></html>
+<!-- HOW TO USE THIS
+     It drives the real screen so a headless browser can photograph or measure
+     it. It needs to sit beside the page, so:
+       1. cp test/shot.html public/__shot.html
+       2. chrome --headless=new --screenshot=out.png --window-size=812,471 \
+            --virtual-time-budget=9000 "http://localhost:3000/__shot.html?hand=7"
+          (add --dump-dom instead of --screenshot to read the measurements,
+           which the page writes into its <title>)
+       3. rm public/__shot.html
+     Deliberately not left in public/ — nothing ships in the APK that the game
+     itself does not need. -->
