@@ -260,3 +260,48 @@
   .jkScores .who b{ font-size:11.5px; }
   .jkTable{ font-size:11px; }
 }
+
+/* ---- ჯოკერი: the trick as a cross ----
+   Everybody plays exactly one card, so the pile ბურა uses is the wrong shape
+   here. Each card is laid at the side of the table its player sits on — the
+   one across at the top, yours at the bottom, the two beside you left and
+   right — and they overlap in the middle. That is how the trick looks on a
+   table, and it says whose card is whose without a single label. */
+.trick.cross{
+  position:relative; width:126px; height:130px;    /* 60 + 2x35, 40 + 2x42 */
+  display:block; margin:0 auto;
+}
+.trick.cross .trickRow{
+  position:absolute; left:50%; top:50%; margin:0;
+  transition:transform .16s ease-out;
+}
+.trick.cross .trickRow .card{ width:40px; height:60px; }
+/* Where each card lands: the side of the table its player sits on. The offsets
+   live here beside the card size, so the two cannot drift apart when a short
+   screen shrinks one of them. */
+.trick.cross .at-across{ transform:translate(-50%,-50%) translateY(-35px); }
+.trick.cross .at-me    { transform:translate(-50%,-50%) translateY(35px); }
+.trick.cross .at-left  { transform:translate(-50%,-50%) translateX(-42px); }
+.trick.cross .at-right { transform:translate(-50%,-50%) translateX(42px); }
+.trick.cross .trickRow.took .card{ box-shadow:0 0 0 2px var(--brass), 0 6px 14px rgba(0,0,0,.5); }
+
+/* Without card backs for the other three the table is a name and a tally, which
+   is all there is to know: everyone always holds the same number of cards in
+   this game, so a row of backs said nothing and took the room the cross needs. */
+/* The partner across the top is a name over a tally, about 44px of it, sitting
+   6px down — so the cross starts below that and cannot be dealt into it. */
+.btable.jk{ padding-top:56px; }
+.btable.jk .seatBox .fan{ display:none; }
+.btable.jk .seatBox.across{ top:6px; }
+.btable.jk .stock{ left:auto; right:10px; top:50%; bottom:auto; transform:translateY(-50%); }
+.btable.jk .pileLbl{ position:absolute; left:50%; bottom:5px; transform:translateX(-50%); }
+
+@media (max-height:420px){
+  .trick.cross{ width:114px; height:118px; }
+  .trick.cross .trickRow .card{ width:36px; height:54px; }
+  .trick.cross .at-across{ transform:translate(-50%,-50%) translateY(-32px); }
+  .trick.cross .at-me    { transform:translate(-50%,-50%) translateY(32px); }
+  .trick.cross .at-left  { transform:translate(-50%,-50%) translateX(-38px); }
+  .trick.cross .at-right { transform:translate(-50%,-50%) translateX(38px); }
+  .btable.jk{ padding-top:50px; }
+}

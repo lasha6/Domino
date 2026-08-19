@@ -37,7 +37,7 @@
       <div class="msg" id="msg"></div>
     </div>
 
-    <div class="btable four" id="btable">
+    <div class="btable four jk" id="btable">
       <div class="seatBox left jk"   id="seatLeft"></div>
       <div class="seatBox across jk" id="seatAcross"></div>
       <div class="seatBox right jk"  id="seatRight"></div>
@@ -45,7 +45,7 @@
         <div class="trumpBox" id="trumpBox"></div>
       </div>
       <span class="pileLbl" id="pileLbl">მაგიდა</span>
-      <div class="trick four" id="trick"></div>
+      <div class="trick cross" id="trick"></div>
     </div>
 
     <div class="bbar" id="bar"></div>
@@ -221,8 +221,12 @@
       }
     }
 
-    /* The pile, thrown the way the ბურა table throws it: each card across the
-       one before, fanned sideways because that is where the room is. */
+    /* The trick, laid out as a cross: each card at the side of the table its
+       player sits on. Everybody puts down exactly one card in this game, so a
+       pile would only hide them behind each other — laid out this way nobody
+       has to be told whose card is whose.
+
+       Later cards sit on top of earlier ones, the way they land on a table. */
     function paintTrick(){
       const box = document.getElementById("trick");
       const lbl = document.getElementById("pileLbl");
@@ -237,10 +241,9 @@
         const card = cardEl(p.card, { small: true });
         if (Joker.isJoker(p.card)) card.title = p.high ? "მაღლა" : "დაბლა";
         d.appendChild(card);
+        d.classList.add("at-" + REL[(p.seat - ME + 4) % 4]);
+        d.style.zIndex = String(2 + i);
         box.appendChild(d);
-      });
-      [...box.children].forEach((r, i, all) => {
-        r.style.transform = "translateX(" + ((i - (all.length - 1) / 2) * 30) + "px)";
       });
 
       if (g.phase === "choose")      lbl.textContent = "კოზირი ცხადდება";
