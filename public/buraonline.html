@@ -129,6 +129,24 @@
 
     let S = null, sel = [], seated = false;
 
+    /* The server keeps the last trick until somebody leads again, so that both
+       players are shown the same cards however their connections are timed.
+       On screen, though, it has to be collected: left sitting there it reads as
+       the game being stuck, with the cards you just cut still in front of you.
+       Each player sweeps their own table a couple of seconds after seeing it. */
+    const TRICK_SHOWN = 2300;
+    let trickKey = null, trickCleared = false, trickTimer = null;
+
+    function noteTrick(st){
+      const key = st.lastTrick ? JSON.stringify(st.lastTrick) : null;
+      if (key === trickKey) return;                 // the same one we are already showing
+      trickKey = key;
+      trickCleared = false;
+      clearTimeout(trickTimer);
+      if (!key) return;
+      trickTimer = setTimeout(() => { trickCleared = true; render(); }, TRICK_SHOWN);
+    }
+
     function paintSoundBtn(){ document.getElementById("sndBtn").textContent = Sound.muted() ? "🔇" : "🔊"; }
     function toggleSound(){ Sound.toggle(); paintSoundBtn(); if(!Sound.muted()) Sound.play("tap"); }
     paintSoundBtn();
@@ -205,6 +223,7 @@
       document.getElementById("pauseOverlay").classList.toggle("show", !!st.paused);
       if (st.paused && st.waitingFor && st.waitingFor.length)
         document.getElementById("pauseText").textContent = "ველოდებით — " + st.waitingFor.join(", ");
+      noteTrick(st);
       if (first) { Sound.play("deal"); }
       render();
     });
@@ -284,7 +303,7 @@
         box.appendChild(row(S.lead.cards, "led"));
         return;
       }
-      if (S.lastTrick) {
+      if (S.lastTrick && !trickCleared) {
         const l = S.lastTrick;
         lbl.textContent = l.took === S.seat ? "ხელი შენ აიღე" : "ხელი მოწინააღმდეგემ აიღო";
         box.appendChild(row(l.led, "led" + (l.took === l.leadSeat ? " took" : "")));
