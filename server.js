@@ -793,7 +793,8 @@ function endRound(room, winnerSeat) {
   g.round++;
   const mr = Ozi.matchResult(g, wasBlocked);   // handles the "რიბა" rule
   say(room, `${text} | ანგარიში ${g.scores[0]} : ${g.scores[1]}`
-    + (mr.riba ? " — რიბა! დამატებითი ხელი" : ""));
+    + (mr.reason === "block" ? " — რიბა! დამატებითი ხელი"
+     : mr.reason === "level" ? " — თანაბარია! დამატებითი ხელი" : ""));
 
   // credit the hand before anything else — a match that ends here still counts
   // the hand that ended it

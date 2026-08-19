@@ -177,6 +177,36 @@ test('"რიბა": reaching the target on a block does not end the match', ()
   assert.equal(straight.riba, false);
 });
 
+test("nobody wins level — the match goes to another hand", () => {
+  /* The player was shown "the computer won the game" at 190 : 190 against a
+     target of 175 and asked how he had lost. He had not: the winner was read
+     as "whoever is not team 0", so a tie handed the match to the other side. */
+  const g = Ozi.newGame(175, 2);
+
+  g.scores = [190, 190];
+  const level = Ozi.matchResult(g, false);
+  assert.equal(level.over, false, "level at the target is not a win for anyone");
+  assert.equal(level.riba, true, "it buys an extra hand, like a რიბა");
+  assert.equal(level.reason, "level", "and the screen is told why");
+  assert.equal(level.champTeam, null, "there is no champion yet");
+
+  // the same number, whichever side of the target it lands on
+  for (const s of [175, 190, 400]) {
+    g.scores = [s, s];
+    assert.equal(Ozi.matchResult(g, false).over, false, `${s} : ${s} is still level`);
+  }
+
+  // and one point either way still decides it
+  g.scores = [190, 185];
+  assert.equal(Ozi.matchResult(g, false).champTeam, 0, "ahead by five, team 0 takes it");
+  g.scores = [185, 190];
+  assert.equal(Ozi.matchResult(g, false).champTeam, 1, "and the other way round");
+
+  // a block is still a block, and says so
+  g.scores = [190, 40];
+  assert.equal(Ozi.matchResult(g, true).reason, "block");
+});
+
 test("what is left in hand rounds up to five, and a lone 0-0 counts ten", () => {
   const held = (tiles) => {
     const g = Ozi.newGame(175, 2);

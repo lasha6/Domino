@@ -248,15 +248,24 @@
     return handPoints(tiles);            // keeps the lone 0-0 = 10 rule
   }
 
-  // Is the match finished? Reaching the target is not enough — a match can
-  // never be taken on a BLOCKED hand. Georgian "რიბა": a player who sees the
-  // opponent reach the target blocks on purpose, and that buys the trailing
-  // side one more hand to catch up.
+  /* Is the match finished? Reaching the target is not enough, for two reasons.
+
+     A match can never be taken on a BLOCKED hand. Georgian "რიბა": a player who
+     sees the opponent reach the target blocks on purpose, and that buys the
+     trailing side one more hand to catch up.
+
+     And nobody wins level. Both sides can cross the target in the same hand and
+     land on the same number — the player hit 190:190 against a target of 175
+     and was told he had lost. There is no winner there yet, so it is another
+     extra hand, exactly like a რიბა. `reason` says which of the two it was, so
+     a screen can explain it without guessing. */
   function matchResult(g, wasBlocked) {
     const reached = Math.max(g.scores[0], g.scores[1]) >= g.target;
-    if (!reached) return { over: false, riba: false, champTeam: null };
-    if (wasBlocked) return { over: false, riba: true, champTeam: null };
-    return { over: true, riba: false, champTeam: g.scores[0] > g.scores[1] ? 0 : 1 };
+    if (!reached) return { over: false, riba: false, reason: null, champTeam: null };
+    if (wasBlocked) return { over: false, riba: true, reason: "block", champTeam: null };
+    if (g.scores[0] === g.scores[1])
+      return { over: false, riba: true, reason: "level", champTeam: null };
+    return { over: true, riba: false, reason: null, champTeam: g.scores[0] > g.scores[1] ? 0 : 1 };
   }
 
   // Blocked hand: ONLY the side left holding fewer pips scores, and it takes
