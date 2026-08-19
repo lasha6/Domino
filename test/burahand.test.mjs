@@ -46,7 +46,7 @@ test("the round is won at the moment the trick is taken", () => {
   assert.equal(g.scores[0], 1, "for what the round was worth");
 });
 
-test("a ბურა that is beaten wins nothing", () => {
+test("nothing the other player holds can take a ბურა from them", () => {
   const g = B.newGame({ variant: "3" });
   g.trump = S.hearts; g.deck = [];
   g.hands[0] = ["J", "Q", "K"].map((r) => c(r, S.hearts));      // the low trumps
@@ -58,7 +58,7 @@ test("a ბურა that is beaten wins nothing", () => {
   assert.equal(took, 0, "the spade beats nothing, so the ბურა holds");
   assert.equal(g.roundWinner, 0);
 
-  // now give them three higher trumps, and the ბურა is simply beaten
+  // even the two highest trumps in the game cannot cover three
   const h = B.newGame({ variant: "3" });
   h.trump = S.hearts; h.deck = [];
   h.hands[0] = ["J", "Q", "K"].map((r) => c(r, S.hearts));
