@@ -230,6 +230,16 @@
                   + '<span class="big">' + suit + '</span>';
       return d;
     }
+    /* The trump card sits face up on the table so everyone can see it, which
+       also tells them nobody is holding it. The moment the deck runs out that
+       stops being true — it is the last card drawn — so the table stops showing
+       the card and shows only what is still true: the suit. */
+    function suitEl(suit, small){
+      const d = document.createElement("div");
+      d.className = "card suitOnly " + (RED.includes(suit) ? "red" : "black") + (small ? " small" : "");
+      d.innerHTML = '<span class="pip">' + Bura.SUITS[suit] + '</span>';
+      return d;
+    }
     function backEl(small){
       const d = document.createElement("div");
       d.className = "card back" + (small ? " small" : "");
@@ -347,9 +357,11 @@
 
       const tb = document.getElementById("trumpBox");
       tb.innerHTML = "";
-      if (S.trumpCard) {
+      if (S.trump != null) {
         if (S.deck > 1) { const b = backEl(true); b.classList.add("deck"); tb.appendChild(b); }
-        const t = cardEl(S.trumpCard, { small: true });
+        // the card while it is still on the table, the suit alone once it is gone
+        const t = (S.deck > 0 && S.trumpCard) ? cardEl(S.trumpCard, { small: true })
+                                              : suitEl(S.trump, true);
         t.classList.add("turned");
         tb.appendChild(t);
       }
@@ -399,37 +411,41 @@
       const four = S.size === 4;
       box.classList.toggle("four", four);
       const mine = (seat) => seat === S.seat;
-      const row = (cards, cls, hidden, openFrom, seat) => {
+      const row = (cards, cls, hidden, openFrom) => {
         const d = document.createElement("div");
         d.className = "trickRow " + cls;
-        // at four, say whose group this is — the pile alone cannot show it
-        if (four && seat != null) {
-          const by = document.createElement("span");
-          by.className = "by";
-          by.textContent = mine(seat) ? "შენ" : nameAt(seat);
-          d.appendChild(by);
-        }
-        const holder = four ? document.createElement("div") : d;
-        if (four) holder.className = "cards";
-        cards.forEach((c, i) => holder.appendChild((hidden && i >= (openFrom || 0)) ? backEl(true) : cardEl(c, { small: true })));
-        if (four) d.appendChild(holder);
+        cards.forEach((c, i) => d.appendChild((hidden && i >= (openFrom || 0)) ? backEl(true) : cardEl(c, { small: true })));
         return d;
       };
       const answersSoFar = (S.lastTrick && S.lastTrick.answers) || [];
+      /* Fan the pile sideways once it is down. Four hands thrown straight on
+         top of each other reach past the bottom of the table, and the room is
+         all to the sides — so each one steps right, and the whole fan stays
+         centred whether two of them are down or four. */
+      const fan = () => {
+        if (!four) return;
+        const rows = [...box.children];
+        const step = 30;
+        rows.forEach((r, i) => {
+          r.style.transform = "translateX(" + ((i - (rows.length - 1) / 2) * step) + "px)";
+        });
+      };
 
       if (S.lead) {
         lbl.textContent = mine(S.lead.seat) ? "შენ ჩამოხვედი" : nameAt(S.lead.seat) + " ჩამოვიდა";
-        box.appendChild(row(S.lead.cards, "led", false, 0, S.lead.seat));
+        box.appendChild(row(S.lead.cards, "led"));
         // whoever has already played into it, in the order they did
-        answersSoFar.forEach((a) => box.appendChild(row(a.cards, "answer", false, 0, a.seat)));
+        answersSoFar.forEach((a) => box.appendChild(row(a.cards, "answer")));
+        fan();
         return;
       }
       if (S.lastTrick && !trickCleared) {
         const l = S.lastTrick;
         lbl.textContent = mine(l.took) ? "ხელი შენ აიღე" : "ხელი აიღო — " + nameAt(l.took);
-        box.appendChild(row(l.led, "led" + (l.took === l.leadSeat ? " took" : ""), false, 0, l.leadSeat));
+        box.appendChild(row(l.led, "led" + (l.took === l.leadSeat ? " took" : "")));
         (l.answers || []).forEach((a) =>
-          box.appendChild(row(a.cards, "answer" + (l.took === a.seat ? " took" : ""), l.hidden, a.open, a.seat)));
+          box.appendChild(row(a.cards, "answer" + (l.took === a.seat ? " took" : ""), l.hidden, a.open)));
+        fan();
         return;
       }
       lbl.textContent = "მაგიდა";

@@ -113,6 +113,16 @@
                   + '<span class="big">' + suit + '</span>';
       return d;
     }
+    /* The trump card sits face up on the table so everyone can see it, which
+       also tells them nobody is holding it. The moment the deck runs out that
+       stops being true — it is the last card drawn — so the table stops showing
+       the card and shows only what is still true: the suit. */
+    function suitEl(suit, small){
+      const d = document.createElement("div");
+      d.className = "card suitOnly " + (RED.includes(suit) ? "red" : "black") + (small ? " small" : "");
+      d.innerHTML = '<span class="pip">' + Bura.SUITS[suit] + '</span>';
+      return d;
+    }
     function backEl(small){
       const d = document.createElement("div");
       d.className = "card back" + (small ? " small" : "");
@@ -131,13 +141,15 @@
       // the stock, with the trump face up on top of it so its suit can be read
       const tb = document.getElementById("trumpBox");
       tb.innerHTML = "";
-      if (g.trumpCard) {
+      if (g.trump != null) {
         if (g.deck.length > 1) {
           const back = backEl(true);
           back.classList.add("deck");
           tb.appendChild(back);
         }
-        const t = cardEl(g.trumpCard, { small: true });
+        // the card while it is still on the table, the suit alone once it is gone
+        const t = (g.deck.length > 0 && g.trumpCard) ? cardEl(g.trumpCard, { small: true })
+                                                     : suitEl(g.trump, true);
         t.classList.add("turned");
         tb.appendChild(t);
       }

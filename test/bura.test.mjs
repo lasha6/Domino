@@ -374,3 +374,39 @@ test("a full round finishes and the points add up to 120", () => {
     }
   }
 });
+
+test("once the deck is empty the turned trump is in somebody's hand", () => {
+  /* The player made the point: the trump lies face up on the table, so you know
+     nobody is holding it — the moment the deck runs out that stops being true,
+     because it is the last card drawn. A screen that still shows the card is
+     telling you something false, so it shows only the suit from then on. This
+     locks down the fact the screens rely on. */
+  for (const variant of ["3", "5"]) {
+    const g = B.newGame({ variant });
+    const turned = g.trumpCard;
+    assert.ok(turned, "there is a turned trump");
+    assert.equal(B.suitOf(turned), g.trump, "and it sets the suit");
+    assert.ok(g.deck.length > 0, "while it is still on the table the deck is not empty");
+    assert.equal(g.deck[0], turned, "it is the last card that will leave the deck");
+
+    // draw everything, the way play does
+    let guard = 0;
+    while (g.deck.length && guard++ < 100) {
+      g.hands[0] = []; g.hands[1] = [];
+      B.refill(g, 0);
+    }
+    assert.equal(g.deck.length, 0, "the deck is empty");
+    const held = g.hands[0].concat(g.hands[1], g.taken[0], g.taken[1]);
+    assert.ok(held.some((c) => B.sameCard(c, turned)),
+      "and the card that was on the table has been taken by somebody");
+  }
+});
+
+test("the trump suit survives the card being drawn", () => {
+  // whatever else changes, the suit is what a screen can still show
+  const g = B.newGame({ variant: "5" });
+  const suit = g.trump;
+  g.deck = [];
+  assert.equal(g.trump, suit, "the suit does not move when the deck empties");
+  assert.ok(g.trump >= 0 && g.trump < 4, "and spades being 0 is a real suit, not nothing");
+});

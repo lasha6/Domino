@@ -32,6 +32,15 @@
 .card.small .pip{ font-size:11px; right:4px; }
 .card.small .big{ font-size:24px; }
 
+/* The trump once the deck is empty: the card itself has been drawn by
+   somebody, so drawing it would say nobody holds it when somebody does. Only
+   the suit is still true, so only the suit is shown — a blank card with the
+   mark on it, centred, no rank and no corner pip. */
+.card.suitOnly .rank, .card.suitOnly .big{ display:none; }
+.card.suitOnly .pip{ position:static; display:flex; width:100%; height:100%;
+  align-items:center; justify-content:center; font-size:30px; opacity:.92; }
+.card.small.suitOnly .pip{ font-size:24px; }
+
 /* the back, for the opponent's hand and the stock */
 .card.back{
   background:
@@ -134,8 +143,10 @@
 .seatBox.turn .who .mate{ color:var(--ink); }
 .seatBox .fan{ display:flex; }
 
-/* your partner, straight across */
-.seatBox.across{ left:50%; top:6px; transform:translateX(-50%); flex-direction:column; }
+/* Your partner, straight across. Their name sits BESIDE their cards rather
+   than above them: the trick is a pile like every other ბურა table, and a pile
+   of four needs the height that a stacked name was taking. */
+.seatBox.across{ left:50%; top:5px; transform:translateX(-50%); flex-direction:row; align-items:center; gap:7px; }
 .seatBox.across .fan{ flex-direction:row; }
 .seatBox.across .fan .card{ margin-left:-26px; }
 .seatBox.across .fan .card:first-child{ margin-left:0; }
@@ -148,11 +159,12 @@
 .seatBox.left .fan .card, .seatBox.right .fan .card{ transform:rotate(90deg); margin:-19px 0; }
 
 .seatBox .card{ width:38px; height:54px; border-radius:6px; }
+.seatBox.across .card{ width:34px; height:48px; }
 
 /* With four seated the partner sits along the top, so the trick is given room
    under them rather than centred into their cards; and the stock cannot sit in
    the middle of the left edge any more. */
-.btable.four{ padding-top:84px; justify-content:flex-start; }
+.btable.four{ padding-top:60px; justify-content:flex-start; }
 .btable.four .stock{ left:auto; right:78px; top:auto; bottom:6px; transform:none; }
 .btable.four .pileLbl{ position:absolute; left:50%; bottom:6px; transform:translateX(-50%); }
 
@@ -161,7 +173,7 @@
   .seatBox.left .fan .card, .seatBox.right .fan .card{ margin:-16px 0; }
   .seatBox.across .fan .card{ margin-left:-22px; }
   .seatBox .who{ font-size:10px; padding:2px 6px; }
-  .btable.four{ padding-top:74px; }
+  .btable.four{ padding-top:56px; }
 }
 
 /* With four playing, the trick cannot be one pile with each answer laid across
@@ -169,17 +181,19 @@
    partner sitting at the top. So it is laid out along the table instead, a
    little group per player in the order they played, each under its name — which
    also answers the question the pile could not: who put that down. */
-.trick.four{ flex-direction:row; align-items:flex-start; gap:14px; }
-.trick.four .trickRow{ flex-direction:column; align-items:center; gap:3px; margin:0; }
-.trick.four .trickRow .by{
-  font:600 10px/1 var(--font-ui); color:var(--cream-dim); max-width:74px;
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-}
-.trick.four .trickRow.took .by{ color:var(--brass-lit); font-weight:800; }
-.trick.four .cards{ display:flex; }
-.trick.four .cards .card{ width:44px; height:62px; }
-.trick.four .cards .card + .card{ margin-left:-18px; }
+/* Four players make the same pile, thrown the same way — each hand laid across
+   the one before it. It only fans further sideways and less far down: four of
+   them stacked the way two are would be taller than the table, and sideways is
+   where the room is.
+
+   The sideways step is set on the element rather than here. A margin on a row
+   the flex box is centring only biases the centring by half of it, so every
+   answer landed in the same place however large the margin was — which is why
+   the pile looked like one card. A transform moves it exactly. */
+.trick.four .trickRow .card{ width:44px; height:62px; }
+.trick.four .trickRow.answer{ margin-top:-44px; margin-left:0; }
 
 @media (max-height:420px){
-  .trick.four .cards .card{ width:38px; height:54px; }
+  .trick.four .trickRow .card{ width:40px; height:56px; }
+  .trick.four .trickRow.answer{ margin-top:-40px; }
 }
