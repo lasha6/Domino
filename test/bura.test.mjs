@@ -295,22 +295,32 @@ test("ვარ belongs to the three-card game only", () => {
 
 /* ---------------- ურიგო მალუტკა ---------------- */
 
-test("a hand of five trumps may be led out of turn", () => {
+test("a hand of five trumps is ბურა, which wins rather than being led", () => {
+  // this was written as an out-of-turn lead before the player corrected it:
+  // a whole hand of trumps takes the round outright
   const g = B.newGame({ variant: "5" });
   g.trump = S.clubs;
   g.hands[1] = ["6", "7", "8", "9", "J"].map((r) => c(r, S.clubs));
   g.turn = 0;                                   // not their turn at all
-  assert.ok(B.canUnturned(g, 1), "five trumps can be thrown down anyway");
-  assert.ok(B.lead(g, 1, g.hands[1].slice(), { unturned: true }));
-  assert.equal(g.lead.cards.length, 5);
+  assert.ok(B.isBura(g, 1), "five trumps is ბურა");
+  assert.equal(B.canMalutka(g, 1), false, "so it is not offered as a malutka");
+  assert.ok(B.sayBura(g, 1));
+  assert.equal(g.roundWinner, 1, "and it wins the round from wherever they sit");
 });
 
-test("a hand of one plain suit only counts when the table allows it", () => {
+test("a five-card hand of one plain suit only counts when the table allows it", () => {
   const g = B.newGame({ variant: "5" });
   g.trump = S.clubs;
   g.hands[1] = ["6", "7", "8", "9", "J"].map((r) => c(r, S.hearts));
-  assert.equal(B.canUnturned(g, 1), false, "hearts are not trumps");
+  assert.equal(B.canUnturned(g, 1), false, "hearts are neither trumps nor anything led");
   assert.equal(B.canUnturned(g, 1, true), true, "unless the room was made that way");
+});
+
+test("in the three-card game any three of a suit is a malutka", () => {
+  const g = B.newGame({ variant: "3" });
+  g.trump = S.clubs;
+  g.hands[1] = ["J", "Q", "K"].map((r) => c(r, S.hearts));
+  assert.ok(B.canUnturned(g, 1), "three hearts will do, trumps or not");
 });
 
 test("a mixed hand is never an out-of-turn lead", () => {

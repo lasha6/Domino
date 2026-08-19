@@ -561,7 +561,8 @@ function buraView(room, seat) {
     bid: b.bid,
     canCall: Bura.canCall(b, seat) ? Bura.CALLS[b.bid.level] : null,
     canVar: Bura.canSayVar(b, seat),
-    canUnturned: Bura.canUnturned(b, seat),
+    canMalutka: Bura.canMalutka(b, seat),
+    canBura: Bura.isBura(b, seat),
     roundWinner: b.roundWinner,
     reveal: room.reveal || null,      // only ever set once a round has ended
     moveLeft: room.moveDeadline ? Math.max(0, Math.ceil((room.moveDeadline - Date.now()) / 1000)) : null,
@@ -1005,8 +1006,10 @@ io.on("connection", (socket) => {
     const room = buraRoom(); if (!room || room.phase !== "play") return;
     const seat = seatOf(room, socket); if (seat < 0) return;
     if (!Array.isArray(cards) || !cards.length || cards.length > 5) return;
-    if (!Bura.lead(room.b, seat, cards, unturned ? { unturned: true } : null)) return;
-    room.lastTrick = null;
+    // a malutka may land on an empty table or straight back on a lead
+    const ok = unturned ? Bura.malutka(room.b, seat) : Bura.lead(room.b, seat, cards);
+    if (!ok) return;
+    if (!unturned) room.lastTrick = null;
     say(room, at(room, seat).name + (unturned ? " — მალუტკა!" : " ჩამოვიდა " + cards.length + " ქვით"));
     buraAdvance(room);
   });
@@ -1044,6 +1047,14 @@ io.on("connection", (socket) => {
     const seat = seatOf(room, socket); if (seat < 0) return;
     if (!Bura.concede(room.b, seat)) return;
     say(room, at(room, seat).name + " დათმო");
+    buraRoundOver(room);
+  });
+
+  on("bBura", () => {
+    const room = buraRoom(); if (!room || room.phase !== "play") return;
+    const seat = seatOf(room, socket); if (seat < 0) return;
+    if (!Bura.sayBura(room.b, seat)) return;
+    say(room, at(room, seat).name + ": ბურა!");
     buraRoundOver(room);
   });
 

@@ -264,13 +264,17 @@
         const nextCall = Bura.CALLS[g.bid.level];
         if (nextCall && Bura.canCall(g, 0)) add(nextCall, () => { Bura.call(g, 0); cpuAnswerCall(); }, true);
         if (Bura.canSayVar(g, 0)) add("ვარ", doVar, true);
-        if (Bura.canUnturned(g, 0)) add("მალუტკა", doUnturned, true);
+        if (Bura.isBura(g, 0)) add("ბურა!", doBura, false);
+        else if (Bura.canMalutka(g, 0)) add("მალუტკა", doUnturned, true);
       } else {
         const need = g.lead.cards.length;
         add("უპასუხე (" + sel.length + "/" + need + ")", doAnswer, false, sel.length !== need);
         // the price can be raised while looking at what has been led
         const nextCall = Bura.CALLS[g.bid.level];
         if (nextCall && Bura.canCall(g, 0)) add(nextCall, () => { Bura.call(g, 0); cpuAnswerCall(); }, true);
+        // and a whole hand of one suit can be turned straight back at it
+        if (Bura.isBura(g, 0)) add("ბურა!", doBura, false);
+        else if (Bura.canMalutka(g, 0)) add("მალუტკა", doUnturned, true);
       }
     }
 
@@ -284,8 +288,7 @@
       setTimeout(cpuAnswer, PACE.beforeReply);
     }
     function doUnturned(){
-      const cards = g.hands[0].slice();
-      if (!Bura.lead(g, 0, cards, { unturned: true })) return toast("მალუტკა ვერ გამოვიდა");
+      if (!Bura.malutka(g, 0)) return toast("მალუტკა ვერ გამოვიდა");
       sel = []; Sound.play("place");
       setMsg("<b>მალუტკა!</b>");
       render();
@@ -301,6 +304,12 @@
       Sound.play(took === 0 ? "score" : "place");
       setMsg(took === 0 ? "<span class='pts'>გაჭერი!</span>" : "ვერ გაიჭერი");
       settleTrick();
+    }
+    function doBura(){
+      if (!Bura.sayBura(g, 0)) return;
+      setMsg("<b>ბურა!</b>");
+      Sound.play("score"); Fx.confetti(60);
+      roundEnded();
     }
     function doVar(){
       const r = Bura.sayVar(g, 0);

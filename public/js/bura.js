@@ -104,6 +104,7 @@
       scores: [0, 0],           // match points
       turn: 0,                  // whose lead it is
       lead: null,               // { seat, cards }
+      pot: null,                // cards left over when a lead was turned back
       phase: "play",            // play | roundOver | over
       round: 1,
       bid: { level: 0, team: null, pending: null },  // pending = a call awaiting an answer
@@ -148,16 +149,66 @@
     for (const c of cards) hand.splice(hand.findIndex((x) => sameCard(x, c)), 1);
   }
 
-  /* ---------------- ურიგო მალუტკა ----------------
-     A whole hand of one suit may be led at any moment, even out of turn. With
-     trumps it is always allowed; with a plain suit only if the table said so
-     when it was made. */
-  function canUnturned(g, seat, allowAnySuit) {
+  /* ---------------- მალუტკა ----------------
+     A whole hand of one suit. It may be put down at any moment, in or out of
+     turn — that is what "without a turn" means — and there are two ways it
+     lands:
+
+       · on an empty table, it simply becomes the lead
+       · on a card somebody has just led, it is turned straight back at them:
+         their card stays on the table, the malutka becomes the new target, and
+         it is now THEIR job to beat it
+
+     A hand of three trumps is what gives the game its name. In the three-card
+     game any one suit will do; with five, trumps always count and a plain suit
+     only if the table said so when it was made. */
+  /* ---------------- ბურა ----------------
+     A whole hand of trumps — three of them in the short game, five in the long
+     one. It is what the game is named after, and it does not merely go on the
+     table: showing it wins the round outright, at whatever the calls have made
+     the round worth. */
+  function isBura(g, seat) {
     const hand = g.hands[seat];
-    if (g.phase !== "play" || g.lead) return false;
-    if (hand.length !== g.handSize) return false;
+    return g.phase === "play"
+        && hand.length === g.handSize
+        && hand.every((c) => suitOf(c) === g.trump);
+  }
+  function sayBura(g, seat) {
+    if (!isBura(g, seat)) return false;
+    endRound(g, seat, callValue(g.bid.level), "ბურა");
+    return true;
+  }
+
+  function canMalutka(g, seat, allowAnySuit) {
+    const hand = g.hands[seat];
+    if (g.phase !== "play") return false;
+    if (hand.length !== g.handSize) return false;   // it has to be the whole hand
     if (!oneSuit(hand)) return false;
-    return suitOf(hand[0]) === g.trump || !!allowAnySuit;
+    if (g.lead && g.lead.seat === seat) return false;  // not on top of your own lead
+    const suit = suitOf(hand[0]);
+    if (suit === g.trump) return false;                // that is ბურა, and it wins outright
+    if (g.variant === "3") return true;                // three of a suit is enough
+    if (g.lead && suit === suitOf(g.lead.cards[0])) return true;  // the suit that was led
+    return !!allowAnySuit;
+  }
+  // kept under its old name as well: an empty table is the out-of-turn case
+  function canUnturned(g, seat, allowAnySuit) {
+    return !g.lead && canMalutka(g, seat, allowAnySuit);
+  }
+
+  /* Turn a lead back on the player who made it. Their cards stay on the table
+     and go with the trick; the malutka becomes what has to be beaten. */
+  function malutka(g, seat, allowAnySuit) {
+    if (!canMalutka(g, seat, allowAnySuit)) return false;
+    const cards = g.hands[seat].slice();
+    if (g.lead) {
+      g.pot = (g.pot || []).concat(g.lead.cards);      // still to be won with the trick
+      g.turnedBack = true;
+    }
+    removeAll(g.hands[seat], cards);
+    g.lead = { seat, cards: cards.map((c) => c.slice()), malutka: true };
+    g.turn = 1 - seat;
+    return true;
   }
 
   function lead(g, seat, cards, opts) {
@@ -183,7 +234,9 @@
     if (!canAnswer(g, seat, cards)) return null;
     removeAll(g.hands[seat], cards);
     const took = beatsAll(cards, g.lead.cards, g.trump) ? seat : g.lead.seat;
-    const pot = g.lead.cards.concat(cards);
+    // anything left on the table from a turned-back lead goes with the trick
+    const pot = (g.pot || []).concat(g.lead.cards, cards);
+    g.pot = null; g.turnedBack = false;
     g.taken[took].push(...pot);
     g.log = took === seat ? "გაიჭრა" : "ვერ გაიჭრა";
     g.lead = null;
@@ -285,7 +338,7 @@
     Object.assign(g, {
       deck: fresh.deck, trumpCard: fresh.trumpCard, trump: fresh.trump,
       hands: fresh.hands, taken: [[], []],
-      turn: starter, lead: null, phase: "play",
+      turn: starter, lead: null, pot: null, turnedBack: false, phase: "play",
       bid: { level: 0, team: null, pending: null },
       round: g.round + 1, roundWinner: null, roundWorth: 0, log: "",
     });
@@ -324,7 +377,8 @@
     SUITS, RANKS, POINTS, CALLS, VAR_NEEDED,
     suitOf, rankOf, pointsOf, nameOf, sameCard, handPoints,
     makeDeck, shuffle, beats, beatsAll, strength,
-    newGame, legalLeads, canLead, lead, canUnturned,
+    newGame, legalLeads, canLead, lead, canUnturned, canMalutka, malutka,
+    isBura, sayBura,
     canAnswer, answer, refill,
     canCall, call, acceptCall, concede, callValue,
     canSayVar, sayVar,

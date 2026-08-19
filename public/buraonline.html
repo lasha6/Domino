@@ -395,7 +395,8 @@
             false, !sel.length);
         if (S.canCall) add(S.canCall, () => socket.emit("bCall"), true);
         if (S.canVar) add("ვარ", () => socket.emit("bVar"), true);
-        if (S.canUnturned) add("მალუტკა", () => { socket.emit("bLead", { cards: S.hand.slice(), unturned: true }); sel = []; }, true);
+        if (S.canBura) add("ბურა!", () => socket.emit("bBura"), false);
+        else if (S.canMalutka) add("მალუტკა", () => { socket.emit("bLead", { cards: S.hand.slice(), unturned: true }); sel = []; }, true);
       } else {
         const need = S.lead.cards.length;
         add("უპასუხე (" + sel.length + "/" + need + ")",
@@ -403,6 +404,9 @@
             false, sel.length !== need);
         // the price can be raised while looking at what has been led
         if (S.canCall) add(S.canCall, () => socket.emit("bCall"), true);
+        // and a whole hand of one suit can be turned straight back at it
+        if (S.canBura) add("ბურა!", () => socket.emit("bBura"), false);
+        else if (S.canMalutka) add("მალუტკა", () => { socket.emit("bLead", { cards: S.hand.slice(), unturned: true }); sel = []; }, true);
       }
     }
 
