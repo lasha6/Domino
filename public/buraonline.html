@@ -84,6 +84,19 @@
 
   <div class="toast" id="toast"></div>
 
+  <!-- the end of a round: the counts, hidden all the way until now -->
+  <div class="overlay" id="roundOverlay">
+    <div class="modal">
+      <h2 id="roundTitle"></h2>
+      <p id="roundWhy"></p>
+      <div class="roundScore">
+        <div><span id="roundMeName">შენ</span><b id="roundMe">0</b></div>
+        <div><span id="roundOpName">მოწინააღმდეგე</span><b id="roundOp">0</b></div>
+      </div>
+      <p class="roundNext" id="roundNext">შემდეგი რაუნდი იწყება…</p>
+    </div>
+  </div>
+
   <div class="overlay" id="resultOverlay">
     <div class="modal">
       <h2 id="resultTitle"></h2>
@@ -224,9 +237,35 @@
       if (st.paused && st.waitingFor && st.waitingFor.length)
         document.getElementById("pauseText").textContent = "ველოდებით — " + st.waitingFor.join(", ");
       noteTrick(st);
+      paintRound(st);
       if (first) { Sound.play("deal"); }
       render();
     });
+
+    /* The counts are secret while a round runs — working them out is the game —
+       and public the moment it ends, which is when a claim is settled and both
+       players need to see why. The server sends them only then. */
+    let revealKey = null;
+    function paintRound(st){
+      const ov = document.getElementById("roundOverlay");
+      if (!st.reveal) { ov.classList.remove("show"); revealKey = null; return; }
+      const key = JSON.stringify(st.reveal) + ":" + st.round;
+      const [a, b] = st.reveal.points;
+      const mine = st.reveal.points[st.seat], theirs = st.reveal.points[1 - st.seat];
+      const iWon = st.reveal.winner === st.seat;
+      document.getElementById("roundTitle").textContent =
+        st.reveal.winner == null ? "ყაიმი" : iWon ? "🏆 რაუნდი შენია" : "რაუნდი წაგებულია";
+      document.getElementById("roundWhy").textContent =
+        st.reveal.why + (st.reveal.winner == null ? " — არავინ იწერს"
+                                                  : " · " + st.reveal.worth + " ქულა");
+      document.getElementById("roundOpName").textContent = st.oppName || "მოწინააღმდეგე";
+      document.getElementById("roundMe").textContent = mine;
+      document.getElementById("roundOp").textContent = theirs;
+      document.getElementById("roundNext").textContent =
+        st.phase === "over" ? "მატჩი დასრულდა" : "შემდეგი რაუნდი იწყება…";
+      ov.classList.add("show");
+      if (key !== revealKey) { revealKey = key; Sound.play(iWon ? "handWin" : "handLose"); }
+    }
 
     function paintWaiting(st){
       if (st.code) {

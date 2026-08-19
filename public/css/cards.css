@@ -104,3 +104,10 @@
   .bhand{ min-height:80px; }
   .pile{ min-height:56px; }
 }
+
+/* the end of a round: the two counts side by side, revealed at last */
+.roundScore{ display:flex; gap:22px; justify-content:center; margin:12px 0 4px; }
+.roundScore div{ display:flex; flex-direction:column; align-items:center; gap:3px; }
+.roundScore span{ font:600 11px/1 var(--font-ui); color:var(--cream-dim); }
+.roundScore b{ font:700 30px/1 var(--font-display); color:var(--brass-lit); }
+.roundNext{ font:600 11.5px/1 var(--font-ui); color:var(--cream-dim); margin-top:8px; }

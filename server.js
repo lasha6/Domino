@@ -487,6 +487,13 @@ function buraAdvance(room) {
 function buraRoundOver(room) {
   const b = room.b;
   clearBuraClock(room);
+  const standing = Bura.roundStanding(b);
+  room.reveal = {
+    points: standing,
+    winner: b.roundWinner,
+    worth: b.roundWorth || 0,
+    why: b.log || "",
+  };
   if (b.phase === "over") {
     room.phase = "over";
     const champ = b.matchWinner;
@@ -511,6 +518,7 @@ function buraRoundOver(room) {
     if (room.paused) { room.pendingNextRound = true; return; }
     Bura.nextRound(room.b);
     room.lastTrick = null;
+    room.reveal = null;
     room.phase = "play";
     buraAdvance(room);
   }, BURA_NEXT_ROUND);
@@ -555,6 +563,7 @@ function buraView(room, seat) {
     canVar: Bura.canSayVar(b, seat),
     canUnturned: Bura.canUnturned(b, seat),
     roundWinner: b.roundWinner,
+    reveal: room.reveal || null,      // only ever set once a round has ended
     moveLeft: room.moveDeadline ? Math.max(0, Math.ceil((room.moveDeadline - Date.now()) / 1000)) : null,
     moveTime: Math.round(BURA_MOVE_TIME / 1000),
   });
