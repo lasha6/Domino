@@ -206,12 +206,15 @@
   const CALLS = ["დავი", "სე", "ჩარი", "ფანჯი", "შაში"];
   const callValue = (level) => (level <= 0 ? 1 : level + 1);   // დავი = x2
 
-  // Only on your own turn, and only one step above whatever stands.
+  /* Only on your own turn, and only one step above whatever stands.
+     "Your own turn" means any moment the move is yours — leading, or answering
+     something already on the table. Raising the price while looking at what has
+     been led is a large part of the point. */
   function canCall(g, seat) {
     if (g.phase !== "play" || g.bid.pending) return false;
     if (g.bid.level >= CALLS.length) return false;
     if (g.bid.level > 0 && g.bid.team === seat) return false;  // the other side answers
-    return g.turn === seat && !g.lead;
+    return g.turn === seat;
   }
   function call(g, seat) {
     if (!canCall(g, seat)) return false;

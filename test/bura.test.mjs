@@ -228,6 +228,24 @@ test("a call can only be made on your own turn, and the other side answers", () 
   assert.equal(g.bid.level, 1);
 });
 
+test("a call can also be made while answering what is on the table", () => {
+  // "on your own turn" covers the moment the move is yours, whether that means
+  // leading or answering — raising the price while looking at what came down is
+  // much of the point of calling at all
+  const g = B.newGame({ variant: "5" });
+  g.trump = S.clubs;
+  g.hands[0] = [c("K", S.hearts)];
+  g.hands[1] = [c("A", S.hearts)];
+  g.turn = 0;
+  B.lead(g, 0, [c("K", S.hearts)]);
+  assert.equal(g.turn, 1, "it is now the other player's move");
+  assert.ok(B.canCall(g, 1), "and they may call before answering");
+  assert.ok(!B.canCall(g, 0), "while the one who led may not");
+  assert.ok(B.call(g, 1));
+  assert.ok(B.acceptCall(g, 0));
+  assert.equal(g.bid.level, 1);
+});
+
 test("giving up a call ends the round at what it was worth before it", () => {
   const g = B.newGame({ variant: "5" });
   g.turn = 0;

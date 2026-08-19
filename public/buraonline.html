@@ -362,6 +362,8 @@
         add("უპასუხე (" + sel.length + "/" + need + ")",
             () => { socket.emit("bAnswer", { cards: sel.map(i => S.hand[i]) }); sel = []; },
             false, sel.length !== need);
+        // the price can be raised while looking at what has been led
+        if (S.canCall) add(S.canCall, () => socket.emit("bCall"), true);
       }
     }
 
