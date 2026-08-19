@@ -98,8 +98,9 @@
     const deck = shuffle(makeDeck(variant), o.rnd);
     const g = {
       variant, target, handSize, players: 2,
-      // ხუთკარტა only: whether a plain suit counts as a malutka at this table
-      openMalutka: !!o.openMalutka,
+      // ხუთკარტა only: whether a plain suit counts as a malutka at this table.
+      // On by default — every table plays it that way unless one says otherwise.
+      openMalutka: o.openMalutka !== false,
       deck, trumpCard: null, trump: null,
       hands: [[], []],
       taken: [[], []],          // cards won this round, per player

@@ -56,7 +56,7 @@ test("a malutka cannot be laid on top of your own lead", () => {
   assert.equal(B.canMalutka(g, 0), false, "and not again on top of it");
 });
 
-test("in the five-card game a plain suit is a malutka only where the table allows", () => {
+test("in the five-card game any one suit is a malutka, unless a table turns it off", () => {
   const mk = () => {
     const g = B.newGame({ variant: "5" });
     g.trump = S.hearts; g.deck = [];
@@ -66,16 +66,15 @@ test("in the five-card game a plain suit is a malutka only where the table allow
     B.lead(g, 0, [c("A", S.diamonds)]);
     return g;
   };
-  assert.equal(B.canMalutka(mk(), 1), false, "a plain suit needs the table to have said so");
-  assert.equal(B.canMalutka(mk(), 1, true), true, "and counts where it has");
+  assert.equal(B.canMalutka(mk(), 1), true, "tables play it this way by default");
 
-  const set = mk(); set.openMalutka = true;
-  assert.equal(B.canMalutka(set, 1), true, "a table set up that way needs no argument");
+  const off = mk(); off.openMalutka = false;
+  assert.equal(B.canMalutka(off, 1), false, "a table that turned it off does not");
+  assert.equal(B.canMalutka(off, 1, true), true, "though it can still be asked for directly");
 
   const ledSuit = mk();
   ledSuit.hands[1] = ["6", "7", "8", "9", "J"].map((r) => c(r, S.diamonds));
-  assert.equal(B.canMalutka(ledSuit, 1), false,
-    "even the suit that was led is on the agreement in the long game");
+  assert.equal(B.canMalutka(ledSuit, 1), true, "any one suit counts, the led one included");
 
   const trumps = mk();
   trumps.hands[1] = ["6", "7", "8", "9", "J"].map((r) => c(r, S.hearts));

@@ -312,12 +312,15 @@ test("five trumps may be put down out of turn, but do not win the round", () => 
   assert.equal(g.turn, 0);
 });
 
-test("a five-card hand of one plain suit only counts when the table allows it", () => {
+test("a five-card hand of one plain suit may be put down out of turn", () => {
   const g = B.newGame({ variant: "5" });
   g.trump = S.clubs;
   g.hands[1] = ["6", "7", "8", "9", "J"].map((r) => c(r, S.hearts));
-  assert.equal(B.canUnturned(g, 1), false, "hearts are neither trumps nor anything led");
-  assert.equal(B.canUnturned(g, 1, true), true, "unless the room was made that way");
+  assert.ok(B.canUnturned(g, 1), "tables play it this way");
+  const off = B.newGame({ variant: "5", openMalutka: false });
+  off.trump = S.clubs;
+  off.hands[1] = ["6", "7", "8", "9", "J"].map((r) => c(r, S.hearts));
+  assert.equal(B.canUnturned(off, 1), false, "unless one was set up not to");
 });
 
 test("in the three-card game any three of a suit is a malutka", () => {

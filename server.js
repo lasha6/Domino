@@ -422,7 +422,7 @@ function startBura(room) {
   clearAuto(room);
   room.players.forEach((p, i) => { p.seat = i; p.team = i; });
   room.b = Bura.newGame({ variant: room.variant, target: room.target,
-                          openMalutka: !!room.openMalutka });
+                          openMalutka: room.openMalutka !== false });
   room.phase = "play";
   say(room, "დაიწყო — " + (room.variant === "3" ? "სამკარტა" : "ხუთკარტა"));
   buraAdvance(room);
