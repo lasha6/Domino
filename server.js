@@ -235,6 +235,7 @@ function viewFor(room, seat) {
     seats,
     myTeam: Ozi.teamOf(g, seat),
     oppCount: room.size === 2 ? g.hands[1 - seat].length : undefined,
+    handReveal: room.handReveal || null,
     boneSlots: g.boneyard.map((t) => !!t),   // which slots still hold a tile
     boneDrawable: Ozi.drawableCount(g),
     scores: g.scores, round: g.round, turn: g.turn,
@@ -611,6 +612,7 @@ function startMatch(room) {
 const nextSeat = (room, s) => (s + 1) % room.size;
 
 function startRound(room, firstHand) {
+  room.handReveal = null;
   const g = room.g;
   if (!firstHand) Ozi.dealOpeningHand(g);   // fresh tiles for the new hand
   g.passes = 0;
@@ -780,6 +782,14 @@ function endRound(room, winnerSeat) {
     text = `${at(room, winnerSeat).name} დაასრულა ხელი — +${bonus} ქულა`;
     room.lastWinner = winnerSeat;
   }
+
+  /* What everyone was still holding, turned face up. The losing side is being
+     charged for exactly these tiles, so both players get to count them rather
+     than take the number on trust. */
+  room.handReveal = {
+    hands: room.players.map((p) => ({ seat: p.seat, name: p.name, tiles: g.hands[p.seat].slice() })),
+    raw: room.players.map((p) => Ozi.rawPoints(g.hands[p.seat])),
+  };
   g.round++;
   const mr = Ozi.matchResult(g, wasBlocked);   // handles the "რიბა" rule
   say(room, `${text} | ანგარიში ${g.scores[0]} : ${g.scores[1]}`
@@ -812,7 +822,9 @@ function endRound(room, winnerSeat) {
       if (!rooms.has(room.id) || room.phase !== "roundEnd") return;
       if (room.paused) { room.pendingNextRound = true; return; }  // wait for the drop
       startRound(room, false);
-    }, 3500);
+      // long enough to add up seven tiles without hurrying — the hands are
+      // face up during this pause, and the score is made of them
+    }, 5000);
   }
 }
 

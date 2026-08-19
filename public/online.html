@@ -115,6 +115,9 @@
   <script src="js/sound.js"></script>
   <script src="js/fx.js"></script>
   <script>
+    /* A hand ends and the tiles left over are what the score is made of, so
+       they go face up for a few seconds before anything else happens. */
+    const REVEAL_MS = 4000;
     const qs = new URLSearchParams(location.search);
     const MODE   = qs.get("mode") || "quick";              // quick | friend | join
     const TARGET = [75,175,255,355].includes(+qs.get("target")) ? +qs.get("target") : 175;
@@ -512,6 +515,16 @@
       document.getElementById("round").textContent = S.round || 1;
       document.getElementById("bone").textContent = S.boneDrawable != null ? S.boneDrawable : 0;
       document.getElementById("msg").textContent = S.log || "";
+      if (S.handReveal) {
+        const mine = S.handReveal.hands.find((h) => h.seat === S.seat);
+        const left = S.handReveal.hands.filter((h) => h.seat !== S.seat && h.tiles.length);
+        if (left.length) {
+          const parts = left.map((h) => h.name + ": " + Ozi.rawPoints(h.tiles)
+            + " → " + Ozi.handPoints(h.tiles));
+          document.getElementById("msg").textContent =
+            "ხელში დარჩა — " + parts.join(" · ") + " (მრგვალდება ხუთამდე)";
+        }
+      }
 
       const pill = document.getElementById("turnPill");
       const active = (S.seats || []).find(p => p.turn);
@@ -536,8 +549,13 @@
         let tag = S.size === 4 ? (p.rel === 2 ? "🤝 " : p.rel === 1 ? "◀ " : "▶ ") : "";
         if (p.bot) tag = "🤖 " + tag;          // the computer plays this seat now
         else if (p.away) tag = "⏳ " + tag;    // dropped, seat held
+        // Once the hand is over the server sends what everybody was holding:
+        // those tiles are what the score is made of, so they go face up and
+        // can be counted rather than taken on trust.
+        const shown = S.handReveal && S.handReveal.hands.find((h) => h.seat === p.seat);
         let backs = "";
-        for (let i = 0; i < Math.min(p.count, 7); i++) backs += Tiles.backTile();
+        if (shown) for (const t of shown.tiles) backs += Tiles.domV(t[0], t[1]);
+        else for (let i = 0; i < Math.min(p.count, 7); i++) backs += Tiles.backTile();
         const bank = p.reserve != null
           ? '<span class="bank' + (p.reserve <= 30 ? " low" : "") + '" data-bank="' + p.seat + '">⏱ '
             + mmss(p.reserve) + "</span>" : "";

@@ -256,6 +256,24 @@
     }
 
     // ---------- round / match end ----------
+    /* How long the losing hand stays face up before the result appears. Long
+       enough to add up seven tiles without hurrying. */
+    const REVEAL_MS = 4000;
+    let revealHand = false;
+
+    // Show what was left, and what it came to after rounding up to five.
+    function revealAndThen(fn){
+      revealHand = true;
+      const left = g.hands[1];
+      if (left.length) {
+        const raw = Ozi.rawPoints ? Ozi.rawPoints(left) : left.reduce((n, t) => n + t[0] + t[1], 0);
+        const rounded = Ozi.handPoints(left);
+        setMsg('კომპიუტერს დარჩა <b>' + raw + '</b> ქულა → <b>' + rounded + '</b> (მრგვალდება ხუთამდე)');
+      }
+      render();
+      setTimeout(() => { revealHand = false; fn(); }, REVEAL_MS);
+    }
+
     function endRound(winner){
       g.roundOver = true; busy=true; closeBone();
       const wasBlocked = winner === null;   // captured before winner is reassigned
@@ -284,20 +302,22 @@
         Sound.play(winner===0 ? "handWin" : "handLose");
         if(winner===0) Fx.cheer();               // a small burst for taking a hand
       }
-      if(mr.over){
-        const champ = mr.champTeam;
-        Sound.play(champ===0 ? "win" : "lose");
-        if(champ===0) Fx.confetti(80, {spread:0.8});
-        showResult(champ===0?"🏆 შენ მოიგე თამაში!":"კომპიუტერმა მოიგო თამაში",
-          "ანგარიში "+g.scores[0]+" : "+g.scores[1]+" (მიზანი "+g.target+")",
-          "ახალი თამაში", startMatch, champ===0);
-      } else {
-        showResult(riba ? "რიბა! 🔄" : title,
-          (riba ? "მიზანი მიღწეულია, მაგრამ ხელი ბლოკით დასრულდა — ითამაშება დამატებითი ხელი. "
-                : text+" ")
-          + "| ანგარიში "+g.scores[0]+" : "+g.scores[1],
-          "შემდეგი ხელი ▶", ()=>{ hideResult(); startRound(false); });
-      }
+      revealAndThen(() => {
+        if(mr.over){
+          const champ = mr.champTeam;
+          Sound.play(champ===0 ? "win" : "lose");
+          if(champ===0) Fx.confetti(80, {spread:0.8});
+          showResult(champ===0?"🏆 შენ მოიგე თამაში!":"კომპიუტერმა მოიგო თამაში",
+            "ანგარიში "+g.scores[0]+" : "+g.scores[1]+" (მიზანი "+g.target+")",
+            "ახალი თამაში", startMatch, champ===0);
+        } else {
+          showResult(riba ? "რიბა! 🔄" : title,
+            (riba ? "მიზანი მიღწეულია, მაგრამ ხელი ბლოკით დასრულდა — ითამაშება დამატებითი ხელი. "
+                  : text+" ")
+            + "| ანგარიში "+g.scores[0]+" : "+g.scores[1],
+            "შემდეგი ხელი ▶", ()=>{ hideResult(); startRound(false); });
+        }
+      });
     }
     function showResult(title,text,btn,cb,won){
       document.getElementById("resultTitle").textContent=title;
@@ -332,8 +352,11 @@
       document.getElementById("bone").textContent=Ozi.boneCount(g);
 
       const ch=document.getElementById("cpuhand");
-      ch.innerHTML='<span class="lbl">კომპიუტერი ('+g.hands[1].length+')</span>';
-      for(let i=0;i<g.hands[1].length;i++) ch.innerHTML+=backTile();
+      // Once the hand is over the tiles are turned face up: the player is being
+      // charged for what is in that hand, and should be able to count it.
+      const showTiles = !!revealHand;
+      ch.innerHTML = '<span class="lbl">კომპიუტერი (' + g.hands[1].length + ')</span>';
+      for (const t of g.hands[1]) ch.innerHTML += showTiles ? domV(t[0], t[1]) : backTile();
 
       renderBoard();
 
