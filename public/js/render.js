@@ -42,9 +42,12 @@
   const INSET = (HW - VW) / 2;   // 13 — offset of a run's tile band inside its lane
   const MAXSCALE = 2.3;
   const MAX_ROWS = 4;
-  // Tiles per arm lane before it turns. Never 1 — that would make every tile a
-  // turn, so the arm would lie flat sideways instead of standing up.
-  const ARM_FOLDS = [99, 4, 3, 2];
+  /* Tiles per arm lane before it turns. 1 makes the arm zigzag on every tile
+     and lie almost flat, which is not what an arm normally looks like — but the
+     board area is a wide, short strip, and a straight arm is what makes the
+     tiles too small to read. It is offered last and only wins when it draws
+     them much bigger. */
+  const ARM_FOLDS = [99, 4, 3, 2, 1];
 
   const bandY = (r) => r * PITCH;
   const rowY  = (r) => bandY(r) + INSET;
@@ -117,20 +120,23 @@
         turnEarly = crosses(ny, nh);
       }
 
-      /* A double is NEVER the corner, and never sits right after one. On a real
-         table a double is stood across its run and the chain continues through
-         it; laying it flat to turn on looks wrong, and no amount of saved space
-         buys that back. So this is absolute, even when the arm is about to run
-         into the chain: the turn simply cannot happen here. Such a layout then
-         collides and is thrown out, and one of the other fold combinations —
-         a different lane length, or folding to the other side — is used instead.
+      /* Where the corner goes. A double is drawn crosswise — flat across its
+         run — which is exactly how a corner is drawn, so the arm can turn ON a
+         double and it reads right: the run comes down into it end to end and
+         leaves sideways. What reads wrong is a plain tile laid flat straight
+         AFTER a double, because then two flat tiles sit stacked and offset and
+         the chain looks broken. That is the one the arm avoids.
 
-         Everything else is a preference. Running out of lane wants a turn; so
-         does seeing that the NEXT tile would hit the chain, which is how the
-         arm turns a tile early instead of being cornered later. */
-      const mayCorner = !dbl && !prevDbl;
-      const wantTurn = (inLane >= per && i < arm.length - 1) || turnEarly || wouldReachChain;
-      if (per > 0 && mayCorner && wantTurn) {                   // turn: lay it flat
+         Avoids, not refuses. The lane running back towards the table has to
+         stop before it reaches the chain, and refusing outright is what left
+         the arm walking into it: every folded layout then collided, was thrown
+         out, and the tall unreadable one won by default. So a forced turn is
+         taken wherever it falls, and awkwardCorners() marks it — a layout that
+         folds cleanly still wins if there is one. */
+      const awkward = prevDbl;
+      const forced = wouldReachChain || turnEarly;      // the chain is in the way
+      const wantTurn = forced || (inLane >= per && i < arm.length - 1 && !awkward);
+      if (per > 0 && wantTurn) {                                // turn: lay it flat
         const w = HW, h = HH;
         const x = side > 0 ? lane + INSET : lane + INSET - (HW - VW);
         const y = dir < 0 ? cursor - GAP - h : cursor + GAP;
@@ -258,6 +264,37 @@
     return n;
   }
 
+  /* Which of the folds to draw. Every arm may fold to either side, and trying
+     both is what lets a long arm fold at all: one direction often runs into the
+     chain where the other has clear space, and the straight, unreadable version
+     used to win by default.
+
+     This is the whole rule for picking a layout and it lives here only — a
+     screen, or a test, that worked it out again would quietly drift from what
+     the player actually sees. */
+  function chooseLayout(board, availW, availH, sides, selDbl) {
+    let best = null;
+    for (const armPer of ARM_FOLDS) {
+      for (const top of [+1, -1]) {
+        for (const bottom of [-1, +1]) {
+          for (let rows = 1; rows <= MAX_ROWS; rows++) {
+            const L = buildLayout(board, rows, armPer, { top, bottom });
+            if (!L) continue;
+            const all = L.boxes.concat(dropBoxes(L, sides, selDbl));
+            const bb = bounds(all);
+            const scale = Math.min(MAXSCALE, availW / bb.w, availH / bb.h);
+            // Overlaps are disqualifying. An awkward corner is a real cost —
+            // heavy enough that a tighter fold has to earn it, not just tie.
+            const rank = scale - overlapCount(L.boxes) * 100 - awkwardCorners(L.boxes) * 0.25;
+            if (!best || rank > best.rank + 0.001) best = { L, bb, scale, all, rank, armPer };
+            if (rows >= board.line.length) break;
+          }
+        }
+      }
+    }
+    return best;
+  }
+
   function renderBoard(boardEl, board, selTile, sides, onDrop) {
     const sel = selTile || null;
     const selDbl = sel ? sel[0] === sel[1] : false;
@@ -273,27 +310,7 @@
     const rect = boardEl.getBoundingClientRect();
     const availW = Math.max(40, rect.width - 16), availH = Math.max(40, rect.height - 16);
 
-    // Each arm may fold to either side. Trying both is what lets a long arm
-    // fold at all: one direction often runs into the chain where the other has
-    // clear space, and the straight, unreadable version used to win by default.
-    let best = null;
-    for (const armPer of ARM_FOLDS) {
-      for (const top of [+1, -1]) {
-        for (const bottom of [-1, +1]) {
-          for (let rows = 1; rows <= MAX_ROWS; rows++) {
-            const L = buildLayout(board, rows, armPer, { top, bottom });
-            if (!L) continue;
-            const all = L.boxes.concat(dropBoxes(L, sides, selDbl));
-            const bb = bounds(all);
-            const scale = Math.min(MAXSCALE, availW / bb.w, availH / bb.h);
-            // overlaps are disqualifying; an awkward corner only breaks a tie
-            const rank = scale - overlapCount(L.boxes) * 100 - awkwardCorners(L.boxes) * 0.08;
-            if (!best || rank > best.rank + 0.001) best = { L, bb, scale, all, rank };
-            if (rows >= board.line.length) break;
-          }
-        }
-      }
-    }
+    const best = chooseLayout(board, availW, availH, sides, selDbl);
     if (!best) return;
 
     const { bb, scale, all } = best;
