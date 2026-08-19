@@ -49,7 +49,7 @@
     </div>
 
     <div class="bbar" id="bar"></div>
-    <div class="bhand" id="myhand"></div>
+    <div class="bhand jkHand" id="myhand"></div>
   </div>
 
   <!-- the end of a hand: what everyone said, took and scored -->
@@ -140,9 +140,48 @@
       return d;
     }
 
+    /* ---------------- how big everything is drawn ----------------
+       Measured from the table rather than fixed, and measured again whenever
+       the window changes: a phone in landscape, a tablet and a browser window
+       dragged narrow are three different tables, and one set of pixel sizes
+       cannot suit all three. Everything else is worked out from the card. */
+    const RATIO = 1.5;              // a card is half again as tall as it is wide
+    const SIDE = 118;               // the seats sit at the edges; leave them theirs
+    function fitTable(){
+      const bt = document.getElementById("btable");
+      const r = bt.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      const cs = getComputedStyle(bt);
+      const availH = r.height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 14;
+      const availW = Math.max(90, r.width - SIDE * 2);
+      /* the cross is a card plus two offsets each way: 2.16 cards tall and
+         3.1 cards wide, which is what the stylesheet builds from --jkDx/--jkDy */
+      let w = Math.min(availW / 3.1, availH / 2.16 / RATIO);
+      w = Math.max(22, Math.min(74, Math.floor(w)));
+      bt.style.setProperty("--jkW", w + "px");
+      bt.style.setProperty("--jkH", Math.round(w * RATIO) + "px");
+      bt.style.setProperty("--jkDx", Math.round(w * 1.05) + "px");
+      bt.style.setProperty("--jkDy", Math.round(w * RATIO * 0.58) + "px");
+
+      /* And your own hand, which has to fit however many cards are in it —
+         nine at the widest. Its height budget comes from the stage rather than
+         from the hand itself: measuring a box whose size depends on the cards
+         you are about to resize is a loop that never settles. */
+      const hand = document.getElementById("myhand");
+      const stage = document.querySelector(".stage").getBoundingClientRect();
+      const n = Math.max(1, (g && g.hands[ME].length) || 1);
+      const gap = 8;
+      const byWidth = Math.floor((r.width - gap * (n + 1)) / n);
+      const byHeight = Math.floor(Math.max(64, Math.min(112, stage.height * 0.26)) / RATIO);
+      const hw = Math.max(24, Math.min(64, byWidth, byHeight));
+      hand.style.setProperty("--jkHandW", hw + "px");
+    }
+    addEventListener("resize", () => { fitTable(); });
+
     /* ---------------- the whole screen ---------------- */
     function render(){
       if (!g) return;
+      fitTable();
       const s = Joker.spec(g);
       document.getElementById("setNo").textContent = s.set;
       document.getElementById("handNo").textContent = (g.hand + 1) + "/" + Joker.HANDS

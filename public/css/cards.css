@@ -136,7 +136,9 @@
   font:700 11px/1.15 var(--font-ui); color:var(--cream);
   background:rgba(3,20,11,.62); border:1px solid var(--line);
   border-radius:8px; padding:3px 7px; white-space:nowrap;
-  max-width:132px; overflow:hidden; text-overflow:ellipsis;
+  /* a share of the table, not a fixed slab: on a narrow window a 132px name
+     either side left nothing in the middle for the cards */
+  max-width:min(132px, 22vw); overflow:hidden; text-overflow:ellipsis;
 }
 .seatBox.turn .who{ color:var(--ink); background:linear-gradient(180deg,var(--brass-lit),var(--brass)); border-color:var(--brass-dim); }
 .seatBox .who .mate{ color:var(--brass-lit); font-weight:800; }
@@ -267,41 +269,73 @@
    one across at the top, yours at the bottom, the two beside you left and
    right — and they overlap in the middle. That is how the trick looks on a
    table, and it says whose card is whose without a single label. */
+/* The cross is sized from the table it is drawn on, not from a fixed number of
+   pixels. A phone in landscape, a tablet and a browser window dragged narrow
+   are all different tables, and a card that suits one of them is unreadable or
+   spilling over the edge on the others. joker.html measures the table and sets
+   these; everything below is worked out from them, so there is one number to
+   get right rather than one per rule. */
 .trick.cross{
-  position:relative; width:126px; height:130px;    /* 60 + 2x35, 40 + 2x42 */
-  display:block; margin:0 auto;
+  position:relative; display:block; margin:0 auto;
+  width:calc(var(--jkW, 40px) + var(--jkDx, 42px) * 2);
+  height:calc(var(--jkH, 60px) + var(--jkDy, 35px) * 2);
 }
 .trick.cross .trickRow{
   position:absolute; left:50%; top:50%; margin:0;
   transition:transform .16s ease-out;
 }
-.trick.cross .trickRow .card{ width:40px; height:60px; }
-/* Where each card lands: the side of the table its player sits on. The offsets
-   live here beside the card size, so the two cannot drift apart when a short
-   screen shrinks one of them. */
-.trick.cross .at-across{ transform:translate(-50%,-50%) translateY(-35px); }
-.trick.cross .at-me    { transform:translate(-50%,-50%) translateY(35px); }
-.trick.cross .at-left  { transform:translate(-50%,-50%) translateX(-42px); }
-.trick.cross .at-right { transform:translate(-50%,-50%) translateX(42px); }
+.trick.cross .trickRow .card{
+  width:var(--jkW, 40px); height:var(--jkH, 60px);
+  font-size:calc(var(--jkW, 40px) / 3.1);
+}
+.trick.cross .trickRow .card .rank{ font-size:1em; left:.16em; top:.12em; }
+.trick.cross .trickRow .card .pip { font-size:.8em; right:.18em; top:.16em; }
+.trick.cross .trickRow .card .big { font-size:1.9em; }
+.trick.cross .trickRow .card.jokerCard .rank{ font-size:.62em; }
+.trick.cross .trickRow .card.jokerCard .big { font-size:2.1em; }
+
+/* where each card lands: the side of the table its player sits on */
+.trick.cross .at-across{ transform:translate(-50%,-50%) translateY(calc(var(--jkDy, 35px) * -1)); }
+.trick.cross .at-me    { transform:translate(-50%,-50%) translateY(var(--jkDy, 35px)); }
+.trick.cross .at-left  { transform:translate(-50%,-50%) translateX(calc(var(--jkDx, 42px) * -1)); }
+.trick.cross .at-right { transform:translate(-50%,-50%) translateX(var(--jkDx, 42px)); }
 .trick.cross .trickRow.took .card{ box-shadow:0 0 0 2px var(--brass), 0 6px 14px rgba(0,0,0,.5); }
 
 /* Without card backs for the other three the table is a name and a tally, which
    is all there is to know: everyone always holds the same number of cards in
    this game, so a row of backs said nothing and took the room the cross needs. */
-/* The partner across the top is a name over a tally, about 44px of it, sitting
-   6px down — so the cross starts below that and cannot be dealt into it. */
-.btable.jk{ padding-top:56px; }
+/* The partner across the top is a name over a tally, so the cross starts below
+   that and is centred in whatever is left. */
+.btable.jk{ padding-top:52px; justify-content:center; }
 .btable.jk .seatBox .fan{ display:none; }
 .btable.jk .seatBox.across{ top:6px; }
-.btable.jk .stock{ left:auto; right:10px; top:50%; bottom:auto; transform:translateY(-50%); }
+/* The trump goes in the top-left corner. It used to sit at the right edge
+   halfway down, which is exactly where the player on your right sits — on a
+   narrow window the two were drawn on top of each other. Nobody sits in a
+   corner, so nothing can collide with it there. */
+.btable.jk .stock{ left:8px; top:7px; right:auto; bottom:auto; transform:none; }
+.btable.jk .stock .card, .btable.jk .stock .bezCard{
+  width:calc(var(--jkW, 40px) * .86); height:calc(var(--jkH, 60px) * .86);
+  font-size:calc(var(--jkW, 40px) / 3.6);
+}
+.btable.jk .stock .card .rank{ font-size:1em; left:.16em; top:.12em; }
+.btable.jk .stock .card .pip { font-size:.8em; right:.18em; top:.16em; }
+.btable.jk .stock .card .big { font-size:1.9em; }
+.btable.jk .trumpBox{ width:auto; height:auto; }
+.btable.jk .trumpBox .card{ position:static; }
 .btable.jk .pileLbl{ position:absolute; left:50%; bottom:5px; transform:translateX(-50%); }
 
+/* your own hand scales with the table too, so nine cards still fit a narrow one */
+.jkHand .card{
+  width:var(--jkHandW, 62px); height:calc(var(--jkHandW, 62px) * 1.5);
+  font-size:calc(var(--jkHandW, 62px) / 3.1);
+}
+.jkHand .card .rank{ font-size:1em; left:.16em; top:.1em; }
+.jkHand .card .pip { font-size:.8em; right:.18em; top:.14em; }
+.jkHand .card .big { font-size:1.9em; }
+.jkHand .card.jokerCard .rank{ font-size:.62em; }
+.jkHand .card.jokerCard .big { font-size:2.1em; }
+
 @media (max-height:420px){
-  .trick.cross{ width:114px; height:118px; }
-  .trick.cross .trickRow .card{ width:36px; height:54px; }
-  .trick.cross .at-across{ transform:translate(-50%,-50%) translateY(-32px); }
-  .trick.cross .at-me    { transform:translate(-50%,-50%) translateY(32px); }
-  .trick.cross .at-left  { transform:translate(-50%,-50%) translateX(-38px); }
-  .trick.cross .at-right { transform:translate(-50%,-50%) translateX(38px); }
-  .btable.jk{ padding-top:50px; }
+  .btable.jk{ padding-top:46px; }
 }
