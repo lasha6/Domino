@@ -311,12 +311,23 @@
       setMsg(took === 0 ? "<span class='pts'>გაჭერი!</span>" : "ვერ გაიჭერი");
       settleTrick();
     }
-    function doBura(){
-      if (!Bura.sayBura(g, 0)) return;
-      setMsg("<b>ბურა!</b>");
-      Sound.play("score"); Fx.confetti(60);
-      roundEnded();
+    /* A claim nobody sees is a claim nobody believes: the hand goes face up
+       on the table first, and the round is decided a couple of seconds later. */
+    function showBura(seat){
+      const cards = g.hands[seat].slice();
+      lastTrick = { led: cards, leadSeat: seat, ans: [], took: seat, hidden: false, open: 0 };
+      busy = true;
+      setMsg(seat === 0 ? "<b>ბურა!</b>" : "<b>კომპიუტერს ბურა აქვს</b>");
+      Sound.play("score");
+      if (seat === 0) Fx.confetti(60);
+      render();
+      setTimeout(() => {
+        Bura.sayBura(g, seat);
+        busy = false; lastTrick = null;
+        roundEnded();
+      }, PACE.showTrick + 900);
     }
+    function doBura(){ if (Bura.isBura(g, 0) && Bura.buraTakesRound(g)) showBura(0); }
     function doVar(){
       const r = Bura.sayVar(g, 0);
       setMsg(r.right ? "<b>ვარ — სწორი!</b>" : "<b>ვარ — არასწორი</b>");
@@ -335,6 +346,7 @@
       }, PACE.think);
     }
     function cpuLead(){
+      if (Bura.isBura(g, 1) && Bura.buraTakesRound(g)) { showBura(1); return; }
       busy = true; render();
       setTimeout(() => {
         const cards = Bura.aiLead(g, 1);

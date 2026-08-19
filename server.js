@@ -524,6 +524,7 @@ function buraRoundOver(room) {
     if (room.paused) { room.pendingNextRound = true; return; }
     Bura.nextRound(room.b);
     room.lastTrick = null;
+    room.buraShown = null;
     room.reveal = null;
     room.phase = "play";
     buraAdvance(room);
@@ -562,6 +563,7 @@ function buraView(room, seat) {
     lead: b.lead ? { seat: b.lead.seat, cards: b.lead.cards } : null,
     answerSize: b.lead ? Bura.answerSize(b, seat) : 0,
     lastTrick: room.lastTrick || null,
+    buraShown: room.buraShown || null,
     scores: b.scores, round: b.round, turn: b.turn,
     myTurn: b.turn === seat && room.phase === "play",
     worth: Bura.callValue(b.bid.level),
@@ -1064,9 +1066,19 @@ io.on("connection", (socket) => {
   on("bBura", () => {
     const room = buraRoom(); if (!room || room.phase !== "play") return;
     const seat = seatOf(room, socket); if (seat < 0) return;
-    if (!Bura.sayBura(room.b, seat)) return;
+    if (!Bura.isBura(room.b, seat) || !Bura.buraTakesRound(room.b)) return;
+    // show the hand to both players before the round is decided — a claim
+    // nobody sees is a claim nobody believes
+    room.buraShown = { seat, cards: room.b.hands[seat].slice(), name: at(room, seat).name };
     say(room, at(room, seat).name + ": ბურა!");
-    buraRoundOver(room);
+    clearBuraClock(room);
+    pushState(room);
+    setTimeout(() => {
+      if (!rooms.has(room.id) || !room.buraShown) return;
+      room.buraShown = null;
+      if (!Bura.sayBura(room.b, seat)) return;
+      buraRoundOver(room);
+    }, 2600);
   });
 
   on("bVar", () => {
