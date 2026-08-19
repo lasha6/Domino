@@ -140,6 +140,7 @@ function createRoom(target, isPrivate, size, opts) {
     id, target, size: size === 4 ? 4 : 2, private: !!isPrivate,
     game: o.game === "bura" ? "bura" : "domino",
     variant: o.variant === "3" ? "3" : "5",     // ბურა only
+    openMalutka: o.openMalutka !== false,       // ბურა only: the table's agreement
     b: null,                                    // ბურა state, when that is the game
     code: isPrivate ? makeCode() : null,
     players: [],           // [{id, name, seat}]
@@ -150,8 +151,9 @@ function createRoom(target, isPrivate, size, opts) {
   return room;
 }
 // A table is only the same table if the game, the length and the size all match
-const waitKey = (target, size, game, variant) =>
-  (game === "bura" ? "bura:" + variant : "domino") + ":" + target + ":" + size;
+const waitKey = (target, size, game, variant, openMalutka) =>
+  (game === "bura" ? "bura:" + variant + ":" + (openMalutka ? "open" : "shut") : "domino")
+  + ":" + target + ":" + size;
 
 function roomOf(socket) {
   const id = socket.data.roomId;
@@ -886,15 +888,18 @@ io.on("connection", (socket) => {
     const target = game === "bura"
       ? ([6, 11, 21].includes(p.target) ? p.target : 11)
       : (TARGETS.includes(p.target) ? p.target : 175);
-    return { game, variant, size, target };
+    // the agreement is part of the table: a quick match must not seat two
+    // players who disagree about it together
+    const openMalutka = p.openMalutka !== false;
+    return { game, variant, size, target, openMalutka };
   };
 
   // --- quick match: pair with anyone waiting on the same target AND table size ---
   on("quickJoin", async (payload) => {
     const { name, token, auth } = payload;
-    const { game, variant, size: sz, target: t } = tableWanted(payload);
+    const { game, variant, size: sz, target: t, openMalutka } = tableWanted(payload);
     const who = await whoIs(auth, name);
-    const key = waitKey(t, sz, game, variant);
+    const key = waitKey(t, sz, game, variant, openMalutka);
     let room = waiting.has(key) ? rooms.get(waiting.get(key)) : null;
     if (room && room.players.length < room.size) {
       seat(room, who, token);
@@ -904,7 +909,7 @@ io.on("connection", (socket) => {
         : `ველოდებით — ${room.players.length}/${room.size}`);
       if (!maybeStart(room)) pushState(room);
     } else {
-      room = createRoom(t, false, sz, { game, variant });
+      room = createRoom(t, false, sz, { game, variant, openMalutka });
       seat(room, who, token);
       waiting.set(key, room.id);
       say(room, `ველოდებით — 1/${sz}`);
@@ -915,9 +920,9 @@ io.on("connection", (socket) => {
   // --- private table: create / join by code ---
   on("createTable", async (payload) => {
     const { name, token, auth } = payload;
-    const { game, variant, size: sz, target: t } = tableWanted(payload);
+    const { game, variant, size: sz, target: t, openMalutka } = tableWanted(payload);
     const who = await whoIs(auth, name);
-    const room = createRoom(t, true, sz, { game, variant });
+    const room = createRoom(t, true, sz, { game, variant, openMalutka });
     seat(room, who, token);
     say(room, "გაუზიარე კოდი მეგობრებს");
     pushState(room);

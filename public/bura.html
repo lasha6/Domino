@@ -78,6 +78,8 @@
     const qs = new URLSearchParams(location.search);
     const VARIANT = qs.get("variant") === "3" ? "3" : "5";
     const TARGET  = [6, 11, 21].includes(+qs.get("target")) ? +qs.get("target") : 11;
+    // whether a whole hand of one plain suit may be put down out of turn
+    const OPEN    = qs.get("open") !== "0";
 
     let g = null, sel = [], busy = false;
 
@@ -408,7 +410,7 @@
 
     /* ---------------- go ---------------- */
     function startMatch(){
-      g = Bura.newGame({ variant: VARIANT, target: TARGET });
+      g = Bura.newGame({ variant: VARIANT, target: TARGET, openMalutka: OPEN });
       sel = []; busy = false; lastTrick = null;
       hide(); render();
       setMsg(g.turn === 0 ? "შენი სვლაა — აირჩიე ქვები" : "კომპიუტერი იწყებს");

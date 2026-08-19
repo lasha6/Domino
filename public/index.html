@@ -259,6 +259,13 @@
           <span class="rTime">20 კარტი · „ვარ"</span>
         </button>
       </div>
+      <div class="optRow">
+        <button class="optSwitch on" id="buraOpenBtn" onclick="toggleBuraOpen()"><span class="knob"></span></button>
+        <div class="optText">
+          <b>მალუტკა რიგის გარეშე</b>
+          <span>ხუთკარტაში — ერთი ფერის სრული ხელი ნებისმიერ დროს</span>
+        </div>
+      </div>
       <p class="roomSub" style="margin-top:12px">მატჩი რამდენ ქულამდე?</p>
       <div class="bbar" id="buraTargets"></div>
       <button class="roomClose" onclick="closeBura()">დახურვა</button>
@@ -691,7 +698,7 @@
     }
 
     /* ---------------- ბურა ---------------- */
-    let buraTarget = 11, buraMode = "cpu";
+    let buraTarget = 11, buraMode = "cpu", buraOpen = true;
     function openBura(mode){
       buraMode = mode || "cpu";
       document.getElementById("buraWhere").textContent =
@@ -699,6 +706,7 @@
       : buraMode === "friend" ? "მიიღებ კოდს და გაუზიარებ მეგობარს"
                               : "ცოცხალ მოწინააღმდეგესთან";
       paintBuraTargets();
+      document.getElementById("buraOpenBtn").classList.toggle("on", buraOpen);
       document.getElementById("buraOverlay").classList.add("show");
     }
     function closeBura(){ document.getElementById("buraOverlay").classList.remove("show"); }
@@ -713,9 +721,14 @@
         box.appendChild(b);
       });
     }
+    function toggleBuraOpen(){
+      buraOpen = !buraOpen;
+      document.getElementById("buraOpenBtn").classList.toggle("on", buraOpen);
+      Sound.play("tap");
+    }
     function startBura(variant){
       // against the computer it is the practice screen; online it is the server's
-      const q = "variant=" + variant + "&target=" + buraTarget;
+      const q = "variant=" + variant + "&target=" + buraTarget + "&open=" + (buraOpen ? 1 : 0);
       location.href = buraMode === "cpu" ? "bura.html?" + q
                                          : "buraonline.html?mode=" + buraMode + "&" + q;
     }

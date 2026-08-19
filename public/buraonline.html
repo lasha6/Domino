@@ -130,6 +130,7 @@
     const VARIANT = qs.get("variant") === "3" ? "3" : "5";
     const TARGET  = [6, 11, 21].includes(+qs.get("target")) ? +qs.get("target") : 11;
     const CODE    = (qs.get("code") || "").toUpperCase();
+    const OPEN    = qs.get("open") !== "0";
     const WHO     = Auth.credentials();
     const NAME    = WHO.name || "სტუმარი";
 
@@ -182,7 +183,7 @@
       clearTimeout(waking);
       document.getElementById("netOverlay").classList.remove("show");
       if (seated) { socket.emit("resume", { token: TOKEN }); return; }
-      const who = { name: NAME, token: TOKEN, auth: WHO.auth, game: "bura", variant: VARIANT };
+      const who = { name: NAME, token: TOKEN, auth: WHO.auth, game: "bura", variant: VARIANT, openMalutka: OPEN };
       if (MODE === "quick")       socket.emit("quickJoin",   { ...who, target: TARGET });
       else if (MODE === "friend") socket.emit("createTable", { ...who, target: TARGET });
       else                        socket.emit("joinTable",   { ...who, code: CODE });
