@@ -89,24 +89,39 @@
   const strength = (c, trump) => (suitOf(c) === trump ? 100 : 0) + rankOf(c);
 
   /* ---------------- a new game ---------------- */
+  /* Who sits with whom. Four players are two pairs facing each other, 0+2
+     against 1+3, the same seating the domino table uses. With two players a
+     seat IS its team, so every rule below can be written in teams once and hold
+     for both. */
+  const teamOf = (g, seat) => seat % 2;
+  const nextSeat = (g, seat) => (seat + 1) % g.players;
+  const teamSeats = (g, team) => {
+    const out = [];
+    for (let s = team; s < g.players; s += 2) out.push(s);
+    return out;
+  };
+
   function newGame(opts) {
     const o = opts || {};
-    const variant = o.variant === "3" ? "3" : "5";
+    // Pairs are ხუთკარტა only — the player was clear about that, and the short
+    // deck could not feed four hands anyway: 20 cards, 12 dealt, 8 left over.
+    const players = o.players === 4 ? 4 : 2;
+    const variant = players === 4 ? "5" : (o.variant === "3" ? "3" : "5");
     const target = [6, 11, 21].includes(o.target) ? o.target : 11;
     const handSize = variant === "3" ? 3 : 5;
 
     const deck = shuffle(makeDeck(variant), o.rnd);
     const g = {
-      variant, target, handSize, players: 2,
+      variant, target, handSize, players,
       // ხუთკარტა only: whether a plain suit counts as a malutka at this table.
       // On by default — every table plays it that way unless one says otherwise.
       openMalutka: o.openMalutka !== false,
       deck, trumpCard: null, trump: null,
-      hands: [[], []],
-      taken: [[], []],          // cards won this round, per player
-      scores: [0, 0],           // match points
+      hands: [], taken: [],
+      scores: [0, 0],           // match points, one per TEAM
       turn: 0,                  // whose lead it is
       lead: null,               // { seat, cards }
+      answers: [],              // what the others have put down, in play order
       answerSoFar: null,        // cards the answering player already has down
       answerBy: null,
       phase: "play",            // play | roundOver | over
@@ -115,7 +130,8 @@
       log: "",
       roundWinner: null, matchWinner: null,
     };
-    for (let i = 0; i < handSize; i++) for (let p = 0; p < 2; p++) g.hands[p].push(g.deck.pop());
+    for (let p = 0; p < players; p++) { g.hands.push([]); g.taken.push([]); }
+    for (let i = 0; i < handSize; i++) for (let p = 0; p < players; p++) g.hands[p].push(g.deck.pop());
     // the turned card sits under the deck and is the very last one drawn
     g.trumpCard = g.deck.length ? g.deck[0] : null;
     g.trump = g.trumpCard ? suitOf(g.trumpCard) : suitOf(g.hands[0][0]);
@@ -214,7 +230,8 @@
     removeAll(g.hands[seat], cards);
     const allTrumps = cards.every((c) => suitOf(c) === g.trump);
     g.lead = { seat, cards: cards.map((c) => c.slice()), malutka: true, bura: allTrumps };
-    g.turn = 1 - seat;
+    g.turn = nextSeat(g, seat);
+    g.answers = [];
     return true;
   }
 
@@ -225,7 +242,8 @@
     if (!out) return false;
     removeAll(g.hands[seat], cards);
     g.lead = { seat, cards: cards.map((c) => c.slice()), unturned: !!(opts && opts.unturned) };
-    g.turn = 1 - seat;
+    g.turn = nextSeat(g, seat);
+    g.answers = [];
     return true;
   }
 
@@ -249,36 +267,58 @@
     return holdsAll(g.hands[seat], cards);
   }
 
-  // Play the answer and settle the trick. Returns who took it.
+  /* Play the answer. Returns the seat that took the trick, `null` if the move
+     was not legal, and -1 when the answer was taken but the trick is still
+     going round the table — which only happens with four players, so a
+     two-player screen never sees it.
+
+     Round the table, each player in turn beats what is WINNING rather than
+     what was led: the trick belongs to whoever has the best cards down, and
+     the next player either takes it off them or gives. Nobody is obliged to
+     try. The player was asked and was clear about it: whether you beat your
+     partner's card or let it through is your own business, there is no duty
+     either way — so an answer that beats nothing is simply thrown in. */
   function answer(g, seat, cards) {
     if (!canAnswer(g, seat, cards)) return null;
     removeAll(g.hands[seat], cards);
     // whatever they had already put down is part of what they are answering with
     const full = committed(g, seat).concat(cards);
-    const took = beatsAll(full, g.lead.cards, g.trump) ? seat : g.lead.seat;
-    const pot = g.lead.cards.concat(full);
+    g.answerSoFar = null; g.answerBy = null;
+    g.answers.push({ seat, cards: full.map((c) => c.slice()) });
+
+    let holder = g.lead.seat, held = g.lead.cards;
+    for (const a of g.answers)
+      if (beatsAll(a.cards, held, g.trump)) { holder = a.seat; held = a.cards; }
+
+    if (g.answers.length < g.players - 1) {      // the rest still have to answer
+      g.turn = nextSeat(g, seat);
+      g.log = holder === g.lead.seat ? "ვერ გაიჭრა" : "გაიჭრა";
+      return -1;
+    }
+
+    const pot = g.lead.cards.concat(...g.answers.map((a) => a.cards));
     const wasBura = !!g.lead.bura;
     const ledBy = g.lead.seat;
-    g.answerSoFar = null; g.answerBy = null;
-    g.taken[took].push(...pot);
-    g.log = took === seat ? "გაიჭრა" : "ვერ გაიჭრა";
-    g.lead = null;
-    g.turn = took;
+    g.taken[holder].push(...pot);
+    g.log = holder === ledBy ? "ვერ გაიჭრა" : "გაიჭრა";
+    g.lead = null; g.answers = [];
+    g.turn = holder;
     // ბურა wins the round when it actually takes the trick — if the other
     // player manages to beat it, it has won nothing
-    if (wasBura && took === ledBy && buraTakesRound(g)) {
-      endRound(g, took, callValue(g.bid.level), "ბურა");
-      return took;
+    if (wasBura && holder === ledBy && buraTakesRound(g)) {
+      endRound(g, teamOf(g, holder), callValue(g.bid.level), "ბურა");
+      return holder;
     }
-    refill(g, took);
-    if (!g.hands[0].length && !g.hands[1].length) finishRound(g);
-    return took;
+    refill(g, holder);
+    if (g.hands.every((h) => !h.length)) finishRound(g);
+    return holder;
   }
 
-  /* The winner draws first, then the other — and the turned trump is the very
-     last card to leave the deck. */
+  /* The winner draws first and the rest follow round the table — and the
+     turned trump is the very last card to leave the deck. */
   function refill(g, first) {
-    const order = [first, 1 - first];
+    const order = [];
+    for (let i = 0, s = first; i < g.players; i++, s = nextSeat(g, s)) order.push(s);
     for (let i = 0; i < g.handSize; i++)
       for (const p of order)
         if (g.hands[p].length < g.handSize && g.deck.length) g.hands[p].push(g.deck.pop());
@@ -287,26 +327,44 @@
   /* ---------------- calls: დავი, სე, ჩარი, ფანჯი, შაში ---------------- */
   const CALLS = ["დავი", "სე", "ჩარი", "ფანჯი", "შაში"];
   const callValue = (level) => (level <= 0 ? 1 : level + 1);   // დავი = x2
-
   /* Only on your own turn, and only one step above whatever stands.
      "Your own turn" means any moment the move is yours — leading, or answering
      something already on the table. Raising the price while looking at what has
-     been led is a large part of the point. */
+     been led is a large part of the point.
+
+     A call belongs to a SIDE, not to a chair: a raise is answered by either of
+     the two opposite it, and neither of a pair may raise its own call. */
   function canCall(g, seat) {
     if (g.phase !== "play" || g.bid.pending) return false;
     if (g.bid.level >= CALLS.length) return false;
-    if (g.bid.level > 0 && g.bid.team === seat) return false;  // the other side answers
+    if (g.bid.level > 0 && g.bid.team === teamOf(g, seat)) return false;  // the other side answers
     return g.turn === seat;
   }
   function call(g, seat) {
     if (!canCall(g, seat)) return false;
-    g.bid.pending = { by: seat, level: g.bid.level + 1 };
+    g.bid.pending = { by: teamOf(g, seat), level: g.bid.level + 1, agreed: [] };
     g.log = CALLS[g.bid.level] + " — გამოძახებულია";
     return true;
   }
+  /* A raise stands only once EVERY player on the other side has taken it — the
+     player was explicit: both of the opposing pair have to say yes. One of them
+     giving it up ends the round there and then, so the partner is never asked
+     to answer for a call their side has already dropped. With two players there
+     is only one to ask and this is the old behaviour exactly. */
+  function pendingOpponents(g, p) { return teamSeats(g, 1 - p.by); }
+  function canAnswerCall(g, seat) {
+    const p = g.bid.pending;
+    return !!p && teamOf(g, seat) !== p.by && p.agreed.indexOf(seat) < 0;
+  }
   function acceptCall(g, seat) {
     const p = g.bid.pending;
-    if (!p || p.by === seat) return false;
+    if (!canAnswerCall(g, seat)) return false;
+    p.agreed.push(seat);
+    const waiting = pendingOpponents(g, p).filter((s) => p.agreed.indexOf(s) < 0);
+    if (waiting.length) {                       // the partner still has to answer
+      g.log = CALLS[p.level - 1] + " — ელოდება პარტნიორს";
+      return true;
+    }
     g.bid = { level: p.level, team: p.by, pending: null };
     g.log = CALLS[p.level - 1] + " — მიღებულია";
     return true;
@@ -315,12 +373,13 @@
   // worth BEFORE the call, and the cards stop mattering.
   function concede(g, seat) {
     const p = g.bid.pending;
-    if (!p || p.by === seat) return false;
+    if (!canAnswerCall(g, seat)) return false;
     const worth = callValue(p.level - 1);
     g.bid = { level: p.level - 1, team: p.by, pending: null };
     endRound(g, p.by, worth, "დათმობა");
     return true;
   }
+
 
   /* ---------------- ვარ (three-card game only) ----------------
      Claim the round: right if you already hold 32 or more, and lost outright
@@ -338,36 +397,43 @@
     return { right, points: mine };
   }
 
-  /* ---------------- ending a round ---------------- */
+  /* ---------------- ending a round ----------------
+     What a side took is what its players took between them. There are 120
+     points in the deck, so 60 is exactly half: the player put it plainly —
+     winning means 60+, and 60 apiece is a draw with nothing written down. */
   function roundStanding(g) {
-    return [handPoints(g.taken[0]), handPoints(g.taken[1])];
+    return [0, 1].map((t) =>
+      teamSeats(g, t).reduce((n, s) => n + handPoints(g.taken[s]), 0));
   }
   function finishRound(g) {
     const [a, b] = roundStanding(g);
     if (a === b) return endRound(g, null, 0, "ყაიმი");         // 60 each: nobody scores
     endRound(g, a > b ? 0 : 1, callValue(g.bid.level), "რაუნდი");
   }
-  function endRound(g, winner, worth, why) {
+  function endRound(g, team, worth, why) {
     g.phase = "roundOver";
-    g.roundWinner = winner;
+    g.roundWinner = team;
     g.roundWorth = worth;
     g.log = why;
-    if (winner != null) g.scores[winner] += worth;
+    if (team != null) g.scores[team] += worth;
     if (Math.max(g.scores[0], g.scores[1]) >= g.target) {
       g.phase = "over";
       g.matchWinner = g.scores[0] >= g.target ? 0 : 1;
     }
   }
 
-  // Deal again for the next round; the loser of the last one leads.
+  // Deal again for the next round; the side that lost the last one leads.
   function nextRound(g) {
     if (g.phase !== "roundOver") return false;
-    const starter = g.roundWinner == null ? g.turn : 1 - g.roundWinner;
-    const fresh = newGame({ variant: g.variant, target: g.target });
+    const starter = g.roundWinner == null
+      ? g.turn
+      : teamSeats(g, 1 - g.roundWinner)[0];
+    const fresh = newGame({ variant: g.variant, target: g.target, players: g.players,
+                            openMalutka: g.openMalutka });
     Object.assign(g, {
       deck: fresh.deck, trumpCard: fresh.trumpCard, trump: fresh.trump,
-      hands: fresh.hands, taken: [[], []],
-      turn: starter, lead: null, answerSoFar: null, answerBy: null, phase: "play",
+      hands: fresh.hands, taken: fresh.taken,
+      turn: starter, lead: null, answers: [], answerSoFar: null, answerBy: null, phase: "play",
       bid: { level: 0, team: null, pending: null },
       round: g.round + 1, roundWinner: null, roundWorth: 0, log: "",
     });
@@ -382,16 +448,38 @@
     leads.sort((x, y) => handPoints(x) - handPoints(y) || x.length - y.length);
     return leads[0];
   }
+  /* Whoever currently has the trick, and with what. Round a table of four the
+     answer has to beat what is WINNING, not what was led. */
+  function standing(g) {
+    let holder = g.lead.seat, held = g.lead.cards;
+    for (const a of g.answers)
+      if (beatsAll(a.cards, held, g.trump)) { holder = a.seat; held = a.cards; }
+    return { holder, held };
+  }
   function aiAnswer(g, seat) {
-    const hand = g.hands[seat], led = g.lead.cards, n = answerSize(g, seat);
+    const hand = g.hands[seat], n = answerSize(g, seat);
+    const { holder, held } = standing(g);
+    const cheapest = () =>
+      hand.slice().sort((a, b) => pointsOf(a) - pointsOf(b) || rankOf(a) - rankOf(b)).slice(0, n);
+
+    /* If a partner is holding it, the trick is already coming to this side. It
+       is not forbidden to take it off them — the player was clear there is no
+       duty either way — but there is nothing in it, so feed them points instead
+       and keep the good cards. */
+    if (holder !== seat && teamOf(g, holder) === teamOf(g, seat)) {
+      const last = g.answers.length === g.players - 2;   // nobody left to take it away
+      if (last) return hand.slice()
+        .sort((a, b) => pointsOf(b) - pointsOf(a) || rankOf(b) - rankOf(a)).slice(0, n);
+      return cheapest();
+    }
     // take it if that can be done, spending as little as possible
-    const winners = combinations(hand, n).filter((c) => beatsAll(c, led, g.trump));
+    const winners = combinations(hand, n).filter((c) => beatsAll(c, held, g.trump));
     if (winners.length) {
       winners.sort((x, y) => handPoints(x) - handPoints(y));
       return winners[0];
     }
     // otherwise throw away the cheapest cards
-    return hand.slice().sort((a, b) => pointsOf(a) - pointsOf(b) || rankOf(a) - rankOf(b)).slice(0, n);
+    return cheapest();
   }
   function combinations(arr, n) {
     const out = [];
@@ -406,12 +494,12 @@
     SUITS, RANKS, POINTS, CALLS, VAR_NEEDED,
     suitOf, rankOf, pointsOf, nameOf, sameCard, handPoints,
     makeDeck, shuffle, beats, beatsAll, strength,
-    newGame, legalLeads, canLead, lead, canUnturned, canMalutka, malutka,
+    newGame, teamOf, nextSeat, teamSeats, legalLeads, canLead, lead, canUnturned, canMalutka, malutka,
     isBura, buraTakesRound,
     canAnswer, answer, refill, answerSize, committed,
-    canCall, call, acceptCall, concede, callValue,
+    canCall, call, canAnswerCall, acceptCall, concede, callValue,
     canSayVar, sayVar,
     roundStanding, finishRound, endRound, nextRound,
-    aiLead, aiAnswer, combinations,
+    aiLead, aiAnswer, standing, combinations,
   };
 });
