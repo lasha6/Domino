@@ -385,3 +385,10 @@
 
 /* hidden until we bring them back */
 .later{ display:none !important; }
+
+/* suit marks instead of a playing-card glyph: those render as a joker on some
+   phones and as a blank box on others */
+.suitIco{ display:flex; gap:2px; align-items:center; justify-content:center; line-height:1; }
+.suitIco i{ font-style:normal; font-size:.62em; }
+.suitIco i:nth-child(1){ color:var(--cream); }
+.suitIco i:nth-child(2), .suitIco i:nth-child(3){ color:#e2685a; }
