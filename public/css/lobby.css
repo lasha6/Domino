@@ -59,7 +59,7 @@
 }
 /* the + is drawn from two bars so it centres in any font */
 .cur .plus{
-  position:relative; width:22px; height:22px; border-radius:50%;
+  position:relative; width:32px; height:32px; border-radius:50%;
   background:linear-gradient(180deg,#7ce9a6,#2f9e52);
   border:none; padding:0; margin:0; appearance:none; font-size:0; color:transparent;
   cursor:pointer; flex:0 0 auto;
@@ -69,8 +69,8 @@
   content:""; position:absolute; left:50%; top:50%;
   background:#04240f; border-radius:1px; transform:translate(-50%,-50%);
 }
-.cur .plus::before{ width:11px; height:2.5px; }
-.cur .plus::after{ width:2.5px; height:11px; }
+.cur .plus::before{ width:13px; height:2.5px; }
+.cur .plus::after{ width:2.5px; height:13px; }
 .cur .plus:active{ filter:brightness(.9); }
 
 .store{
@@ -252,11 +252,14 @@
 .gBura i:first-child{ color:#1b1b22; transform:rotate(-10deg); }
 .gBura i:last-child{ color:#b3202b; transform:rotate(10deg); }
 
+/* Sits inside its own view rather than floating over the bar above it — it
+   used to overlap the profile chip, which is not somewhere a stray tap should
+   be able to land. */
 .backGame{
-  position:absolute; left:0; top:-6px; cursor:pointer;
-  padding:6px 12px; border-radius:10px;
+  position:absolute; left:0; top:6px; cursor:pointer;   /* clear of the bar above */
+  padding:7px 13px; border-radius:10px;
   font:600 12px/1 var(--font-ui); color:var(--cream-dim);
-  background:rgba(3,20,11,.5); border:1px solid var(--line);
+  background:rgba(3,20,11,.55); border:1px solid var(--line);
 }
 .backGame:hover{ color:var(--cream); border-color:var(--brass-dim); }
 .gameView{ position:relative; }
@@ -290,6 +293,7 @@
   animation:riseIn .22s cubic-bezier(.2,1,.4,1) both;
   /* a short landscape screen must never cut the bottom off a dialog */
   max-height:calc(var(--appH, 100dvh) - 20px); overflow-y:auto;
+  display:flex; flex-direction:column;
 }
 /* on the shortest screens the sign-in block gives up its explanations first */
 @media (max-height:340px){
@@ -392,3 +396,22 @@
 .suitIco i{ font-style:normal; font-size:.62em; }
 .suitIco i:nth-child(1){ color:var(--cream); }
 .suitIco i:nth-child(2), .suitIco i:nth-child(3){ color:#e2685a; }
+
+/* On the shortest landscape screens the domino hero — two big tiles and a
+   44px title — pushed its own buttons off the bottom. Everything scales back
+   so the whole view still fits without scrolling. */
+@media (max-height:360px){
+  .center{ gap:7px; }
+  .tiles{ height:56px; width:104px; }
+  .tile{ width:34px; height:54px; border-radius:6px; }
+  .pips{ grid-template-columns:repeat(3,5px); grid-template-rows:repeat(3,5px); gap:2.5px; }
+  .pips i, .pips span{ width:5px; height:5px; }
+  .tile::after{ width:4px; height:4px; }
+  .logo-title{ font-size:31px; }
+  .logo-sub{ font-size:10px; letter-spacing:4px; }
+  .play{ padding:10px 32px; font-size:16px; }
+  .modes{ gap:8px; }
+  .mode{ padding:8px 14px; font-size:12px; }
+  .buraArt{ height:34px; font-size:22px; }
+  .backGame{ padding:7px 11px; font-size:11px; }   /* still a fingertip */
+}
