@@ -18,6 +18,7 @@ const Ozi = require("./public/js/ozi.js");
 // levels and the daily streak — the browser draws from this same file, so the
 // bar a player watches and the number recorded here cannot drift apart
 const Progress = require("./public/js/progress.js");
+const Bura = require("./public/js/bura.js");
 
 const store = await openStore();
 
@@ -132,10 +133,14 @@ function makeCode() {
   return c;
 }
 
-function createRoom(target, isPrivate, size) {
+function createRoom(target, isPrivate, size, opts) {
+  const o = opts || {};
   const id = "r" + Math.random().toString(36).slice(2, 9);
   const room = {
     id, target, size: size === 4 ? 4 : 2, private: !!isPrivate,
+    game: o.game === "bura" ? "bura" : "domino",
+    variant: o.variant === "3" ? "3" : "5",     // ბურა only
+    b: null,                                    // ბურა state, when that is the game
     code: isPrivate ? makeCode() : null,
     players: [],           // [{id, name, seat}]
     g: null, phase: "wait", // wait | play | draw | roundEnd | over
@@ -144,7 +149,9 @@ function createRoom(target, isPrivate, size) {
   rooms.set(id, room);
   return room;
 }
-const waitKey = (target, size) => target + ":" + size;
+// A table is only the same table if the game, the length and the size all match
+const waitKey = (target, size, game, variant) =>
+  (game === "bura" ? "bura:" + variant : "domino") + ":" + target + ":" + size;
 
 function roomOf(socket) {
   const id = socket.data.roomId;
@@ -177,6 +184,7 @@ function assignSeats(room) {
  * per-player view (never leaks the opponent's hand)
  * ------------------------------------------------------------------ */
 function viewFor(room, seat) {
+  if (room.game === "bura") return buraView(room, seat);
   const g = room.g;
   const me = room.players.find((p) => p.seat === seat);
   const base = {
@@ -395,8 +403,166 @@ function clearAuto(room) {
 
 // Start once the table is full. In 2v2 we wait for both pairs to be settled,
 // but only for a short grace period so an undecided player can't stall everyone.
+/* ------------------------------------------------------------------ *
+ * ბურა
+ *
+ * The same rooms, seating, reconnect and profile machinery as domino; only the
+ * game inside is different. The engine is the very file the browser loads, so
+ * neither side can count differently, and the hand a player holds is the one
+ * thing never sent to anybody else.
+ *
+ * One clock, not two: thirty seconds a move, and the computer plays for
+ * whoever lets it run out. Domino's bank of thinking time is a domino rule,
+ * and inventing one here would be putting words in the player's mouth.
+ * ------------------------------------------------------------------ */
+const BURA_MOVE_TIME = 30000;
+const BURA_NEXT_ROUND = 4000;
+
+function startBura(room) {
+  clearAuto(room);
+  room.players.forEach((p, i) => { p.seat = i; p.team = i; });
+  room.b = Bura.newGame({ variant: room.variant, target: room.target });
+  room.phase = "play";
+  say(room, "დაიწყო — " + (room.variant === "3" ? "სამკარტა" : "ხუთკარტა"));
+  buraAdvance(room);
+}
+
+function clearBuraClock(room) {
+  if (room.moveTimer) { clearTimeout(room.moveTimer); room.moveTimer = null; }
+  room.moveDeadline = null;
+}
+function armBuraClock(room) {
+  clearBuraClock(room);
+  if (room.paused || !room.b || room.phase !== "play") return;
+  const p = at(room, room.b.turn);
+  if (!p || p.bot) return;
+  room.moveDeadline = Date.now() + BURA_MOVE_TIME;
+  room.moveTimer = setTimeout(() => buraBotMove(room, true), BURA_MOVE_TIME);
+}
+
+// The computer plays for a seat nobody is filling — someone who left, or who
+// let the clock run out.
+function buraBotMove(room, force) {
+  if (!rooms.has(room.id) || room.paused || !room.b || room.phase !== "play") return;
+  const b = room.b, seat = b.turn;
+  const p = at(room, seat);
+  if (!p || (!p.bot && !force)) return;
+  if (!b.lead) {
+    const cards = Bura.aiLead(b, seat);
+    Bura.lead(b, seat, cards);
+    say(room, p.name + " ჩამოვიდა " + cards.length + " ქვით");
+  } else {
+    const led = b.lead.cards.slice(), leadSeat = b.lead.seat;
+    const cards = Bura.aiAnswer(b, seat);
+    const took = Bura.answer(b, seat, cards);
+    recordBuraTrick(room, led, leadSeat, cards, seat, took);
+    say(room, took === seat ? p.name + " გაჭრა" : p.name + " ვერ გაჭრა");
+  }
+  buraAdvance(room);
+}
+function buraMaybeBot(room) {
+  const p = at(room, room.b.turn);
+  if (p && p.bot) setTimeout(() => buraBotMove(room), 900);
+}
+
+// What the table last saw. Kept on the room so both players are shown the same
+// trick, and so a card thrown face down stays face down for both of them.
+function recordBuraTrick(room, led, leadSeat, ans, ansSeat, took) {
+  room.lastTrick = {
+    led, leadSeat, ans, ansSeat, took,
+    hidden: room.variant === "3" && took === leadSeat,
+  };
+}
+
+function buraAdvance(room) {
+  refreshPause(room);
+  clearBuraClock(room);
+  if (room.paused) { pushState(room); return; }
+  if (room.b.phase !== "play") { buraRoundOver(room); return; }
+  armBuraClock(room);
+  buraMaybeBot(room);
+  pushState(room);
+}
+
+function buraRoundOver(room) {
+  const b = room.b;
+  clearBuraClock(room);
+  if (b.phase === "over") {
+    room.phase = "over";
+    const champ = b.matchWinner;
+    room.players.forEach((p) => {
+      const s = io.sockets.sockets.get(p.id);
+      const won = p.seat === champ;
+      awardMatch(room, p, won);
+      if (s) s.emit("matchOver", {
+        youWon: won, scores: b.scores, myTeam: p.seat, target: b.target, size: room.size,
+        progress: p.profile ? summarise(p.profile) : null,
+        settled: p.lastSettle || null, earned: p.lastEarned || [],
+      });
+      p.lastEarned = [];
+    });
+    pushState(room);
+    return;
+  }
+  room.phase = "roundEnd";
+  pushState(room);
+  setTimeout(function () {
+    if (!rooms.has(room.id) || room.phase !== "roundEnd") return;
+    if (room.paused) { room.pendingNextRound = true; return; }
+    Bura.nextRound(room.b);
+    room.lastTrick = null;
+    room.phase = "play";
+    buraAdvance(room);
+  }, BURA_NEXT_ROUND);
+}
+
+/* What one player may see: their own hand, how many the other is holding, and
+   nothing more — no opponent cards, and no running count of taken points,
+   because working that out by eye is the whole of ვარ. */
+function buraView(room, seat) {
+  const b = room.b;
+  const me = room.players.find(function (p) { return p.seat === seat; });
+  const base = {
+    game: "bura", variant: room.variant,
+    roomId: room.id, code: room.code, target: room.target, size: room.size,
+    phase: room.phase, seat, log: room.log,
+    paused: !!room.paused,
+    waitingFor: room.paused ? room.players.filter(function (p) { return p.online === false; })
+                                          .map(function (p) { return p.name; }) : [],
+    resumeIn: room.resumeBy ? Math.max(0, Math.round((room.resumeBy - Date.now()) / 1000)) : null,
+  };
+  if (!b) {
+    base.lobby = room.players.map(function (p) {
+      return { idx: p.idx, name: p.name, me: !!me && p.idx === me.idx, verified: !!p.verified };
+    });
+    return base;
+  }
+  const other = 1 - seat;
+  const opp = at(room, other) || {};
+  return Object.assign({}, base, {
+    hand: b.hands[seat],
+    oppCount: b.hands[other].length,
+    oppName: opp.name || "მოწინააღმდეგე",
+    oppBot: !!opp.bot,
+    trump: b.trump, trumpCard: b.trumpCard, deck: b.deck.length,
+    lead: b.lead ? { seat: b.lead.seat, cards: b.lead.cards } : null,
+    lastTrick: room.lastTrick || null,
+    scores: b.scores, round: b.round, turn: b.turn,
+    myTurn: b.turn === seat && room.phase === "play",
+    worth: Bura.callValue(b.bid.level),
+    bid: b.bid,
+    canCall: Bura.canCall(b, seat) ? Bura.CALLS[b.bid.level] : null,
+    canVar: Bura.canSayVar(b, seat),
+    canUnturned: Bura.canUnturned(b, seat),
+    roundWinner: b.roundWinner,
+    moveLeft: room.moveDeadline ? Math.max(0, Math.ceil((room.moveDeadline - Date.now()) / 1000)) : null,
+    moveTime: Math.round(BURA_MOVE_TIME / 1000),
+  });
+}
+
 function maybeStart(room) {
   if (room.players.length < room.size) { clearAuto(room); return false; }
+  if (room.game === "bura") { startBura(room); return true; }
   if (room.size === 2) { startMatch(room); return true; }
   const c0 = room.players.filter((p) => p.team === 0).length;
   const c1 = room.players.filter((p) => p.team === 1).length;
@@ -699,12 +865,25 @@ io.on("connection", (socket) => {
     return idx;
   }
 
+  /* Which table is being asked for. ბურა counts to 6, 11 or 21 and comes in two
+     variants; domino counts to one of its four targets. Anything unrecognised
+     falls back rather than being refused, so an older client still gets a game. */
+  const tableWanted = (p) => {
+    const game = p.game === "bura" ? "bura" : "domino";
+    const variant = p.variant === "3" ? "3" : "5";
+    const size = game === "bura" ? 2 : (p.size === 4 ? 4 : 2);   // 2v2 ბურა is not built yet
+    const target = game === "bura"
+      ? ([6, 11, 21].includes(p.target) ? p.target : 11)
+      : (TARGETS.includes(p.target) ? p.target : 175);
+    return { game, variant, size, target };
+  };
+
   // --- quick match: pair with anyone waiting on the same target AND table size ---
-  on("quickJoin", async ({ target, name, size, token, auth }) => {
-    const t = TARGETS.includes(target) ? target : 175;
-    const sz = size === 4 ? 4 : 2;
+  on("quickJoin", async (payload) => {
+    const { name, token, auth } = payload;
+    const { game, variant, size: sz, target: t } = tableWanted(payload);
     const who = await whoIs(auth, name);
-    const key = waitKey(t, sz);
+    const key = waitKey(t, sz, game, variant);
     let room = waiting.has(key) ? rooms.get(waiting.get(key)) : null;
     if (room && room.players.length < room.size) {
       seat(room, who, token);
@@ -714,7 +893,7 @@ io.on("connection", (socket) => {
         : `ველოდებით — ${room.players.length}/${room.size}`);
       if (!maybeStart(room)) pushState(room);
     } else {
-      room = createRoom(t, false, sz);
+      room = createRoom(t, false, sz, { game, variant });
       seat(room, who, token);
       waiting.set(key, room.id);
       say(room, `ველოდებით — 1/${sz}`);
@@ -723,10 +902,11 @@ io.on("connection", (socket) => {
   });
 
   // --- private table: create / join by code ---
-  on("createTable", async ({ target, name, size, token, auth }) => {
-    const t = TARGETS.includes(target) ? target : 175;
+  on("createTable", async (payload) => {
+    const { name, token, auth } = payload;
+    const { game, variant, size: sz, target: t } = tableWanted(payload);
     const who = await whoIs(auth, name);
-    const room = createRoom(t, true, size === 4 ? 4 : 2);
+    const room = createRoom(t, true, sz, { game, variant });
     seat(room, who, token);
     say(room, "გაუზიარე კოდი მეგობრებს");
     pushState(room);
@@ -801,6 +981,70 @@ io.on("connection", (socket) => {
     if (!t) return;
     say(room, `${at(room, s).name} აიღო ბაზრიდან`);
     advance(room);   // may need to draw again, or can now play
+  });
+
+  /* ---------------- ბურა: the moves ----------------
+     Every one of these is checked by the engine before anything changes, so a
+     client cannot lead out of turn, answer with the wrong number of cards, or
+     play a card it does not hold. */
+  const buraRoom = () => {
+    const room = roomOf(socket);
+    return room && room.game === "bura" && room.b && !room.paused ? room : null;
+  };
+
+  on("bLead", ({ cards, unturned }) => {
+    const room = buraRoom(); if (!room || room.phase !== "play") return;
+    const seat = seatOf(room, socket); if (seat < 0) return;
+    if (!Array.isArray(cards) || !cards.length || cards.length > 5) return;
+    if (!Bura.lead(room.b, seat, cards, unturned ? { unturned: true } : null)) return;
+    room.lastTrick = null;
+    say(room, at(room, seat).name + (unturned ? " — მალუტკა!" : " ჩამოვიდა " + cards.length + " ქვით"));
+    buraAdvance(room);
+  });
+
+  on("bAnswer", ({ cards }) => {
+    const room = buraRoom(); if (!room || room.phase !== "play" || !room.b.lead) return;
+    const seat = seatOf(room, socket); if (seat < 0) return;
+    if (!Array.isArray(cards)) return;
+    const led = room.b.lead.cards.slice(), leadSeat = room.b.lead.seat;
+    const took = Bura.answer(room.b, seat, cards);
+    if (took == null) return;
+    recordBuraTrick(room, led, leadSeat, cards, seat, took);
+    say(room, took === seat ? at(room, seat).name + " გაჭრა" : at(room, seat).name + " ვერ გაჭრა");
+    buraAdvance(room);
+  });
+
+  on("bCall", () => {
+    const room = buraRoom(); if (!room || room.phase !== "play") return;
+    const seat = seatOf(room, socket); if (seat < 0) return;
+    if (!Bura.call(room.b, seat)) return;
+    say(room, at(room, seat).name + ": " + Bura.CALLS[room.b.bid.pending.level - 1]);
+    pushState(room);
+  });
+
+  on("bAccept", () => {
+    const room = buraRoom(); if (!room) return;
+    const seat = seatOf(room, socket); if (seat < 0) return;
+    if (!Bura.acceptCall(room.b, seat)) return;
+    say(room, at(room, seat).name + " მიიღო");
+    buraAdvance(room);
+  });
+
+  on("bConcede", () => {
+    const room = buraRoom(); if (!room) return;
+    const seat = seatOf(room, socket); if (seat < 0) return;
+    if (!Bura.concede(room.b, seat)) return;
+    say(room, at(room, seat).name + " დათმო");
+    buraRoundOver(room);
+  });
+
+  on("bVar", () => {
+    const room = buraRoom(); if (!room || room.phase !== "play") return;
+    const seat = seatOf(room, socket); if (seat < 0) return;
+    const r = Bura.sayVar(room.b, seat);
+    if (!r) return;
+    say(room, at(room, seat).name + (r.right ? ": ვარ — სწორი!" : ": ვარ — არასწორი"));
+    buraRoundOver(room);
   });
 
   /* ---------------- profile: level, coins, streaks ---------------- */

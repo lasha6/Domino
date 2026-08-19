@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>ბურა — ონლაინ</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0f5230" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/table.css" />
+  <link rel="stylesheet" href="css/cards.css" />
+  <script src="js/progress.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/viewport.js"></script>
+  <script src="js/fullscreen.js"></script>
+</head>
+<body>
+  <div class="stage">
+    <div class="top">
+      <button class="back" onclick="quit()">←</button>
+      <div class="score"><span class="me">შენ <b id="s0">0</b></span> : <span class="op"><b id="s1">0</b> <span id="opName">მოწ.</span></span></div>
+      <!-- no running count of taken points, for either side: working it out is
+           the game, and a number here would answer it for both of them -->
+      <div class="info">
+        <span class="stat"><span class="k">მიზანი</span><b id="target">—</b></span>
+        <span class="stat"><span class="k">ხელი</span><b id="round">1</b></span>
+        <span class="stat"><span class="k">ფასი</span><b id="worth">1</b></span>
+        <span class="stat stake"><span class="k">ფსონი</span><b id="stakeLbl">—</b></span>
+        <span class="stat coins"><span class="k">🪙</span><b id="coinLbl">—</b></span>
+      </div>
+      <div class="spacer"></div>
+      <button class="back sndBtn" id="sndBtn" onclick="toggleSound()" title="ხმა">🔊</button>
+      <div class="turnpill" id="turnPill">—</div>
+    </div>
+
+    <div class="statusrow">
+      <div class="cpuhand" id="ophand"></div>
+      <div class="msg" id="msg"></div>
+    </div>
+
+    <div class="btable">
+      <div class="stock">
+        <div class="trumpBox" id="trumpBox"></div>
+        <span class="count" id="deckCount">0</span>
+      </div>
+      <span class="pileLbl" id="pileLbl">მაგიდა</span>
+      <div class="trick" id="trick"></div>
+    </div>
+
+    <div class="bbar" id="bar"></div>
+    <div class="bhand" id="myhand"></div>
+  </div>
+
+  <!-- waiting for an opponent / the table code -->
+  <div class="overlay show" id="waitOverlay">
+    <div class="modal">
+      <h2 id="waitTitle">ველოდებით…</h2>
+      <div class="spin"></div>
+      <p id="waitText">სერვერს ვუკავშირდები</p>
+      <div class="code" id="waitCode" style="display:none"></div>
+      <button class="alt" onclick="quit()">გაუქმება</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="netOverlay">
+    <div class="modal">
+      <h2>კავშირი გაწყდა</h2>
+      <div class="spin"></div>
+      <p>ვცდილობ ხელახლა დაკავშირებას — თამაში შენარჩუნებულია.</p>
+      <button class="alt" onclick="quit()">გასვლა</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="pauseOverlay">
+    <div class="modal">
+      <h2>თამაში შეჩერებულია</h2>
+      <div class="spin"></div>
+      <p id="pauseText">ველოდებით მოთამაშეს…</p>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="overlay" id="resultOverlay">
+    <div class="modal">
+      <h2 id="resultTitle"></h2>
+      <p id="resultText"></p>
+      <div class="resultLevel" id="resultLevel" style="display:none">
+        <b></b><div class="profBar"><i></i></div><span></span>
+      </div>
+      <button onclick="location.href='index.html'">მენიუში დაბრუნება</button>
+    </div>
+  </div>
+
+  <div class="rotate">
+    <div class="phone">📱</div>
+    <h2 style="color:var(--brass-lit)">გადააბრუნე მოწყობილობა</h2>
+    <p>თამაში თარაზულ (landscape) რეჟიმში ითამაშება.</p>
+  </div>
+
+  <script src="js/socket.io.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/bura.js"></script>
+  <script src="js/coins.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/fx.js"></script>
+  <script>
+    /* ბურა against a real opponent. The server holds the game and checks every
+       move; this screen only draws what it is told and asks for moves. It never
+       sees the other hand, and neither side is shown a running count. */
+    const qs = new URLSearchParams(location.search);
+    const MODE    = qs.get("mode") || "quick";                     // quick | friend | join
+    const VARIANT = qs.get("variant") === "3" ? "3" : "5";
+    const TARGET  = [6, 11, 21].includes(+qs.get("target")) ? +qs.get("target") : 11;
+    const CODE    = (qs.get("code") || "").toUpperCase();
+    const WHO     = Auth.credentials();
+    const NAME    = WHO.name || "სტუმარი";
+
+    const TOKEN = (function(){
+      let t = localStorage.getItem("dominoToken");
+      if(!t){ t = "p" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+              localStorage.setItem("dominoToken", t); }
+      return t;
+    })();
+
+    let S = null, sel = [], seated = false;
+
+    function paintSoundBtn(){ document.getElementById("sndBtn").textContent = Sound.muted() ? "🔇" : "🔊"; }
+    function toggleSound(){ Sound.toggle(); paintSoundBtn(); if(!Sound.muted()) Sound.play("tap"); }
+    paintSoundBtn();
+
+    let toastTimer = null;
+    function toast(m){
+      const t = document.getElementById("toast");
+      t.textContent = m; t.classList.add("show");
+      clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove("show"), 2200);
+    }
+    function quit(){ socket.emit("leaveRoom"); location.href = "index.html"; }
+
+    const socket = SERVER_URL ? io(SERVER_URL, { transports: ["websocket", "polling"] }) : io();
+
+    let waking = setTimeout(() => {
+      if (!seated) document.getElementById("waitText").textContent = "სერვერს ვაღვიძებ… ერთი წუთი დასჭირდება";
+    }, 3000);
+
+    socket.on("connect", () => {
+      clearTimeout(waking);
+      document.getElementById("netOverlay").classList.remove("show");
+      if (seated) { socket.emit("resume", { token: TOKEN }); return; }
+      const who = { name: NAME, token: TOKEN, auth: WHO.auth, game: "bura", variant: VARIANT };
+      if (MODE === "quick")       socket.emit("quickJoin",   { ...who, target: TARGET });
+      else if (MODE === "friend") socket.emit("createTable", { ...who, target: TARGET });
+      else                        socket.emit("joinTable",   { ...who, code: CODE });
+    });
+    socket.on("disconnect", () => document.getElementById("netOverlay").classList.add("show"));
+    socket.on("joinError", (m) => {
+      document.getElementById("waitTitle").textContent = "ვერ შევედი";
+      document.querySelector("#waitOverlay .spin").style.display = "none";
+      document.getElementById("waitText").textContent = m;
+    });
+    socket.on("resumeFailed", () => showResult("თამაში ვეღარ დავაბრუნე", "მაგიდა დაიხურა."));
+    socket.on("opponentLeft", ({ name }) => showResult("მოწინააღმდეგე გავიდა", name + " დატოვა მაგიდა."));
+
+    socket.on("matchOver", ({ youWon, scores, myTeam, settled, progress, earned }) => {
+      if (settled) Coins.set(settled.after);
+      renderCoins();
+      if (progress) showLevel(progress);
+      celebrate(earned);
+      Sound.play(youWon ? "win" : "lose");
+      if (youWon) Fx.confetti(80);
+      const t = myTeam || 0;
+      showResult(youWon ? "🏆 შენ მოიგე!" : "წააგე",
+        "ანგარიში " + scores[t] + " : " + scores[1 - t]
+        + (settled ? " · " + (settled.delta > 0 ? "🪙 +" : "🪙 ") + settled.delta : ""), youWon);
+    });
+
+    /* ---------------- drawing ---------------- */
+    const RED = [1, 2];
+    function cardEl(card, opts){
+      const d = document.createElement("div");
+      const o = opts || {};
+      d.className = "card " + (RED.includes(card[0]) ? "red" : "black")
+                  + (o.small ? " small" : "") + (o.sel ? " sel" : "");
+      const suit = Bura.SUITS[card[0]];
+      d.innerHTML = '<span class="rank">' + Bura.RANKS[card[1]] + '</span>'
+                  + '<span class="pip">' + suit + '</span>'
+                  + '<span class="big">' + suit + '</span>';
+      return d;
+    }
+    function backEl(small){
+      const d = document.createElement("div");
+      d.className = "card back" + (small ? " small" : "");
+      return d;
+    }
+
+    socket.on("state", (st) => {
+      const first = !seated && !!st.hand;
+      S = st;
+      if (st.hand) { seated = true; document.getElementById("waitOverlay").classList.remove("show"); }
+      else paintWaiting(st);
+      document.getElementById("pauseOverlay").classList.toggle("show", !!st.paused);
+      if (st.paused && st.waitingFor && st.waitingFor.length)
+        document.getElementById("pauseText").textContent = "ველოდებით — " + st.waitingFor.join(", ");
+      if (first) { Sound.play("deal"); }
+      render();
+    });
+
+    function paintWaiting(st){
+      if (st.code) {
+        document.getElementById("waitTitle").textContent = "მაგიდა შექმნილია";
+        document.getElementById("waitText").textContent = "გაუზიარე კოდი მეგობარს";
+        const c = document.getElementById("waitCode");
+        c.style.display = "block"; c.textContent = st.code;
+      } else {
+        document.getElementById("waitTitle").textContent = "ველოდებით…";
+        document.getElementById("waitText").textContent = "მოწინააღმდეგეს ვეძებ";
+      }
+    }
+
+    function render(){
+      if (!S || !S.hand) return;
+      document.getElementById("s0").textContent = S.scores[S.seat];
+      document.getElementById("s1").textContent = S.scores[1 - S.seat];
+      document.getElementById("opName").textContent = S.oppName + (S.oppBot ? " 🤖" : "");
+      document.getElementById("target").textContent = S.target;
+      document.getElementById("round").textContent = S.round;
+      document.getElementById("worth").textContent = S.worth;
+      document.getElementById("deckCount").textContent = S.deck;
+      renderCoins();
+
+      const tb = document.getElementById("trumpBox");
+      tb.innerHTML = "";
+      if (S.trumpCard) {
+        if (S.deck > 1) { const b = backEl(true); b.classList.add("deck"); tb.appendChild(b); }
+        const t = cardEl(S.trumpCard, { small: true });
+        t.classList.add("turned");
+        tb.appendChild(t);
+      }
+
+      const oh = document.getElementById("ophand");
+      oh.innerHTML = "";
+      for (let i = 0; i < S.oppCount; i++) oh.appendChild(backEl(true));
+
+      paintTrick();
+
+      const mh = document.getElementById("myhand");
+      mh.innerHTML = "";
+      S.hand.forEach((c, i) => {
+        const el = cardEl(c, { sel: sel.includes(i) });
+        el.onclick = () => pick(i);
+        mh.appendChild(el);
+      });
+
+      document.getElementById("msg").textContent = S.log || "";
+      const pill = document.getElementById("turnPill");
+      if (S.phase === "over")      pill.textContent = "დასრულდა";
+      else if (S.myTurn)           pill.textContent = "შენი სვლა" + (S.moveLeft != null ? " · " + S.moveLeft : "");
+      else                         pill.textContent = "მოწინააღმდეგე ფიქრობს";
+      pill.classList.toggle("mine", !!S.myTurn);
+
+      paintBar();
+    }
+    function renderCoins(){
+      document.getElementById("stakeLbl").textContent = Coins.stakeFor(175);
+      document.getElementById("coinLbl").textContent = Coins.format(Coins.get());
+    }
+
+    function paintTrick(){
+      const box = document.getElementById("trick");
+      const lbl = document.getElementById("pileLbl");
+      box.innerHTML = "";
+      const row = (cards, cls, hidden) => {
+        const d = document.createElement("div");
+        d.className = "trickRow " + cls;
+        cards.forEach((c) => d.appendChild(hidden ? backEl(true) : cardEl(c, { small: true })));
+        return d;
+      };
+      if (S.lead) {
+        lbl.textContent = S.lead.seat === S.seat ? "შენ ჩამოხვედი" : "მოწინააღმდეგე ჩამოვიდა";
+        box.appendChild(row(S.lead.cards, "led"));
+        return;
+      }
+      if (S.lastTrick) {
+        const l = S.lastTrick;
+        lbl.textContent = l.took === S.seat ? "ხელი შენ აიღე" : "ხელი მოწინააღმდეგემ აიღო";
+        box.appendChild(row(l.led, "led" + (l.took === l.leadSeat ? " took" : "")));
+        box.appendChild(row(l.ans, "answer" + (l.took !== l.leadSeat ? " took" : ""), l.hidden));
+        return;
+      }
+      lbl.textContent = "მაგიდა";
+    }
+
+    /* ---------------- choosing ---------------- */
+    function pick(i){
+      if (!S || !S.myTurn) return;
+      const at = sel.indexOf(i);
+      if (at >= 0) { sel.splice(at, 1); render(); return; }
+      if (!S.lead) {
+        const suit = S.hand[i][0];
+        if (sel.length && S.hand[sel[0]][0] !== suit) sel = [];
+        sel.push(i);
+      } else {
+        if (sel.length >= S.lead.cards.length) sel.shift();
+        sel.push(i);
+      }
+      Sound.play("tap");
+      render();
+    }
+
+    function paintBar(){
+      const bar = document.getElementById("bar");
+      bar.innerHTML = "";
+      if (!S || S.phase !== "play") return;
+      const add = (label, fn, ghost, off) => {
+        const b = document.createElement("button");
+        b.className = "bbtn" + (ghost ? " ghost" : "");
+        b.textContent = label; b.disabled = !!off; b.onclick = fn;
+        bar.appendChild(b);
+      };
+
+      if (S.bid && S.bid.pending) {
+        if (S.bid.pending.by !== S.seat) {
+          add("ვიღებ", () => socket.emit("bAccept"));
+          add("ვთმობ", () => socket.emit("bConcede"), true);
+        }
+        return;
+      }
+      if (!S.myTurn) return;
+
+      if (!S.lead) {
+        add("ჩამოდი" + (sel.length ? " (" + sel.length + ")" : ""),
+            () => { socket.emit("bLead", { cards: sel.map(i => S.hand[i]) }); sel = []; },
+            false, !sel.length);
+        if (S.canCall) add(S.canCall, () => socket.emit("bCall"), true);
+        if (S.canVar) add("ვარ", () => socket.emit("bVar"), true);
+        if (S.canUnturned) add("მალუტკა", () => { socket.emit("bLead", { cards: S.hand.slice(), unturned: true }); sel = []; }, true);
+      } else {
+        const need = S.lead.cards.length;
+        add("უპასუხე (" + sel.length + "/" + need + ")",
+            () => { socket.emit("bAnswer", { cards: sel.map(i => S.hand[i]) }); sel = []; },
+            false, sel.length !== need);
+      }
+    }
+
+    /* ---------------- ending ---------------- */
+    function showLevel(p){
+      const el = document.getElementById("resultLevel");
+      el.style.display = "flex";
+      el.querySelector("b").textContent = "დონე " + p.level;
+      el.querySelector("i").style.width = Math.round(p.into / p.need * 100) + "%";
+      el.querySelector("span").textContent = p.into + " / " + p.need;
+    }
+    function celebrate(earned){
+      if (!earned || !earned.length) return;
+      earned.forEach((a, i) => setTimeout(() => {
+        toast("🏆 " + a.title + " — 🪙 +" + a.coins);
+        Sound.play("score");
+        if (i === 0) Fx.confetti(50);
+      }, 900 + i * 2200));
+    }
+    function showResult(title, text, won){
+      document.getElementById("resultTitle").textContent = title;
+      document.getElementById("resultText").textContent = text;
+      document.getElementById("resultOverlay").classList.add("show");
+      if (won !== undefined) Fx.result(document.querySelector("#resultOverlay .modal"), won);
+    }
+  </script>
+</body>
+</html>
