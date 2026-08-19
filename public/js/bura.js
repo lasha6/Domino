@@ -182,11 +182,6 @@
      outright; in the long one it is only a hand that may be put down out of
      turn, and still has to be played for. */
   const buraTakesRound = (g) => g.variant === "3";
-  function sayBura(g, seat) {
-    if (!isBura(g, seat) || !buraTakesRound(g)) return false;
-    endRound(g, seat, callValue(g.bid.level), "ბურა");
-    return true;
-  }
 
   function canMalutka(g, seat, allowAnySuit) {
     const hand = g.hands[seat];
@@ -195,11 +190,10 @@
     if (!oneSuit(hand)) return false;
     if (g.lead && g.lead.seat === seat) return false;  // not on top of your own lead
     const suit = suitOf(hand[0]);
-    // three of a suit is enough in the short game, whatever the suit
-    if (g.variant === "3") return suit !== g.trump;     // trumps there are ბურა, which wins
-    // in the long game a hand of trumps is put down like this, and a plain
-    // suit only where the table was set up to allow it
+    // trumps always go down — that hand is ბურა, and putting it on the table is
+    // how it is played rather than announced
     if (suit === g.trump) return true;
+    if (g.variant === "3") return true;                 // three of any suit will do
     return allowAnySuit === undefined ? !!g.openMalutka : !!allowAnySuit;
   }
   // kept under its old name as well: an empty table is the out-of-turn case
@@ -218,7 +212,8 @@
       g.answerBy = g.lead.seat;
     }
     removeAll(g.hands[seat], cards);
-    g.lead = { seat, cards: cards.map((c) => c.slice()), malutka: true };
+    const allTrumps = cards.every((c) => suitOf(c) === g.trump);
+    g.lead = { seat, cards: cards.map((c) => c.slice()), malutka: true, bura: allTrumps };
     g.turn = 1 - seat;
     return true;
   }
@@ -262,11 +257,19 @@
     const full = committed(g, seat).concat(cards);
     const took = beatsAll(full, g.lead.cards, g.trump) ? seat : g.lead.seat;
     const pot = g.lead.cards.concat(full);
+    const wasBura = !!g.lead.bura;
+    const ledBy = g.lead.seat;
     g.answerSoFar = null; g.answerBy = null;
     g.taken[took].push(...pot);
     g.log = took === seat ? "გაიჭრა" : "ვერ გაიჭრა";
     g.lead = null;
     g.turn = took;
+    // ბურა wins the round when it actually takes the trick — if the other
+    // player manages to beat it, it has won nothing
+    if (wasBura && took === ledBy && buraTakesRound(g)) {
+      endRound(g, took, callValue(g.bid.level), "ბურა");
+      return took;
+    }
     refill(g, took);
     if (!g.hands[0].length && !g.hands[1].length) finishRound(g);
     return took;
@@ -404,7 +407,7 @@
     suitOf, rankOf, pointsOf, nameOf, sameCard, handPoints,
     makeDeck, shuffle, beats, beatsAll, strength,
     newGame, legalLeads, canLead, lead, canUnturned, canMalutka, malutka,
-    isBura, sayBura, buraTakesRound,
+    isBura, buraTakesRound,
     canAnswer, answer, refill, answerSize, committed,
     canCall, call, acceptCall, concede, callValue,
     canSayVar, sayVar,

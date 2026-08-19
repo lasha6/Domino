@@ -82,24 +82,6 @@ test("in the five-card game any one suit is a malutka, unless a table turns it o
   assert.equal(B.canMalutka(trumps, 1), true, "five trumps may always be put down out of turn");
 });
 
-test("a hand of trumps takes the round in the short game only", () => {
-  const three = B.newGame({ variant: "3" });
-  three.trump = S.hearts;
-  three.hands[0] = ["J", "Q", "K"].map((r) => c(r, S.hearts));
-  assert.ok(B.isBura(three, 0));
-  assert.ok(B.sayBura(three, 0), "three trumps take it");
-  assert.equal(three.roundWinner, 0);
-
-  const five = B.newGame({ variant: "5" });
-  five.trump = S.hearts;
-  five.hands[0] = ["J", "Q", "K", "10", "A"].map((r) => c(r, S.hearts));
-  assert.ok(B.isBura(five, 0), "it is still ბურა");
-  assert.equal(B.buraTakesRound(five), false, "but does not win the round in the long game");
-  assert.equal(B.sayBura(five, 0), false, "claiming it does nothing");
-  assert.equal(five.phase, "play", "the round carries on");
-  assert.ok(B.canMalutka(five, 0), "it is put down and played for instead");
-});
-
 test("a part of a hand is never a malutka", () => {
   const g = B.newGame({ variant: "3" });
   g.trump = S.hearts;
@@ -111,41 +93,6 @@ test("a part of a hand is never a malutka", () => {
 
   g.hands[1] = [c("J", S.clubs), c("Q", S.clubs), c("K", S.hearts)];
   assert.equal(B.canMalutka(g, 1), false, "and all of one suit");
-});
-
-test("a whole hand of trumps is ბურა, and in the short game wins the round", () => {
-  for (const [variant, size] of [["3", 3]]) {
-    const g = B.newGame({ variant });
-    g.trump = S.hearts;
-    g.hands[0] = ["J", "Q", "K", "10", "A"].slice(0, size).map((r) => c(r, S.hearts));
-    g.turn = 0;
-    assert.ok(B.isBura(g, 0), variant + "-card: " + size + " trumps is ბურა");
-    assert.equal(B.canMalutka(g, 0), false, "and is claimed rather than laid down as a malutka");
-    assert.ok(B.sayBura(g, 0));
-    assert.equal(g.phase, "roundOver");
-    assert.equal(g.roundWinner, 0, "the round is won outright");
-    assert.equal(g.scores[0], 1, "for what the round was worth");
-  }
-});
-
-test("ბურა is worth whatever the calls made the round", () => {
-  const g = B.newGame({ variant: "3" });
-  g.trump = S.hearts;
-  g.hands[0] = ["J", "Q", "K"].map((r) => c(r, S.hearts));
-  g.turn = 0;
-  B.call(g, 0); B.acceptCall(g, 1);        // დავი
-  g.turn = 0;
-  assert.ok(B.sayBura(g, 0));
-  assert.equal(g.scores[0], 2, "a doubled round pays two");
-});
-
-test("a hand that is not all trumps is not ბურა", () => {
-  const g = B.newGame({ variant: "3" });
-  g.trump = S.hearts;
-  g.hands[0] = [c("J", S.hearts), c("Q", S.hearts), c("K", S.clubs)];
-  assert.equal(B.isBura(g, 0), false);
-  assert.equal(B.sayBura(g, 0), false, "and claiming it does nothing");
-  assert.equal(g.phase, "play", "the round carries on");
 });
 
 test("the card they already led counts towards answering the malutka", () => {

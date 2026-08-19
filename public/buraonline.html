@@ -338,11 +338,6 @@
         cards.forEach((c, i) => d.appendChild((hidden && i >= (openFrom || 0)) ? backEl(true) : cardEl(c, { small: true })));
         return d;
       };
-      if (S.buraShown) {
-        lbl.textContent = S.buraShown.seat === S.seat ? "შენ — ბურა!" : S.buraShown.name + " — ბურა!";
-        box.appendChild(row(S.buraShown.cards, "led took"));
-        return;
-      }
       if (S.lead) {
         lbl.textContent = S.lead.seat === S.seat ? "შენ ჩამოხვედი" : "მოწინააღმდეგე ჩამოვიდა";
         box.appendChild(row(S.lead.cards, "led"));

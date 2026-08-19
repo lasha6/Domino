@@ -451,6 +451,12 @@ function buraBotMove(room, force) {
   const p = at(room, seat);
   if (!p || (!p.bot && !force)) return;
   if (!b.lead) {
+    // a whole hand of one suit goes down as one, ბურა included
+    if (Bura.canMalutka(b, seat) && Bura.malutka(b, seat)) {
+      say(room, p.name + (Bura.isBura(b, seat) ? " — ბურა!" : " — მალუტკა!"));
+      buraAdvance(room);
+      return;
+    }
     const cards = Bura.aiLead(b, seat);
     Bura.lead(b, seat, cards);
     say(room, p.name + " ჩამოვიდა " + cards.length + " ქვით");
@@ -524,7 +530,6 @@ function buraRoundOver(room) {
     if (room.paused) { room.pendingNextRound = true; return; }
     Bura.nextRound(room.b);
     room.lastTrick = null;
-    room.buraShown = null;
     room.reveal = null;
     room.phase = "play";
     buraAdvance(room);
@@ -563,7 +568,6 @@ function buraView(room, seat) {
     lead: b.lead ? { seat: b.lead.seat, cards: b.lead.cards } : null,
     answerSize: b.lead ? Bura.answerSize(b, seat) : 0,
     lastTrick: room.lastTrick || null,
-    buraShown: room.buraShown || null,
     scores: b.scores, round: b.round, turn: b.turn,
     myTurn: b.turn === seat && room.phase === "play",
     worth: Bura.callValue(b.bid.level),
@@ -571,7 +575,7 @@ function buraView(room, seat) {
     canCall: Bura.canCall(b, seat) ? Bura.CALLS[b.bid.level] : null,
     canVar: Bura.canSayVar(b, seat),
     canMalutka: Bura.canMalutka(b, seat),
-    canBura: Bura.isBura(b, seat) && Bura.buraTakesRound(b),
+    canBura: Bura.isBura(b, seat),
     roundWinner: b.roundWinner,
     reveal: room.reveal || null,      // only ever set once a round has ended
     moveLeft: room.moveDeadline ? Math.max(0, Math.ceil((room.moveDeadline - Date.now()) / 1000)) : null,
@@ -1063,22 +1067,14 @@ io.on("connection", (socket) => {
     buraRoundOver(room);
   });
 
+  /* ბურა is played rather than announced: it goes down like a malutka and
+     wins the round only by taking the trick, which the engine settles. */
   on("bBura", () => {
     const room = buraRoom(); if (!room || room.phase !== "play") return;
     const seat = seatOf(room, socket); if (seat < 0) return;
-    if (!Bura.isBura(room.b, seat) || !Bura.buraTakesRound(room.b)) return;
-    // show the hand to both players before the round is decided — a claim
-    // nobody sees is a claim nobody believes
-    room.buraShown = { seat, cards: room.b.hands[seat].slice(), name: at(room, seat).name };
+    if (!Bura.malutka(room.b, seat)) return;
     say(room, at(room, seat).name + ": ბურა!");
-    clearBuraClock(room);
-    pushState(room);
-    setTimeout(() => {
-      if (!rooms.has(room.id) || !room.buraShown) return;
-      room.buraShown = null;
-      if (!Bura.sayBura(room.b, seat)) return;
-      buraRoundOver(room);
-    }, 2600);
+    buraAdvance(room);
   });
 
   on("bVar", () => {

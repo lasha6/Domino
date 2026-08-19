@@ -305,8 +305,7 @@ test("five trumps may be put down out of turn, but do not win the round", () => 
   g.turn = 0;                                   // not their turn at all
   assert.ok(B.isBura(g, 1), "five trumps is ბურა");
   assert.equal(B.buraTakesRound(g), false, "which does not win the long game");
-  assert.equal(B.sayBura(g, 1), false, "so claiming it does nothing");
-  assert.ok(B.canMalutka(g, 1), "it goes down out of turn instead");
+  assert.ok(B.canMalutka(g, 1), "it is put down out of turn like any whole hand");
   assert.ok(B.malutka(g, 1));
   assert.equal(g.lead.cards.length, 5, "and the other player must beat all five");
   assert.equal(g.turn, 0);
