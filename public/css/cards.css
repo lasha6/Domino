@@ -378,3 +378,69 @@
   border-radius:7px; padding:2px 7px;
 }
 .seatBox.across{ flex-direction:row; align-items:center; gap:6px; }
+
+/* ---- the match record, pulled down over the ჯოკერი table ----
+   The table is the one part of this screen with no room to spare, so the
+   record covers it rather than taking a slice of it. */
+.histBtn{
+  flex:none; cursor:pointer; border-radius:11px; padding:7px 12px;
+  font:700 12px/1 var(--font-ui); color:var(--cream);
+  background:var(--panel); border:1px solid var(--line);
+  display:flex; align-items:center; gap:5px; white-space:nowrap;
+}
+.histBtn .chev{ transition:transform .15s; font-size:10px; }
+.histBtn.on{ color:var(--ink); background:linear-gradient(180deg,var(--brass-lit),var(--brass)); border-color:var(--brass-dim); }
+.histBtn.on .chev{ transform:rotate(180deg); }
+
+.histPanel{
+  position:absolute; left:0; right:0; top:0; z-index:6;
+  max-height:100%; overflow:auto; padding:8px 10px 10px;
+  background:linear-gradient(180deg, rgba(4,26,15,.985), rgba(3,20,11,.975));
+  border-bottom:1px solid var(--brass-dim); border-radius:14px 14px 12px 12px;
+  transform:translateY(-102%); transition:transform .2s ease-out;
+  box-shadow:0 14px 30px rgba(0,0,0,.5);
+}
+.histPanel.show{ transform:translateY(0); }
+.histEmpty{ margin:10px 0; text-align:center; color:var(--cream-dim); font:600 12px/1 var(--font-ui); }
+
+.histTable{ width:100%; border-collapse:collapse; font:600 11.5px/1.25 var(--font-ui); }
+.histTable th{
+  font:700 11px/1 var(--font-ui); color:var(--cream-dim); padding:2px 4px 5px;
+  border-bottom:1px solid var(--line);
+}
+.histTable th.me{ color:var(--brass-lit); }
+.histTable td{ padding:2px 4px; color:var(--cream); text-align:right; }
+.histTable td.no{ color:var(--cream-dim); text-align:left; white-space:nowrap; }
+.histTable td.bid{ color:var(--cream-dim); padding-right:1px; }
+.histTable td.pts{ font-weight:800; padding-left:1px; }
+.histTable td.me{ color:var(--brass-lit); }
+.histTable td.pts.good{ color:var(--good); }
+.histTable td.pts.bad { color:var(--bad, #e2626b); }
+.histTable tr.total td{ border-top:1px solid var(--line); padding-top:4px; font-weight:800; color:var(--cream); }
+.histTable tr.total td.no{ color:var(--cream-dim); }
+
+@media (max-height:420px){
+  .histTable{ font-size:10.5px; }
+  .histTable th{ font-size:10px; }
+  .histBtn{ padding:6px 10px; font-size:11px; }
+}
+
+/* ---- the first and last markers ----
+   Green where the play starts, red where it ends. Laid beside the player they
+   belong to, the way a chip is pushed across a real table. */
+.chip{
+  display:inline-block; width:11px; height:11px; border-radius:50%;
+  margin-left:5px; vertical-align:middle; flex:none;
+  box-shadow:0 0 0 1.5px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.5);
+}
+.chip.first{ background:#3fbf6a; }
+.chip.last { background:#d2434f; }
+/* yours goes in the corner on your own side of the table, clear of the line
+   that says who took the trick */
+.chipMe{ position:absolute; left:11px; bottom:8px; z-index:4; display:flex; align-items:center; }
+.chipMe .chip{ width:13px; height:13px; margin:0; }
+
+/* The trump moved to the top-right corner and sits ABOVE the record, so opening
+   the record never hides it — that was the whole complaint. */
+.btable.jk .stock{ left:auto; right:9px; top:7px; bottom:auto; transform:none; z-index:8; }
+.histPanel{ padding-right:74px; }

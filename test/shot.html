@@ -13,6 +13,17 @@ setTimeout(() => {
   if (qs.get("hand")) run("g.hand=" + (+qs.get("hand")) + "; g.phase='deal'; Joker.deal(g); render();");
   setInterval(() => {
     try {
+      const d = w.document;
+      if (d.getElementById("handOverlay").classList.contains("show")) { d.getElementById("handBtn").click(); return; }
+      if (d.getElementById("resultOverlay").classList.contains("show")) return;
+      if (qs.get("hist") && run("g.history.length") >= (+qs.get("hist") || 3)) {
+        if (!run("histOpen")) {
+          // transitions do not advance under virtual time, so take it out
+          d.getElementById("histPanel").style.transition = "none";
+          run("PACE.showTrick=100000; toggleHist()");
+        }
+        return;                       // and stop playing, so it stays open
+      }
       if (run("!g || busy || g.turn !== 0")) return;
       if (run("!!pending")) {
         [...w.document.querySelectorAll("#bar .bbtn")].filter(b=>!b.disabled)[0].click(); return;
@@ -34,6 +45,8 @@ setTimeout(() => {
         seatL: box("#seatLeft"), seatA: box("#seatAcross"), seatR: box("#seatRight"),
         stock: box(".stock"), card: box("#trick .card"), handCard: box("#myhand .card"),
         cards: d.querySelectorAll("#trick .card").length,
+        histCls: (d.getElementById("histPanel")||{}).className,
+        histBox: box("#histPanel"), histRows: d.querySelectorAll(".histTable tr").length,
         turned: run("g.turned ? Joker.nameOf(g.turned) : null"),
         trump: run("g.trump === Joker.NOTRUMP ? \"bez\" : Joker.SUITS[g.trump]"),
         trumpLbl: d.getElementById("trumpLbl").textContent,
