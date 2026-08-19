@@ -423,8 +423,9 @@ const BURA_NEXT_ROUND = 4000;
 
 function startBura(room) {
   clearAuto(room);
-  room.players.forEach((p, i) => { p.seat = i; p.team = i; });
-  room.b = Bura.newGame({ variant: room.variant, target: room.target,
+  // partners sit across, so a side is every other chair round the table
+  room.players.forEach((p, i) => { p.seat = i; p.team = i % 2; });
+  room.b = Bura.newGame({ variant: room.variant, target: room.target, players: room.size,
                           openMalutka: room.openMalutka !== false });
   room.phase = "play";
   say(room, "დაიწყო — " + (room.variant === "3" ? "სამკარტა" : "ხუთკარტა"));
@@ -454,20 +455,21 @@ function buraBotMove(room, force) {
   if (!b.lead) {
     // a whole hand of one suit goes down as one, ბურა included
     if (Bura.canMalutka(b, seat) && Bura.malutka(b, seat)) {
-      say(room, p.name + (Bura.isBura(b, seat) ? " — ბურა!" : " — მალუტკა!"));
+      startBuraTrick(room, b.lead.cards.slice(), b.lead.seat);
+      say(room, p.name + (b.lead.bura ? " — ბურა!" : " — მალუტკა!"));
       buraAdvance(room);
       return;
     }
     const cards = Bura.aiLead(b, seat);
     Bura.lead(b, seat, cards);
+    startBuraTrick(room, b.lead.cards.slice(), b.lead.seat);
     say(room, p.name + " ჩამოვიდა " + cards.length + " ქვით");
   } else {
-    const led = b.lead.cards.slice(), leadSeat = b.lead.seat;
     const cards = Bura.aiAnswer(b, seat);
     const already = Bura.committed(b, seat);
     const took = Bura.answer(b, seat, cards);
-    recordBuraTrick(room, led, leadSeat, already.concat(cards), seat, took, already.length);
-    say(room, took === seat ? p.name + " გაჭრა" : p.name + " ვერ გაჭრა");
+    recordBuraAnswer(room, seat, already.concat(cards), already.length, took);
+    if (took !== -1) say(room, took === seat ? p.name + " გაჭრა" : p.name + " ვერ გაჭრა");
   }
   buraAdvance(room);
 }
@@ -476,15 +478,23 @@ function buraMaybeBot(room) {
   if (p && p.bot) setTimeout(() => buraBotMove(room), 900);
 }
 
-// What the table last saw. Kept on the room so both players are shown the same
-// trick, and so a card thrown face down stays face down for both of them.
-function recordBuraTrick(room, led, leadSeat, ans, ansSeat, took, alreadyOpen) {
-  room.lastTrick = {
-    led, leadSeat, ans, ansSeat, took,
-    hidden: room.variant === "3" && took === leadSeat,
-    // a card already led is one both players have seen; it stays face up
-    open: alreadyOpen || 0,
-  };
+/* What the table last saw. Kept on the room so everyone is shown the same
+   trick, and so a card thrown face down stays face down for all of them.
+   With four players the trick goes round, so the answers are a list. */
+function startBuraTrick(room, led, leadSeat) {
+  room.lastTrick = { led, leadSeat, answers: [], took: null, hidden: false,
+                     // kept for the two-player screen, which reads these
+                     ans: [], ansSeat: null, open: 0 };
+}
+function recordBuraAnswer(room, seat, cards, alreadyOpen, took) {
+  const t = room.lastTrick;
+  if (!t) return;
+  // a card already led is one everyone has seen; it stays face up
+  t.answers.push({ seat, cards, open: alreadyOpen || 0 });
+  t.ans = cards; t.ansSeat = seat; t.open = alreadyOpen || 0;
+  if (took === -1) return;                       // still going round the table
+  t.took = took;
+  t.hidden = room.variant === "3" && took === t.leadSeat;
 }
 
 function buraAdvance(room) {
@@ -512,10 +522,10 @@ function buraRoundOver(room) {
     const champ = b.matchWinner;
     room.players.forEach((p) => {
       const s = io.sockets.sockets.get(p.id);
-      const won = p.seat === champ;
+      const won = p.team === champ;
       awardMatch(room, p, won);
       if (s) s.emit("matchOver", {
-        youWon: won, scores: b.scores, myTeam: p.seat, target: b.target, size: room.size,
+        youWon: won, scores: b.scores, myTeam: p.team, target: b.target, size: room.size,
         progress: p.profile ? summarise(p.profile) : null,
         settled: p.lastSettle || null, earned: p.lastEarned || [],
       });
@@ -558,10 +568,25 @@ function buraView(room, seat) {
     });
     return base;
   }
-  const other = 1 - seat;
+  /* Everyone else at the table, in clockwise order starting from the player
+     themselves, so a screen can seat them without knowing the seat numbers:
+     "left" is the next chair round, "across" is the partner, "right" is the
+     one before. With two players there is only "across". */
+  const REL = room.size === 4 ? ["me", "left", "across", "right"] : ["me", "across"];
+  const table = [];
+  for (let i = 0; i < room.size; i++) {
+    const st = (seat + i) % room.size;
+    const q = at(room, st) || {};
+    table.push({ seat: st, rel: REL[i], name: q.name || "მოწინააღმდეგე",
+                 bot: !!q.bot, verified: !!q.verified, team: st % 2,
+                 cards: b.hands[st] ? b.hands[st].length : 0,
+                 partner: room.size === 4 && st % 2 === seat % 2 && st !== seat });
+  }
+  const other = (seat + (room.size === 4 ? 2 : 1)) % room.size;
   const opp = at(room, other) || {};
   return Object.assign({}, base, {
     hand: b.hands[seat],
+    table, myTeam: seat % 2,
     oppCount: b.hands[other].length,
     oppName: opp.name || "მოწინააღმდეგე",
     oppBot: !!opp.bot,
@@ -906,8 +931,9 @@ io.on("connection", (socket) => {
      falls back rather than being refused, so an older client still gets a game. */
   const tableWanted = (p) => {
     const game = p.game === "bura" ? "bura" : "domino";
-    const variant = p.variant === "3" ? "3" : "5";
-    const size = game === "bura" ? 2 : (p.size === 4 ? 4 : 2);   // 2v2 ბურა is not built yet
+    // pairs are ხუთკარტა only: the short deck cannot feed four hands
+    const size = p.size === 4 ? 4 : 2;
+    const variant = (game === "bura" && size === 4) ? "5" : (p.variant === "3" ? "3" : "5");
     const target = game === "bura"
       ? ([6, 11, 21].includes(p.target) ? p.target : 11)
       : (TARGETS.includes(p.target) ? p.target : 175);
@@ -1038,7 +1064,7 @@ io.on("connection", (socket) => {
     // a malutka may land on an empty table or straight back on a lead
     const ok = unturned ? Bura.malutka(room.b, seat) : Bura.lead(room.b, seat, cards);
     if (!ok) return;
-    if (!unturned) room.lastTrick = null;
+    startBuraTrick(room, room.b.lead.cards.slice(), room.b.lead.seat);
     say(room, at(room, seat).name + (unturned ? " — მალუტკა!" : " ჩამოვიდა " + cards.length + " ქვით"));
     buraAdvance(room);
   });
@@ -1047,12 +1073,12 @@ io.on("connection", (socket) => {
     const room = buraRoom(); if (!room || room.phase !== "play" || !room.b.lead) return;
     const seat = seatOf(room, socket); if (seat < 0) return;
     if (!Array.isArray(cards)) return;
-    const led = room.b.lead.cards.slice(), leadSeat = room.b.lead.seat;
     const already = Bura.committed(room.b, seat);
     const took = Bura.answer(room.b, seat, cards);
     if (took == null) return;
-    recordBuraTrick(room, led, leadSeat, already.concat(cards), seat, took, already.length);
-    say(room, took === seat ? at(room, seat).name + " გაჭრა" : at(room, seat).name + " ვერ გაჭრა");
+    recordBuraAnswer(room, seat, already.concat(cards), already.length, took);
+    if (took !== -1)
+      say(room, took === seat ? at(room, seat).name + " გაჭრა" : at(room, seat).name + " ვერ გაჭრა");
     buraAdvance(room);
   });
 
