@@ -112,27 +112,31 @@
 
     /* ---------------- drawing a card ----------------
        The joker has no suit to print, so it gets the face the card is named
-       after: a jester in his three-pointed cap with a bell on each point.
-       Drawn rather than fetched, like every other card in this app, so it stays
-       sharp at any size and the app carries no picture files. */
+       after. The shape is the plainest of the classic ones — a split cap over a
+       mask — because it has to survive being dealt at 36px on a narrow table,
+       and the detailed jesters turn to mush at that size.
+
+       The cap is red and blue rather than the usual red and black: black and
+       red are the two SUIT colours in this deck, and at 36px a joker in them
+       reads as "some red card". Blue belongs to no suit, so it cannot.
+
+       Drawn rather than fetched, like every other card here, so it stays sharp
+       at any size and the app carries no picture files. */
     const JESTER =
-      '<svg class="jkArt" viewBox="0 0 40 56" aria-hidden="true">'
-      // the cap, and its three points, each with a bell
-      + '<path class="capL" d="M20 11 C11 11 6 19 7.5 29 L20 29 Z"/>'
-      + '<path class="capR" d="M20 11 C29 11 34 19 32.5 29 L20 29 Z"/>'
-      + '<path class="capR" d="M7.6 26.5 C2.4 24.4 1 18.2 3.9 13.6 L10.4 21.6 Z"/>'
-      + '<path class="capL" d="M32.4 26.5 C37.6 24.4 39 18.2 36.1 13.6 L29.6 21.6 Z"/>'
-      + '<path class="capL" d="M20 11 C19.2 5.6 21.4 3.2 24.6 2.4 L22.6 11 Z"/>'
-      + '<circle class="bell" cx="3.6" cy="12.4" r="2.6"/>'
-      + '<circle class="bell" cx="36.4" cy="12.4" r="2.6"/>'
-      + '<circle class="bell" cx="24.8" cy="2.2" r="2.4"/>'
-      // the face under it
-      + '<ellipse class="face" cx="20" cy="37" rx="9.4" ry="9"/>'
-      + '<circle class="ink" cx="16.6" cy="35.6" r="1.35"/>'
-      + '<circle class="ink" cx="23.4" cy="35.6" r="1.35"/>'
-      + '<path class="smile" d="M15.4 40.4 Q20 44.6 24.6 40.4"/>'
-      // and the ruff at his collar
-      + '<path class="capR" d="M11 44.4 Q20 52.6 29 44.4 Q20 48.4 11 44.4 Z"/>'
+      '<svg class="jkArt" viewBox="0 0 44 60" aria-hidden="true">'
+      // the two side prongs, each ending in a bell
+      + '<path class="capR" d="M14.5 21.5 C9.5 15 4 13.6 2.2 17.6 C3.4 23 8.6 27.6 14.6 28.6 Z"/>'
+      + '<path class="capB" d="M29.5 21.5 C34.5 15 40 13.6 41.8 17.6 C40.6 23 35.4 27.6 29.4 28.6 Z"/>'
+      + '<circle class="bell" cx="2.6" cy="17.4" r="2.5"/>'
+      + '<circle class="bell" cx="41.4" cy="17.4" r="2.5"/>'
+      // the tall middle spike, split down the centre
+      + '<path class="capR" d="M22 2.4 C18.4 11 14.6 21 14.2 29.2 L22 30.6 Z"/>'
+      + '<path class="capB" d="M22 2.4 C25.6 11 29.4 21 29.8 29.2 L22 30.6 Z"/>'
+      // the mask under it
+      + '<path class="face" d="M12.6 30.6 C12.6 43.4 16.8 52 22 52 C27.2 52 31.4 43.4 31.4 30.6 C27.6 28.6 16.4 28.6 12.6 30.6 Z"/>'
+      + '<path class="ink" d="M15.6 37.4 C17.4 34.6 20.4 34.6 21.8 37.4 C20.2 39.4 17.2 39.4 15.6 37.4 Z"/>'
+      + '<path class="ink" d="M28.4 37.4 C26.6 34.6 23.6 34.6 22.2 37.4 C23.8 39.4 26.8 39.4 28.4 37.4 Z"/>'
+      + '<path class="ink" d="M16.4 43.4 C19 47.6 25 47.6 27.6 43.4 C24.8 45 19.2 45 16.4 43.4 Z"/>'
       + '</svg>';
 
     const RED = [1, 2];                       // hearts and diamonds
