@@ -41,7 +41,11 @@
       <div class="msg" id="msg"></div>
     </div>
 
-    <div class="btable">
+    <div class="btable" id="btable">
+      <!-- the other three, drawn where they sit; empty and hidden in 1v1 -->
+      <div class="seatBox left"   id="seatLeft"></div>
+      <div class="seatBox across" id="seatAcross"></div>
+      <div class="seatBox right"  id="seatRight"></div>
       <div class="stock">
         <div class="trumpBox" id="trumpBox"></div>
         <span class="count" id="deckCount">0</span>
@@ -127,7 +131,9 @@
        sees the other hand, and neither side is shown a running count. */
     const qs = new URLSearchParams(location.search);
     const MODE    = qs.get("mode") || "quick";                     // quick | friend | join
-    const VARIANT = qs.get("variant") === "3" ? "3" : "5";
+    // pairs are ხუთკარტა only, so a table of four is the long game whatever was asked
+    const SIZE    = +qs.get("size") === 4 ? 4 : 2;
+    const VARIANT = (SIZE === 4 || qs.get("variant") !== "3") ? "5" : "3";
     const TARGET  = [6, 11, 21].includes(+qs.get("target")) ? +qs.get("target") : 11;
     const CODE    = (qs.get("code") || "").toUpperCase();
     const OPEN    = qs.get("open") !== "0";
@@ -183,7 +189,8 @@
       clearTimeout(waking);
       document.getElementById("netOverlay").classList.remove("show");
       if (seated) { socket.emit("resume", { token: TOKEN }); return; }
-      const who = { name: NAME, token: TOKEN, auth: WHO.auth, game: "bura", variant: VARIANT, openMalutka: OPEN };
+      const who = { name: NAME, token: TOKEN, auth: WHO.auth, game: "bura",
+                    variant: VARIANT, size: SIZE, openMalutka: OPEN };
       if (MODE === "quick")       socket.emit("quickJoin",   { ...who, target: TARGET });
       else if (MODE === "friend") socket.emit("createTable", { ...who, target: TARGET });
       else                        socket.emit("joinTable",   { ...who, code: CODE });
@@ -251,15 +258,17 @@
       const ov = document.getElementById("roundOverlay");
       if (!st.reveal) { ov.classList.remove("show"); revealKey = null; return; }
       const key = JSON.stringify(st.reveal) + ":" + st.round;
-      const [a, b] = st.reveal.points;
-      const mine = st.reveal.points[st.seat], theirs = st.reveal.points[1 - st.seat];
-      const iWon = st.reveal.winner === st.seat;
+      // the count is per SIDE, so at four it is what the pair took between them
+      const myTeam = st.myTeam != null ? st.myTeam : st.seat;
+      const mine = st.reveal.points[myTeam], theirs = st.reveal.points[1 - myTeam];
+      const iWon = st.reveal.winner === myTeam;
       document.getElementById("roundTitle").textContent =
         st.reveal.winner == null ? "ყაიმი" : iWon ? "🏆 რაუნდი შენია" : "რაუნდი წაგებულია";
       document.getElementById("roundWhy").textContent =
         st.reveal.why + (st.reveal.winner == null ? " — არავინ იწერს"
                                                   : " · " + st.reveal.worth + " ქულა");
-      document.getElementById("roundOpName").textContent = st.oppName || "მოწინააღმდეგე";
+      document.getElementById("roundOpName").textContent =
+        st.size === 4 ? "ისინი" : (st.oppName || "მოწინააღმდეგე");
       document.getElementById("roundMe").textContent = mine;
       document.getElementById("roundOp").textContent = theirs;
       document.getElementById("roundNext").textContent =
@@ -269,22 +278,67 @@
     }
 
     function paintWaiting(st){
+      // four seats take longer to fill, so say how many are still missing
+      const seats = st.size || SIZE;
+      const here = (st.lobby && st.lobby.length) || 1;
+      const left = Math.max(0, seats - here);
+      const need = seats === 4 ? left + " მოთამაშე კიდევ" : "მოწინააღმდეგეს ვეძებ";
       if (st.code) {
         document.getElementById("waitTitle").textContent = "მაგიდა შექმნილია";
-        document.getElementById("waitText").textContent = "გაუზიარე კოდი მეგობარს";
+        document.getElementById("waitText").textContent =
+          seats === 4 ? "გაუზიარე კოდი — " + need : "გაუზიარე კოდი მეგობარს";
         const c = document.getElementById("waitCode");
         c.style.display = "block"; c.textContent = st.code;
       } else {
         document.getElementById("waitTitle").textContent = "ველოდებით…";
-        document.getElementById("waitText").textContent = "მოწინააღმდეგეს ვეძებ";
+        document.getElementById("waitText").textContent = need;
+      }
+    }
+
+    /* Where everyone sits. The server sends the table in clockwise order from
+       this player's own chair, so "left" is the next one round, "across" is the
+       partner and "right" is the one before — the screen never has to work out
+       seat numbers for itself. */
+    function seatsOf(){ return (S && S.table) || []; }
+    function nameAt(seat){
+      const x = seatsOf().find((q) => q.seat === seat);
+      return x ? x.name : "მოწინააღმდეგე";
+    }
+    function paintSeats(){
+      const four = S.size === 4;
+      document.getElementById("btable").classList.toggle("four", four);
+      for (const rel of ["left", "across", "right"]) {
+        const box = document.getElementById("seat" + rel[0].toUpperCase() + rel.slice(1));
+        const q = four ? seatsOf().find((x) => x.rel === rel) : null;
+        box.innerHTML = "";
+        box.style.display = q ? "" : "none";
+        box.classList.toggle("turn", !!q && S.turn === q.seat && S.phase === "play");
+        if (!q) continue;
+        const who = document.createElement("div");
+        who.className = "who";
+        who.textContent = q.name + (q.bot ? " 🤖" : "");
+        if (q.partner) {
+          const m = document.createElement("span");
+          m.className = "mate"; m.textContent = " ★";      // your partner
+          who.appendChild(m);
+        }
+        const fan = document.createElement("div");
+        fan.className = "fan";
+        for (let i = 0; i < q.cards; i++) fan.appendChild(backEl(true));
+        // across the table the name reads above the cards; beside you, below
+        if (rel === "across") { box.appendChild(who); box.appendChild(fan); }
+        else { box.appendChild(fan); box.appendChild(who); }
       }
     }
 
     function render(){
       if (!S || !S.hand) return;
-      document.getElementById("s0").textContent = S.scores[S.seat];
-      document.getElementById("s1").textContent = S.scores[1 - S.seat];
-      document.getElementById("opName").textContent = S.oppName + (S.oppBot ? " 🤖" : "");
+      const myTeam = S.myTeam != null ? S.myTeam : S.seat;
+      document.getElementById("s0").textContent = S.scores[myTeam];
+      document.getElementById("s1").textContent = S.scores[1 - myTeam];
+      document.getElementById("opName").textContent = S.size === 4
+        ? "ისინი"
+        : S.oppName + (S.oppBot ? " 🤖" : "");
       document.getElementById("target").textContent = S.target;
       document.getElementById("round").textContent = S.round;
       document.getElementById("worth").textContent = S.worth;
@@ -300,9 +354,13 @@
         tb.appendChild(t);
       }
 
+      // in 1v1 the one opponent keeps the strip above the table; at four they
+      // are all drawn in their chairs instead
       const oh = document.getElementById("ophand");
       oh.innerHTML = "";
-      for (let i = 0; i < S.oppCount; i++) oh.appendChild(backEl(true));
+      oh.style.display = S.size === 4 ? "none" : "";
+      if (S.size !== 4) for (let i = 0; i < S.oppCount; i++) oh.appendChild(backEl(true));
+      paintSeats();
 
       paintTrick();
 
@@ -318,40 +376,65 @@
       const pill = document.getElementById("turnPill");
       if (S.phase === "over")      pill.textContent = "დასრულდა";
       else if (S.myTurn)           pill.textContent = "შენი სვლა" + (S.moveLeft != null ? " · " + S.moveLeft : "");
+      else if (S.size === 4)       pill.textContent = nameAt(S.turn) + " ფიქრობს";
       else                         pill.textContent = "მოწინააღმდეგე ფიქრობს";
       pill.classList.toggle("mine", !!S.myTurn);
 
       paintBar();
     }
+
     function renderCoins(){
       document.getElementById("stakeLbl").textContent = Coins.stakeFor(175);
       document.getElementById("coinLbl").textContent = Coins.format(Coins.get());
     }
 
+    /* The trick as it sits on the table. With two players that is what came
+       down and the answer laid across it. With four it goes round the table, so
+       each answer is added as it arrives — otherwise a player would stare at a
+       bare lead while two others had already played into it. */
     function paintTrick(){
       const box = document.getElementById("trick");
       const lbl = document.getElementById("pileLbl");
       box.innerHTML = "";
-      const row = (cards, cls, hidden, openFrom) => {
+      const four = S.size === 4;
+      box.classList.toggle("four", four);
+      const mine = (seat) => seat === S.seat;
+      const row = (cards, cls, hidden, openFrom, seat) => {
         const d = document.createElement("div");
         d.className = "trickRow " + cls;
-        cards.forEach((c, i) => d.appendChild((hidden && i >= (openFrom || 0)) ? backEl(true) : cardEl(c, { small: true })));
+        // at four, say whose group this is — the pile alone cannot show it
+        if (four && seat != null) {
+          const by = document.createElement("span");
+          by.className = "by";
+          by.textContent = mine(seat) ? "შენ" : nameAt(seat);
+          d.appendChild(by);
+        }
+        const holder = four ? document.createElement("div") : d;
+        if (four) holder.className = "cards";
+        cards.forEach((c, i) => holder.appendChild((hidden && i >= (openFrom || 0)) ? backEl(true) : cardEl(c, { small: true })));
+        if (four) d.appendChild(holder);
         return d;
       };
+      const answersSoFar = (S.lastTrick && S.lastTrick.answers) || [];
+
       if (S.lead) {
-        lbl.textContent = S.lead.seat === S.seat ? "შენ ჩამოხვედი" : "მოწინააღმდეგე ჩამოვიდა";
-        box.appendChild(row(S.lead.cards, "led"));
+        lbl.textContent = mine(S.lead.seat) ? "შენ ჩამოხვედი" : nameAt(S.lead.seat) + " ჩამოვიდა";
+        box.appendChild(row(S.lead.cards, "led", false, 0, S.lead.seat));
+        // whoever has already played into it, in the order they did
+        answersSoFar.forEach((a) => box.appendChild(row(a.cards, "answer", false, 0, a.seat)));
         return;
       }
       if (S.lastTrick && !trickCleared) {
         const l = S.lastTrick;
-        lbl.textContent = l.took === S.seat ? "ხელი შენ აიღე" : "ხელი მოწინააღმდეგემ აიღო";
-        box.appendChild(row(l.led, "led" + (l.took === l.leadSeat ? " took" : "")));
-        box.appendChild(row(l.ans, "answer" + (l.took !== l.leadSeat ? " took" : ""), l.hidden, l.open));
+        lbl.textContent = mine(l.took) ? "ხელი შენ აიღე" : "ხელი აიღო — " + nameAt(l.took);
+        box.appendChild(row(l.led, "led" + (l.took === l.leadSeat ? " took" : ""), false, 0, l.leadSeat));
+        (l.answers || []).forEach((a) =>
+          box.appendChild(row(a.cards, "answer" + (l.took === a.seat ? " took" : ""), l.hidden, a.open, a.seat)));
         return;
       }
       lbl.textContent = "მაგიდა";
     }
+
 
     /* ---------------- choosing ---------------- */
     function pick(i){

@@ -111,3 +111,75 @@
 .roundScore span{ font:600 11px/1 var(--font-ui); color:var(--cream-dim); }
 .roundScore b{ font:700 30px/1 var(--font-display); color:var(--brass-lit); }
 .roundNext{ font:600 11.5px/1 var(--font-ui); color:var(--cream-dim); margin-top:8px; }
+
+/* ---- four at the table ----
+   The player asked for all four sitting on four sides, partners facing each
+   other, play going clockwise. So the three others are drawn where they sit:
+   the one to your left down the left edge, your partner across the top, the
+   one to your right down the right edge — and your own hand, as always, along
+   the bottom. Their cards lie the way they would on a real table, side-on for
+   the two beside you. */
+.seatBox{
+  position:absolute; display:flex; align-items:center; gap:4px; z-index:2;
+  pointer-events:none;
+}
+.seatBox .who{
+  font:700 11px/1.15 var(--font-ui); color:var(--cream);
+  background:rgba(3,20,11,.62); border:1px solid var(--line);
+  border-radius:8px; padding:3px 7px; white-space:nowrap;
+  max-width:132px; overflow:hidden; text-overflow:ellipsis;
+}
+.seatBox.turn .who{ color:var(--ink); background:linear-gradient(180deg,var(--brass-lit),var(--brass)); border-color:var(--brass-dim); }
+.seatBox .who .mate{ color:var(--brass-lit); font-weight:800; }
+.seatBox.turn .who .mate{ color:var(--ink); }
+.seatBox .fan{ display:flex; }
+
+/* your partner, straight across */
+.seatBox.across{ left:50%; top:6px; transform:translateX(-50%); flex-direction:column; }
+.seatBox.across .fan{ flex-direction:row; }
+.seatBox.across .fan .card{ margin-left:-26px; }
+.seatBox.across .fan .card:first-child{ margin-left:0; }
+
+/* the two beside you: cards side-on, stacked down the edge */
+.seatBox.left, .seatBox.right{ top:50%; transform:translateY(-50%); flex-direction:column; }
+.seatBox.left{ left:6px; }
+.seatBox.right{ right:6px; }
+.seatBox.left .fan, .seatBox.right .fan{ flex-direction:column; align-items:center; }
+.seatBox.left .fan .card, .seatBox.right .fan .card{ transform:rotate(90deg); margin:-19px 0; }
+
+.seatBox .card{ width:38px; height:54px; border-radius:6px; }
+
+/* With four seated the partner sits along the top, so the trick is given room
+   under them rather than centred into their cards; and the stock cannot sit in
+   the middle of the left edge any more. */
+.btable.four{ padding-top:84px; justify-content:flex-start; }
+.btable.four .stock{ left:auto; right:78px; top:auto; bottom:6px; transform:none; }
+.btable.four .pileLbl{ position:absolute; left:50%; bottom:6px; transform:translateX(-50%); }
+
+@media (max-height:420px){
+  .seatBox .card{ width:32px; height:46px; }
+  .seatBox.left .fan .card, .seatBox.right .fan .card{ margin:-16px 0; }
+  .seatBox.across .fan .card{ margin-left:-22px; }
+  .seatBox .who{ font-size:10px; padding:2px 6px; }
+  .btable.four{ padding-top:74px; }
+}
+
+/* With four playing, the trick cannot be one pile with each answer laid across
+   the last: four rows of that is taller than the table and it ran into the
+   partner sitting at the top. So it is laid out along the table instead, a
+   little group per player in the order they played, each under its name — which
+   also answers the question the pile could not: who put that down. */
+.trick.four{ flex-direction:row; align-items:flex-start; gap:14px; }
+.trick.four .trickRow{ flex-direction:column; align-items:center; gap:3px; margin:0; }
+.trick.four .trickRow .by{
+  font:600 10px/1 var(--font-ui); color:var(--cream-dim); max-width:74px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.trick.four .trickRow.took .by{ color:var(--brass-lit); font-weight:800; }
+.trick.four .cards{ display:flex; }
+.trick.four .cards .card{ width:44px; height:62px; }
+.trick.four .cards .card + .card{ margin-left:-18px; }
+
+@media (max-height:420px){
+  .trick.four .cards .card{ width:38px; height:54px; }
+}

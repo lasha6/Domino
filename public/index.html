@@ -247,13 +247,19 @@
     <div class="roomModal">
       <h2>ბურა</h2>
       <p class="roomSub" id="buraWhere">კომპიუტერთან — პრაქტიკა, მონეტების გარეშე</p>
+      <!-- pairs are ხუთკარტა and online only, so the button says so when it
+           cannot be picked rather than quietly doing something else -->
+      <div class="sizePick" id="buraSizePick">
+        <button class="sizeBtn on" data-size="2" onclick="pickBuraSize(2)">👤 1v1</button>
+        <button class="sizeBtn" data-size="4" onclick="pickBuraSize(4)">👥 2v2 წყვილებით</button>
+      </div>
       <div class="rooms">
         <button class="room best" onclick="startBura('5')">
           <span class="rIco suitIco"><i>♠</i><i>♥</i><i>♦</i></span>
           <span class="rName">ხუთკარტა</span>
           <span class="rTime">36 კარტი</span>
         </button>
-        <button class="room" onclick="startBura('3')">
+        <button class="room" id="buraShortBtn" onclick="startBura('3')">
           <span class="rIco suitIco"><i>♠</i><i>♥</i></span>
           <span class="rName">სამკარტა</span>
           <span class="rTime">20 კარტი · „ვარ"</span>
@@ -698,18 +704,42 @@
     }
 
     /* ---------------- ბურა ---------------- */
-    let buraTarget = 11, buraMode = "cpu", buraOpen = true;
+    let buraTarget = 11, buraMode = "cpu", buraOpen = true, buraSize = 2;
     function openBura(mode){
       buraMode = mode || "cpu";
+      if (buraMode === "cpu") buraSize = 2;      // the practice screen is 1v1
       document.getElementById("buraWhere").textContent =
         buraMode === "cpu"    ? "კომპიუტერთან — პრაქტიკა, მონეტების გარეშე"
       : buraMode === "friend" ? "მიიღებ კოდს და გაუზიარებ მეგობარს"
                               : "ცოცხალ მოწინააღმდეგესთან";
       paintBuraTargets();
+      paintBuraSize();
       document.getElementById("buraOpenBtn").classList.toggle("on", buraOpen);
       document.getElementById("buraOverlay").classList.add("show");
     }
     function closeBura(){ document.getElementById("buraOverlay").classList.remove("show"); }
+    /* Pairs are ხუთკარტა and online only. Rather than let the button be picked
+       and then quietly hand back something else, it is switched off and the
+       short game is switched off in its place while 2v2 is chosen. */
+    function pickBuraSize(n){
+      if (buraMode === "cpu" && n === 4) return;
+      buraSize = n;
+      paintBuraSize();
+      Sound.play("tap");
+    }
+    function paintBuraSize(){
+      const pairs = document.querySelector('#buraSizePick .sizeBtn[data-size="4"]');
+      const cpu = buraMode === "cpu";
+      pairs.disabled = cpu;
+      pairs.title = cpu ? "2v2 ონლაინშია" : "";
+      if (cpu) buraSize = 2;
+      document.querySelectorAll("#buraSizePick .sizeBtn").forEach(b => {
+        b.classList.toggle("on", +b.dataset.size === buraSize);
+      });
+      const short = document.getElementById("buraShortBtn");
+      short.disabled = buraSize === 4;
+      short.title = buraSize === 4 ? "წყვილებით მხოლოდ ხუთკარტაა" : "";
+    }
     function paintBuraTargets(){
       const box = document.getElementById("buraTargets");
       box.innerHTML = "";
@@ -727,11 +757,14 @@
       Sound.play("tap");
     }
     function startBura(variant){
+      if (variant === "3" && buraSize === 4) return;     // no such table
       // against the computer it is the practice screen; online it is the server's
-      const q = "variant=" + variant + "&target=" + buraTarget + "&open=" + (buraOpen ? 1 : 0);
+      const q = "variant=" + variant + "&target=" + buraTarget
+              + "&open=" + (buraOpen ? 1 : 0) + "&size=" + buraSize;
       location.href = buraMode === "cpu" ? "bura.html?" + q
                                          : "buraonline.html?mode=" + buraMode + "&" + q;
     }
+
 
     /* ---------------- menu ---------------- */
     function openMenu(){ paintMenu(); document.getElementById("menuOverlay").classList.add("show"); }
