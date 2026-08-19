@@ -718,9 +718,9 @@
       document.getElementById("buraOverlay").classList.add("show");
     }
     function closeBura(){ document.getElementById("buraOverlay").classList.remove("show"); }
-    /* Pairs are ხუთკარტა and online only. Rather than let the button be picked
-       and then quietly hand back something else, it is switched off and the
-       short game is switched off in its place while 2v2 is chosen. */
+    /* Pairs are ხუთკარტა and online only. A short game at four is not a table
+       that exists, so while 2v2 is chosen it is not offered at all — a button
+       greyed out still reads as something you might be able to have. */
     function pickBuraSize(n){
       if (buraMode === "cpu" && n === 4) return;
       buraSize = n;
@@ -737,8 +737,7 @@
         b.classList.toggle("on", +b.dataset.size === buraSize);
       });
       const short = document.getElementById("buraShortBtn");
-      short.disabled = buraSize === 4;
-      short.title = buraSize === 4 ? "წყვილებით მხოლოდ ხუთკარტაა" : "";
+      short.style.display = buraSize === 4 ? "none" : "";
     }
     function paintBuraTargets(){
       const box = document.getElementById("buraTargets");

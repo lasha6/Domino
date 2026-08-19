@@ -323,7 +323,9 @@
 .roomOverlay.practice .sizePick{ display:none; }   /* the computer is always 1v1 */
 
 /* a room reads like a little brass plaque */
-.rooms{ display:flex; gap:10px; }
+/* Centred, so a row that drops one of its choices — ბურა hides the short game
+   while 2v2 is chosen — closes up instead of leaving the gap where it was. */
+.rooms{ display:flex; gap:10px; justify-content:center; }
 .room{
   position:relative; display:flex; flex-direction:column; align-items:center; gap:1px;
   cursor:pointer; min-width:106px; padding:13px 14px 11px; border-radius:15px;
@@ -362,6 +364,34 @@
 .room.poor{ opacity:.4; }
 .room.poor .rBet{ color:#ffb3aa; border-color:rgba(226,104,90,.4); }
 .roomOverlay.practice .rBet{ display:none; }   /* practice costs nothing */
+
+/* The ბურა dialog carries the most: two games, 1v1 or 2v2, the malutka
+   switch and three targets. On a landscape phone that was 50px taller than the
+   screen, so it scrolled — and the close button, which sticks to the bottom on
+   purpose, then sat squarely on top of the target buttons. Everything gives up
+   a few pixels here so it fits and no scrolling is needed at all. */
+@media (max-height:420px){
+  #buraOverlay .roomModal{ padding:10px 18px 8px; }
+  #buraOverlay .roomModal h2{ font-size:18px; }
+  #buraOverlay .roomSub{ margin-bottom:7px; }
+  #buraOverlay .sizePick{ margin:4px 0 7px; }
+  #buraOverlay .room{ padding:9px 13px 8px; }
+  #buraOverlay .optRow{ margin-top:8px; padding:7px 11px; }
+  #buraOverlay .bbar{ padding:2px 0; }
+}
+/* Shorter still, and the dialog gives up its explanations rather than its
+   choices: the switch and the two games say what they are without them. */
+@media (max-height:360px){
+  #buraOverlay .roomModal h2{ font-size:16px; }
+  #buraOverlay .optText span{ display:none; }
+  #buraOverlay .optRow{ margin-top:6px; padding:6px 10px; }
+  #buraOverlay .room .rTime{ display:none; }
+  #buraOverlay .room{ padding:7px 12px 7px; }
+  #buraOverlay .roomSub{ margin-bottom:5px; font-size:11px; }
+  #buraOverlay .sizePick{ margin:3px 0 5px; }
+  #buraOverlay .bbtn{ padding:6px 14px; }
+  #buraOverlay .roomClose{ margin-top:6px; padding:6px 16px; }
+}
 
 .roomClose{
   margin-top:12px; cursor:pointer; border-radius:11px; padding:8px 20px;
