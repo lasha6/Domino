@@ -197,3 +197,66 @@
   .trick.four .trickRow .card{ width:40px; height:56px; }
   .trick.four .trickRow.answer{ margin-top:-40px; }
 }
+
+/* =====================================================================
+   ჯოკერი — what this game needs on top of the cards ბურა already uses.
+   Four players, nobody paired, so every seat carries its own bid and count.
+   ===================================================================== */
+
+/* the joker itself: no suit, so it is drawn rather than lettered */
+.card.jokerCard .big{ font-size:30px; top:52%; }
+.card.small.jokerCard .big{ font-size:22px; }
+.card.jokerCard{ color:#8a2f8f; }
+.card.jokerCard .rank{ font-size:11px; letter-spacing:0; }
+.card.small.jokerCard .rank{ font-size:9px; }
+
+/* ბეზი — no trump at all. There is no card for it, so it says so. */
+.bezCard{
+  width:44px; height:66px; border-radius:8px; display:flex; align-items:center; justify-content:center;
+  font:700 12px/1 var(--font-ui); color:var(--cream);
+  background:linear-gradient(160deg, rgba(6,34,19,.9), rgba(3,20,11,.96));
+  border:1px solid var(--brass-dim);
+}
+
+/* what a seat has said it will take, and what it has taken so far */
+.seatBox .tally{
+  font:700 11px/1 var(--font-ui); color:var(--brass-lit);
+  background:rgba(3,20,11,.68); border:1px solid var(--brass-dim);
+  border-radius:7px; padding:2px 6px; white-space:nowrap;
+}
+.seatBox .tally.done{ color:var(--good); border-color:var(--good); }
+.seatBox .tally.blown{ color:var(--bad, #e2626b); border-color:var(--bad, #e2626b); }
+.seatBox.jk{ gap:5px; }
+
+/* the four running totals, along the top */
+.jkScores{ display:flex; gap:7px; align-items:center; }
+.jkScores .who{
+  display:flex; gap:5px; align-items:baseline; padding:2px 7px; border-radius:8px;
+  background:rgba(3,20,11,.5); border:1px solid var(--line);
+  font:600 11px/1 var(--font-ui); color:var(--cream-dim);
+}
+.jkScores .who.me{ border-color:var(--brass-dim); color:var(--cream); }
+.jkScores .who.turn{ background:rgba(242,205,126,.16); border-color:var(--brass); }
+.jkScores .who b{ font-size:12.5px; color:var(--cream); }
+
+/* bidding and the joker's two questions share the button row */
+.bbtn.num{ min-width:38px; padding:9px 12px; }
+.bbtn.suit{ min-width:42px; font-size:16px; }
+.bbtn.suit.red{ color:#b3202b; }
+
+/* the hand table at the end of a hand */
+.jkTable{ width:100%; border-collapse:collapse; margin:6px 0 2px; font:600 12px/1.3 var(--font-ui); }
+.jkTable th{ font-size:11px; color:var(--cream-dim); font-weight:600; padding:3px 6px; }
+.jkTable td{ padding:4px 6px; color:var(--cream); border-top:1px solid var(--line); }
+.jkTable tr.me td{ color:var(--brass-lit); }
+.jkTable td.pts{ font-weight:800; text-align:right; }
+.jkTable td.pts.bad{ color:var(--bad, #e2626b); }
+.jkTable td.pts.good{ color:var(--good); }
+.jkBonus{ margin:6px 0 0; font:700 12px/1.4 var(--font-ui); color:var(--good); }
+
+@media (max-height:420px){
+  .bezCard{ width:40px; height:58px; font-size:11px; }
+  .jkScores .who{ padding:2px 5px; font-size:10px; }
+  .jkScores .who b{ font-size:11.5px; }
+  .jkTable{ font-size:11px; }
+}

@@ -81,10 +81,10 @@
             <span class="gName">ბურა</span>
             <span class="gSub">3 და 5 კარტა</span>
           </button>
-          <button class="game locked" onclick="toast('ჯოკერი — წესები ჯერ არ გვაქვს')">
+          <button class="game" onclick="chooseGame('joker')">
             <span class="gArt gJoker">🃏</span>
             <span class="gName">ჯოკერი</span>
-            <span class="gSub">მალე</span>
+            <span class="gSub">24 ხელი · 4 მოთამაშე</span>
           </button>
         </div>
       </div>
@@ -110,6 +110,21 @@
         <div class="modes">
           <button class="mode" onclick="openFriend()">👥 მეგობართან</button>
           <button class="mode" onclick="openRooms('cpu')">🤖 კომპიუტერთან</button>
+        </div>
+      </div>
+
+      <!-- ---- joker ---- -->
+      <div class="center gameView" id="viewJoker" style="display:none">
+        <button class="backGame" onclick="chooseGame(null)">← თამაშები</button>
+        <div class="buraArt"><span>🃏</span><span>♠</span><span>♥</span><span>♦</span></div>
+        <h1 class="logo-title">ჯოკერი</h1>
+        <p class="logo-sub">ონლაინ</p>
+        <button class="play" onclick="toast('ჯოკერი ონლაინში — მალე')">
+          <span class="arrow">▶</span> ითამაშე
+        </button>
+        <div class="modes">
+          <button class="mode" onclick="toast('ჯოკერი მეგობართან — მალე')">👥 მეგობართან</button>
+          <button class="mode" onclick="location.href='joker.html'">🤖 კომპიუტერთან</button>
         </div>
       </div>
 
@@ -699,6 +714,7 @@
       document.getElementById("pickGame").style.display = name ? "none" : "";
       document.getElementById("viewDomino").style.display = name === "domino" ? "" : "none";
       document.getElementById("viewBura").style.display   = name === "bura" ? "" : "none";
+      document.getElementById("viewJoker").style.display  = name === "joker" ? "" : "none";
       if (name) { Sound.play("tap"); localStorage.setItem("dominoLastGame", name); }
       else localStorage.removeItem("dominoLastGame");
     }

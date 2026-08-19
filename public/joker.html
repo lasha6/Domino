@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>ჯოკერი — კომპიუტერთან</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0f5230" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/table.css" />
+  <link rel="stylesheet" href="css/cards.css" />
+  <script src="js/progress.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/viewport.js"></script>
+  <script src="js/fullscreen.js"></script>
+</head>
+<body>
+  <div class="stage">
+    <div class="top">
+      <button class="back" onclick="location.href='index.html'">←</button>
+      <div class="jkScores" id="scores"></div>
+      <div class="info">
+        <span class="stat"><span class="k">სეტი</span><b id="setNo">1</b></span>
+        <span class="stat"><span class="k">ხელი</span><b id="handNo">1/24</b></span>
+        <span class="stat"><span class="k">კოზირი</span><b id="trumpLbl">—</b></span>
+        <span class="badge">🎓 პრაქტიკა</span>
+      </div>
+      <div class="spacer"></div>
+      <button class="back sndBtn" id="sndBtn" onclick="toggleSound()" title="ხმა">🔊</button>
+      <button class="newgame" onclick="startMatch()">ახალი თამაში</button>
+    </div>
+
+    <div class="statusrow">
+      <div class="msg" id="msg"></div>
+    </div>
+
+    <div class="btable four" id="btable">
+      <div class="seatBox left jk"   id="seatLeft"></div>
+      <div class="seatBox across jk" id="seatAcross"></div>
+      <div class="seatBox right jk"  id="seatRight"></div>
+      <div class="stock">
+        <div class="trumpBox" id="trumpBox"></div>
+      </div>
+      <span class="pileLbl" id="pileLbl">მაგიდა</span>
+      <div class="trick four" id="trick"></div>
+    </div>
+
+    <div class="bbar" id="bar"></div>
+    <div class="bhand" id="myhand"></div>
+  </div>
+
+  <!-- the end of a hand: what everyone said, took and scored -->
+  <div class="overlay" id="handOverlay">
+    <div class="modal">
+      <h2 id="handTitle">ხელი დასრულდა</h2>
+      <div id="handBody"></div>
+      <button id="handBtn">შემდეგი ხელი ▶</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="resultOverlay">
+    <div class="modal">
+      <h2 id="resultTitle"></h2>
+      <div id="resultBody"></div>
+      <button id="resultBtn">ახალი თამაში</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="rotate">
+    <div class="phone">📱</div>
+    <h2 style="color:var(--brass-lit)">გადააბრუნე მოწყობილობა</h2>
+    <p>თამაში თარაზულ (landscape) რეჟიმში ითამაშება.</p>
+  </div>
+
+  <script src="js/joker.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/fx.js"></script>
+  <script>
+    /* ჯოკერი against three computers. Practice only — no coins change hands
+       here, exactly as with the other two screens, so the machine cannot be
+       farmed for them.
+
+       Four seats: you are always seat 0 at the bottom, and the other three sit
+       round the table clockwise — left, across, right — the same seating the
+       ბურა table uses, so a player only learns it once. */
+    const ME = 0;
+    const NAMES = ["შენ", "გიორგი", "ნინო", "დათო"];
+    const REL = ["me", "left", "across", "right"];
+
+    let g = null, busy = false, pending = null;   // pending = a joker awaiting its answer
+
+    /* How fast the computers move. Unhurried on purpose: with four hands going
+       into a trick there is a lot to read before it is swept away. */
+    const PACE = { bid: 800, think: 950, showTrick: 2100, betweenHands: 400 };
+
+    function paintSoundBtn(){ document.getElementById("sndBtn").textContent = Sound.muted() ? "🔇" : "🔊"; }
+    function toggleSound(){ Sound.toggle(); paintSoundBtn(); if(!Sound.muted()) Sound.play("tap"); }
+    paintSoundBtn();
+
+    let toastTimer = null;
+    function toast(m){
+      const t = document.getElementById("toast");
+      t.textContent = m; t.classList.add("show");
+      clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove("show"), 2200);
+    }
+    function setMsg(m){ document.getElementById("msg").textContent = m || ""; }
+
+    /* ---------------- drawing a card ---------------- */
+    const RED = [1, 2];                       // hearts and diamonds
+    function cardEl(card, opts){
+      const o = opts || {};
+      const d = document.createElement("div");
+      if (Joker.isJoker(card)) {
+        d.className = "card jokerCard" + (o.small ? " small" : "") + (o.dim ? " dim" : "");
+        d.innerHTML = '<span class="rank">ჯოკ</span><span class="big">★</span>';
+        return d;
+      }
+      d.className = "card " + (RED.includes(card[0]) ? "red" : "black")
+                  + (o.small ? " small" : "") + (o.dim ? " dim" : "");
+      const suit = Joker.SUITS[card[0]];
+      d.innerHTML = '<span class="rank">' + Joker.RANKS[card[1]] + '</span>'
+                  + '<span class="pip">' + suit + '</span>'
+                  + '<span class="big">' + suit + '</span>';
+      return d;
+    }
+    function backEl(small){
+      const d = document.createElement("div");
+      d.className = "card back" + (small ? " small" : "");
+      return d;
+    }
+    function suitEl(suit, small){
+      const d = document.createElement("div");
+      d.className = "card suitOnly " + (RED.includes(suit) ? "red" : "black") + (small ? " small" : "");
+      d.innerHTML = '<span class="pip">' + Joker.SUITS[suit] + '</span>';
+      return d;
+    }
+
+    /* ---------------- the whole screen ---------------- */
+    function render(){
+      if (!g) return;
+      const s = Joker.spec(g);
+      document.getElementById("setNo").textContent = s.set;
+      document.getElementById("handNo").textContent = (g.hand + 1) + "/" + Joker.HANDS
+                                                    + " · " + s.size;
+      document.getElementById("trumpLbl").textContent =
+        g.phase === "choose" ? "—"
+        : g.trump === Joker.NOTRUMP ? "ბეზი" : Joker.SUITS[g.trump];
+
+      paintScores();
+      paintTrump();
+      paintSeats();
+      paintTrick();
+      paintHand();
+      paintBar();
+    }
+
+    function paintScores(){
+      const box = document.getElementById("scores");
+      box.innerHTML = "";
+      NAMES.forEach((n, p) => {
+        const d = document.createElement("div");
+        d.className = "who" + (p === ME ? " me" : "") + (g.turn === p && g.phase !== "handOver" ? " turn" : "");
+        const nm = document.createElement("span"); nm.textContent = n;
+        const sc = document.createElement("b"); sc.textContent = g.scores[p];
+        d.appendChild(nm); d.appendChild(sc);
+        box.appendChild(d);
+      });
+    }
+
+    /* The trump: the card that was turned while there was one to turn, the suit
+       on its own in the nines where nothing is turned, and a word when there is
+       no trump at all. */
+    function paintTrump(){
+      const tb = document.getElementById("trumpBox");
+      tb.innerHTML = "";
+      if (g.phase === "choose") return;
+      if (g.trump === Joker.NOTRUMP) {
+        const d = document.createElement("div");
+        d.className = "bezCard"; d.textContent = "ბეზი";
+        tb.appendChild(d);
+        return;
+      }
+      const t = g.turned ? cardEl(g.turned, { small: true }) : suitEl(g.trump, true);
+      t.classList.add("turned");
+      tb.appendChild(t);
+    }
+
+    function tallyText(p){
+      if (g.bids[p] == null) return "—";
+      return g.bids[p] + " / " + g.took[p];
+    }
+    function paintSeats(){
+      for (let i = 1; i < 4; i++) {
+        const seat = (ME + i) % 4;
+        const rel = REL[i];
+        const box = document.getElementById("seat" + rel[0].toUpperCase() + rel.slice(1));
+        box.innerHTML = "";
+        box.classList.toggle("turn", g.turn === seat && g.phase !== "handOver" && g.phase !== "over");
+
+        const who = document.createElement("div");
+        who.className = "who";
+        who.textContent = NAMES[seat] + (g.dealer === seat ? " 🃏" : "");
+        const tally = document.createElement("div");
+        tally.className = "tally";
+        tally.textContent = tallyText(seat);
+        if (g.bids[seat] != null) {
+          if (g.took[seat] === g.bids[seat]) tally.classList.add("done");
+          else if (g.took[seat] > g.bids[seat]) tally.classList.add("blown");
+        }
+        const fan = document.createElement("div");
+        fan.className = "fan";
+        for (let k = 0; k < g.hands[seat].length; k++) fan.appendChild(backEl(true));
+
+        if (rel === "across") { box.appendChild(who); box.appendChild(tally); box.appendChild(fan); }
+        else { box.appendChild(fan); box.appendChild(tally); box.appendChild(who); }
+      }
+    }
+
+    /* The pile, thrown the way the ბურა table throws it: each card across the
+       one before, fanned sideways because that is where the room is. */
+    function paintTrick(){
+      const box = document.getElementById("trick");
+      const lbl = document.getElementById("pileLbl");
+      box.innerHTML = "";
+      const show = g.trick.length ? g.trick
+                 : (g.lastTrick && !trickCleared ? g.lastTrick.cards : []);
+      const winner = g.trick.length ? null : (g.lastTrick && !trickCleared ? g.lastTrick.winner : null);
+
+      show.forEach((p, i) => {
+        const d = document.createElement("div");
+        d.className = "trickRow " + (i === 0 ? "led" : "answer") + (winner === p.seat ? " took" : "");
+        const card = cardEl(p.card, { small: true });
+        if (Joker.isJoker(p.card)) card.title = p.high ? "მაღლა" : "დაბლა";
+        d.appendChild(card);
+        box.appendChild(d);
+      });
+      [...box.children].forEach((r, i, all) => {
+        r.style.transform = "translateX(" + ((i - (all.length - 1) / 2) * 30) + "px)";
+      });
+
+      if (g.phase === "choose")      lbl.textContent = "კოზირი ცხადდება";
+      else if (g.phase === "bid")    lbl.textContent = "ბიდი";
+      else if (g.trick.length)       lbl.textContent = g.ledSuit != null && Joker.isJoker(g.trick[0].card)
+                                       ? "ჯოკერი — " + Joker.SUITS[g.ledSuit] : "მაგიდა";
+      else if (winner != null)       lbl.textContent = "ხელი აიღო — " + NAMES[winner];
+      else                           lbl.textContent = "მაგიდა";
+    }
+
+    function paintHand(){
+      const mh = document.getElementById("myhand");
+      mh.innerHTML = "";
+      const legal = (g.phase === "play" && g.turn === ME && !pending)
+        ? Joker.legalPlays(g, ME) : null;
+      g.hands[ME].forEach((card) => {
+        const ok = !legal || legal.some((c) => Joker.sameCard(c, card));
+        const el = cardEl(card, { dim: legal && !ok });
+        if (legal && ok) el.onclick = () => pickCard(card);
+        mh.appendChild(el);
+      });
+    }
+
+    /* The row under the table asks whatever the game is waiting for: a trump,
+       a bid, or the two questions a joker comes with. */
+    function paintBar(){
+      const bar = document.getElementById("bar");
+      bar.innerHTML = "";
+      const add = (label, fn, cls, off) => {
+        const b = document.createElement("button");
+        b.className = "bbtn" + (cls ? " " + cls : "");
+        b.textContent = label; b.disabled = !!off; b.onclick = fn;
+        bar.appendChild(b);
+        return b;
+      };
+
+      if (g.phase === "choose" && g.turn === ME) {
+        setMsg("სამი კარტი გიჭირავს — დაასახელე კოზირი ან ბეზი");
+        Joker.SUITS.forEach((sym, i) => add(sym, () => chooseTrump(i), "suit" + (RED.includes(i) ? " red" : "")));
+        add("ბეზი", () => chooseTrump(Joker.NOTRUMP), "ghost");
+        return;
+      }
+      if (g.phase === "bid" && g.turn === ME) {
+        const size = Joker.spec(g).size;
+        const no = Joker.forbiddenBid(g, ME);
+        setMsg(no != null ? "შენ ხარ დილერი — " + no + " აკრძალულია" : "რამდენ ხელს აიღებ?");
+        for (let n = 0; n <= size; n++) add(String(n), () => makeBid(n), "num", n === no);
+        return;
+      }
+      if (pending && pending.need === "suit") {
+        setMsg("ჯოკერით შედიხარ — რომელ ფერს ითხოვ?");
+        Joker.SUITS.forEach((sym, i) => add(sym, () => finishJoker({ suit: i }), "suit" + (RED.includes(i) ? " red" : "")));
+        add("გაუქმება", cancelJoker, "ghost");
+        return;
+      }
+      if (pending && pending.need === "high") {
+        setMsg("ჯოკერი — მაღლა თუ დაბლა?");
+        add("მაღლა ↑", () => finishJoker({ high: true }));
+        add("დაბლა ↓", () => finishJoker({ high: false }), "ghost");
+        add("გაუქმება", cancelJoker, "ghost");
+        return;
+      }
+      if (g.phase === "play") {
+        setMsg(g.turn === ME ? "შენი სვლა" : NAMES[g.turn] + " ფიქრობს");
+        // your own bid, kept where you can see it
+        const b = document.createElement("div");
+        b.className = "bbtn ghost";
+        b.style.cursor = "default";
+        b.textContent = "შენი ბიდი " + g.bids[ME] + " · აღებული " + g.took[ME];
+        bar.appendChild(b);
+        return;
+      }
+      if (g.phase === "bid") setMsg(NAMES[g.turn] + " ბიდავს");
+    }
+
+    /* ---------------- your moves ---------------- */
+    function chooseTrump(t){
+      if (!Joker.chooseTrump(g, ME, t)) return;
+      Sound.play("tap");
+      render();
+      step();
+    }
+    function makeBid(n){
+      if (!Joker.bid(g, ME, n)) return;
+      Sound.play("tap");
+      render();
+      step();
+    }
+    /* A joker is two decisions, not one. Leading with it asks for a suit and is
+       always high — the player was clear that "low" is not something you can
+       declare on the way in. Played onto somebody else's trick it asks the
+       other question instead: take it, or throw it away. */
+    function pickCard(card){
+      if (busy || g.phase !== "play" || g.turn !== ME) return;
+      if (Joker.isJoker(card)) {
+        pending = { card, need: g.trick.length ? "high" : "suit" };
+        Sound.play("tap");
+        render();
+        return;
+      }
+      playMine(card, {});
+    }
+    function finishJoker(opts){
+      const card = pending.card;
+      pending = null;
+      playMine(card, opts);
+    }
+    function cancelJoker(){ pending = null; render(); }
+
+    function playMine(card, opts){
+      if (!Joker.play(g, ME, card, opts)) { toast("ასე არ შეიძლება"); render(); return; }
+      Sound.play("play");
+      render();
+      step();
+    }
+
+    /* ---------------- the computers, and the run of the hand ---------------- */
+    let trickCleared = true, trickTimer = null;
+
+    function step(){
+      if (!g || busy) return;
+      if (g.phase === "handOver") { showHand(); return; }
+      if (g.phase === "over")     { showResult(); return; }
+
+      // a finished trick stays on the table for a moment before it is swept
+      if (!g.trick.length && g.lastTrick && !trickCleared) {
+        busy = true;
+        clearTimeout(trickTimer);
+        trickTimer = setTimeout(() => {
+          trickCleared = true; busy = false; render(); step();
+        }, PACE.showTrick);
+        return;
+      }
+
+      if (g.turn === ME) { render(); return; }        // your move now
+
+      busy = true;
+      const seat = g.turn;
+      const wait = g.phase === "bid" ? PACE.bid : PACE.think;
+      setTimeout(() => {
+        busy = false;
+        if (!g) return;
+        if (g.phase === "choose") { Joker.chooseTrump(g, seat, botTrump(seat)); }
+        else if (g.phase === "bid") { Joker.bid(g, seat, Joker.aiBid(g, seat)); }
+        else if (g.phase === "play") {
+          const before = g.trick.length;
+          const m = Joker.aiPlay(g, seat);
+          Joker.play(g, seat, m.card, m.opts);
+          Sound.play("play");
+          if (before === 3) trickCleared = false;     // that closed the trick
+        }
+        render();
+        step();
+      }, wait);
+    }
+
+    // the computer names the suit it holds most of, seeing only its three cards
+    function botTrump(seat){
+      const count = [0, 0, 0, 0];
+      g.hands[seat].forEach((c) => { if (!Joker.isJoker(c)) count[Joker.suitOf(c)]++; });
+      let best = 0;
+      count.forEach((n, i) => { if (n > count[best]) best = i; });
+      return count[best] ? best : Joker.NOTRUMP;
+    }
+
+    /* ---------------- the end of a hand ---------------- */
+    function showHand(){
+      const h = g.history[g.history.length - 1];
+      const box = document.getElementById("handBody");
+      box.innerHTML = "";
+      const t = document.createElement("table");
+      t.className = "jkTable";
+      const head = document.createElement("tr");
+      ["", "ბიდი", "აიღო", "ქულა"].forEach((s) => {
+        const th = document.createElement("th"); th.textContent = s; head.appendChild(th);
+      });
+      t.appendChild(head);
+      NAMES.forEach((n, p) => {
+        const tr = document.createElement("tr");
+        if (p === ME) tr.className = "me";
+        const name = document.createElement("td"); name.textContent = n;
+        const bid = document.createElement("td"); bid.textContent = h.bids[p];
+        const took = document.createElement("td"); took.textContent = h.took[p];
+        const pts = document.createElement("td");
+        pts.className = "pts " + (h.points[p] < 0 ? "bad" : h.bids[p] === h.took[p] ? "good" : "");
+        pts.textContent = (h.points[p] > 0 ? "+" : "") + h.points[p];
+        [name, bid, took, pts].forEach((td) => tr.appendChild(td));
+        t.appendChild(tr);
+      });
+      box.appendChild(t);
+
+      if (g.setBonus) {
+        const line = document.createElement("p");
+        line.className = "jkBonus";
+        const won = g.setBonus.map((n, p) => n > 0 ? NAMES[p] + " +" + n : null).filter(Boolean);
+        line.textContent = "სეტის ბონუსი: " + won.join(" · ");
+        box.appendChild(line);
+      }
+
+      const mine = h.points[ME];
+      document.getElementById("handTitle").textContent =
+        h.bids[ME] === h.took[ME] ? "ზუსტად! 🎯"
+        : mine < 0 ? "ხიშტი 💥" : "ხელი დასრულდა";
+      if (h.bids[ME] === h.took[ME]) { Sound.play("handWin"); Fx.cheer(); }
+      else Sound.play("handLose");
+
+      const btn = document.getElementById("handBtn");
+      btn.textContent = g.hand + 1 >= Joker.HANDS ? "შედეგი" : "შემდეგი ხელი ▶";
+      btn.onclick = () => {
+        document.getElementById("handOverlay").classList.remove("show");
+        Joker.nextHand(g);
+        trickCleared = true;
+        render();
+        setTimeout(step, PACE.betweenHands);
+      };
+      document.getElementById("handOverlay").classList.add("show");
+    }
+
+    function showResult(){
+      const box = document.getElementById("resultBody");
+      box.innerHTML = "";
+      const order = [0, 1, 2, 3].sort((a, b) => g.scores[b] - g.scores[a]);
+      const t = document.createElement("table");
+      t.className = "jkTable";
+      order.forEach((p, i) => {
+        const tr = document.createElement("tr");
+        if (p === ME) tr.className = "me";
+        const pos = document.createElement("td"); pos.textContent = (i + 1) + ".";
+        const name = document.createElement("td"); name.textContent = NAMES[p];
+        const pts = document.createElement("td");
+        pts.className = "pts " + (g.scores[p] < 0 ? "bad" : "");
+        pts.textContent = g.scores[p];
+        [pos, name, pts].forEach((td) => tr.appendChild(td));
+        t.appendChild(tr);
+      });
+      box.appendChild(t);
+      const won = g.winner === ME;
+      document.getElementById("resultTitle").textContent = won ? "🏆 შენ მოიგე!" : "თამაში დასრულდა";
+      if (won) { Sound.play("win"); Fx.confetti(80, { spread: 0.8 }); } else Sound.play("lose");
+      document.getElementById("resultBtn").onclick = () => {
+        document.getElementById("resultOverlay").classList.remove("show");
+        startMatch();
+      };
+      document.getElementById("resultOverlay").classList.add("show");
+    }
+
+    /* ---------------- a new match ---------------- */
+    function startMatch(){
+      document.getElementById("handOverlay").classList.remove("show");
+      document.getElementById("resultOverlay").classList.remove("show");
+      busy = false; pending = null; trickCleared = true;
+      clearTimeout(trickTimer);
+      g = Joker.newGame({ dealer: 3 });      // so you are the first to bid
+      Joker.deal(g);
+      render();
+      step();
+    }
+
+    startMatch();
+  </script>
+</body>
+</html>
