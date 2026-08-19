@@ -205,12 +205,10 @@
    Four players, nobody paired, so every seat carries its own bid and count.
    ===================================================================== */
 
-/* the joker itself: no suit, so it is drawn rather than lettered */
-.card.jokerCard .big{ font-size:30px; top:52%; }
-.card.small.jokerCard .big{ font-size:22px; }
-.card.jokerCard{ color:#8a2f8f; }
-.card.jokerCard .rank{ font-size:11px; letter-spacing:0; }
-.card.small.jokerCard .rank{ font-size:9px; }
+/* the joker: no suit to print, so its corner word is smaller than a rank */
+.card.jokerCard{ color:#7a2b8c; }
+.card.jokerCard .rank{ font-size:10px; letter-spacing:0; }
+.card.small.jokerCard .rank{ font-size:8px; }
 
 /* ბეზი — no trump at all. There is no card for it, so it says so. */
 .bezCard{
@@ -292,7 +290,6 @@
 .trick.cross .trickRow .card .pip { font-size:.8em; right:.18em; top:.16em; }
 .trick.cross .trickRow .card .big { font-size:1.9em; }
 .trick.cross .trickRow .card.jokerCard .rank{ font-size:.62em; }
-.trick.cross .trickRow .card.jokerCard .big { font-size:2.1em; }
 
 /* where each card lands: the side of the table its player sits on */
 .trick.cross .at-across{ transform:translate(-50%,-50%) translateY(calc(var(--jkDy, 35px) * -1)); }
@@ -334,8 +331,26 @@
 .jkHand .card .pip { font-size:.8em; right:.18em; top:.14em; }
 .jkHand .card .big { font-size:1.9em; }
 .jkHand .card.jokerCard .rank{ font-size:.62em; }
-.jkHand .card.jokerCard .big { font-size:2.1em; }
 
 @media (max-height:420px){
   .btable.jk{ padding-top:46px; }
 }
+
+/* ---- the joker's face ----
+   The one card with no suit to print. It gets the jester it is named after:
+   a three-pointed cap with a bell on each point, drawn in the same two colours
+   everywhere so a joker is recognised across the table at a glance. */
+.jkArt{
+  position:absolute; left:50%; top:53%; transform:translate(-50%,-50%);
+  width:74%; height:auto; overflow:visible;
+}
+.jkArt .capL{ fill:#7a2b8c; }
+.jkArt .capR{ fill:#c08a2a; }
+.jkArt .bell{ fill:#e6bd54; stroke:#6a4a12; stroke-width:.9; }
+.jkArt .face{ fill:var(--bone-hi, #f6efdd); stroke:#5a3f22; stroke-width:1.1; }
+.jkArt .ink{ fill:#3a2a1a; }
+.jkArt .smile{ fill:none; stroke:#3a2a1a; stroke-width:1.5; stroke-linecap:round; }
+
+/* the corner word, small and out of the drawing's way */
+.card.jokerCard .rank{ color:#7a2b8c; }
+.card.jokerCard .big, .card.jokerCard .pip{ display:none; }

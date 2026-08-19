@@ -110,14 +110,38 @@
     }
     function setMsg(m){ document.getElementById("msg").textContent = m || ""; }
 
-    /* ---------------- drawing a card ---------------- */
+    /* ---------------- drawing a card ----------------
+       The joker has no suit to print, so it gets the face the card is named
+       after: a jester in his three-pointed cap with a bell on each point.
+       Drawn rather than fetched, like every other card in this app, so it stays
+       sharp at any size and the app carries no picture files. */
+    const JESTER =
+      '<svg class="jkArt" viewBox="0 0 40 56" aria-hidden="true">'
+      // the cap, and its three points, each with a bell
+      + '<path class="capL" d="M20 11 C11 11 6 19 7.5 29 L20 29 Z"/>'
+      + '<path class="capR" d="M20 11 C29 11 34 19 32.5 29 L20 29 Z"/>'
+      + '<path class="capR" d="M7.6 26.5 C2.4 24.4 1 18.2 3.9 13.6 L10.4 21.6 Z"/>'
+      + '<path class="capL" d="M32.4 26.5 C37.6 24.4 39 18.2 36.1 13.6 L29.6 21.6 Z"/>'
+      + '<path class="capL" d="M20 11 C19.2 5.6 21.4 3.2 24.6 2.4 L22.6 11 Z"/>'
+      + '<circle class="bell" cx="3.6" cy="12.4" r="2.6"/>'
+      + '<circle class="bell" cx="36.4" cy="12.4" r="2.6"/>'
+      + '<circle class="bell" cx="24.8" cy="2.2" r="2.4"/>'
+      // the face under it
+      + '<ellipse class="face" cx="20" cy="37" rx="9.4" ry="9"/>'
+      + '<circle class="ink" cx="16.6" cy="35.6" r="1.35"/>'
+      + '<circle class="ink" cx="23.4" cy="35.6" r="1.35"/>'
+      + '<path class="smile" d="M15.4 40.4 Q20 44.6 24.6 40.4"/>'
+      // and the ruff at his collar
+      + '<path class="capR" d="M11 44.4 Q20 52.6 29 44.4 Q20 48.4 11 44.4 Z"/>'
+      + '</svg>';
+
     const RED = [1, 2];                       // hearts and diamonds
     function cardEl(card, opts){
       const o = opts || {};
       const d = document.createElement("div");
       if (Joker.isJoker(card)) {
         d.className = "card jokerCard" + (o.small ? " small" : "") + (o.dim ? " dim" : "");
-        d.innerHTML = '<span class="rank">ჯოკ</span><span class="big">★</span>';
+        d.innerHTML = '<span class="rank">ჯოკ</span>' + JESTER;
         return d;
       }
       d.className = "card " + (RED.includes(card[0]) ? "red" : "black")
