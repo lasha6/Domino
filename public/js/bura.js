@@ -98,6 +98,8 @@
     const deck = shuffle(makeDeck(variant), o.rnd);
     const g = {
       variant, target, handSize, players: 2,
+      // ხუთკარტა only: whether a plain suit counts as a malutka at this table
+      openMalutka: !!o.openMalutka,
       deck, trumpCard: null, trump: null,
       hands: [[], []],
       taken: [[], []],          // cards won this round, per player
@@ -173,8 +175,13 @@
         && hand.length === g.handSize
         && hand.every((c) => suitOf(c) === g.trump);
   }
+  /* What a hand of trumps is worth differs between the two games, and the
+     player was explicit about both: in the short game it takes the round
+     outright; in the long one it is only a hand that may be put down out of
+     turn, and still has to be played for. */
+  const buraTakesRound = (g) => g.variant === "3";
   function sayBura(g, seat) {
-    if (!isBura(g, seat)) return false;
+    if (!isBura(g, seat) || !buraTakesRound(g)) return false;
     endRound(g, seat, callValue(g.bid.level), "ბურა");
     return true;
   }
@@ -186,10 +193,12 @@
     if (!oneSuit(hand)) return false;
     if (g.lead && g.lead.seat === seat) return false;  // not on top of your own lead
     const suit = suitOf(hand[0]);
-    if (suit === g.trump) return false;                // that is ბურა, and it wins outright
-    if (g.variant === "3") return true;                // three of a suit is enough
-    if (g.lead && suit === suitOf(g.lead.cards[0])) return true;  // the suit that was led
-    return !!allowAnySuit;
+    // three of a suit is enough in the short game, whatever the suit
+    if (g.variant === "3") return suit !== g.trump;     // trumps there are ბურა, which wins
+    // in the long game a hand of trumps is put down like this, and a plain
+    // suit only where the table was set up to allow it
+    if (suit === g.trump) return true;
+    return allowAnySuit === undefined ? !!g.openMalutka : !!allowAnySuit;
   }
   // kept under its old name as well: an empty table is the out-of-turn case
   function canUnturned(g, seat, allowAnySuit) {
@@ -378,7 +387,7 @@
     suitOf, rankOf, pointsOf, nameOf, sameCard, handPoints,
     makeDeck, shuffle, beats, beatsAll, strength,
     newGame, legalLeads, canLead, lead, canUnturned, canMalutka, malutka,
-    isBura, sayBura,
+    isBura, sayBura, buraTakesRound,
     canAnswer, answer, refill,
     canCall, call, acceptCall, concede, callValue,
     canSayVar, sayVar,

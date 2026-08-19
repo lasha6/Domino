@@ -295,17 +295,21 @@ test("ვარ belongs to the three-card game only", () => {
 
 /* ---------------- ურიგო მალუტკა ---------------- */
 
-test("a hand of five trumps is ბურა, which wins rather than being led", () => {
-  // this was written as an out-of-turn lead before the player corrected it:
-  // a whole hand of trumps takes the round outright
+test("five trumps may be put down out of turn, but do not win the round", () => {
+  /* The two games differ here and the player was explicit about both: three
+     trumps take the round in the short game, five trumps in the long one are
+     only a hand that may be led out of turn and still has to be played for. */
   const g = B.newGame({ variant: "5" });
   g.trump = S.clubs;
   g.hands[1] = ["6", "7", "8", "9", "J"].map((r) => c(r, S.clubs));
   g.turn = 0;                                   // not their turn at all
   assert.ok(B.isBura(g, 1), "five trumps is ბურა");
-  assert.equal(B.canMalutka(g, 1), false, "so it is not offered as a malutka");
-  assert.ok(B.sayBura(g, 1));
-  assert.equal(g.roundWinner, 1, "and it wins the round from wherever they sit");
+  assert.equal(B.buraTakesRound(g), false, "which does not win the long game");
+  assert.equal(B.sayBura(g, 1), false, "so claiming it does nothing");
+  assert.ok(B.canMalutka(g, 1), "it goes down out of turn instead");
+  assert.ok(B.malutka(g, 1));
+  assert.equal(g.lead.cards.length, 5, "and the other player must beat all five");
+  assert.equal(g.turn, 0);
 });
 
 test("a five-card hand of one plain suit only counts when the table allows it", () => {

@@ -264,7 +264,7 @@
         const nextCall = Bura.CALLS[g.bid.level];
         if (nextCall && Bura.canCall(g, 0)) add(nextCall, () => { Bura.call(g, 0); cpuAnswerCall(); }, true);
         if (Bura.canSayVar(g, 0)) add("ვარ", doVar, true);
-        if (Bura.isBura(g, 0)) add("ბურა!", doBura, false);
+        if (Bura.isBura(g, 0) && Bura.buraTakesRound(g)) add("ბურა!", doBura, false);
         else if (Bura.canMalutka(g, 0)) add("მალუტკა", doUnturned, true);
       } else {
         const need = g.lead.cards.length;
@@ -273,7 +273,7 @@
         const nextCall = Bura.CALLS[g.bid.level];
         if (nextCall && Bura.canCall(g, 0)) add(nextCall, () => { Bura.call(g, 0); cpuAnswerCall(); }, true);
         // and a whole hand of one suit can be turned straight back at it
-        if (Bura.isBura(g, 0)) add("ბურა!", doBura, false);
+        if (Bura.isBura(g, 0) && Bura.buraTakesRound(g)) add("ბურა!", doBura, false);
         else if (Bura.canMalutka(g, 0)) add("მალუტკა", doUnturned, true);
       }
     }

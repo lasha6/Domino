@@ -421,7 +421,8 @@ const BURA_NEXT_ROUND = 4000;
 function startBura(room) {
   clearAuto(room);
   room.players.forEach((p, i) => { p.seat = i; p.team = i; });
-  room.b = Bura.newGame({ variant: room.variant, target: room.target });
+  room.b = Bura.newGame({ variant: room.variant, target: room.target,
+                          openMalutka: !!room.openMalutka });
   room.phase = "play";
   say(room, "დაიწყო — " + (room.variant === "3" ? "სამკარტა" : "ხუთკარტა"));
   buraAdvance(room);
@@ -562,7 +563,7 @@ function buraView(room, seat) {
     canCall: Bura.canCall(b, seat) ? Bura.CALLS[b.bid.level] : null,
     canVar: Bura.canSayVar(b, seat),
     canMalutka: Bura.canMalutka(b, seat),
-    canBura: Bura.isBura(b, seat),
+    canBura: Bura.isBura(b, seat) && Bura.buraTakesRound(b),
     roundWinner: b.roundWinner,
     reveal: room.reveal || null,      // only ever set once a round has ended
     moveLeft: room.moveDeadline ? Math.max(0, Math.ceil((room.moveDeadline - Date.now()) / 1000)) : null,

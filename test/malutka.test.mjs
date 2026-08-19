@@ -56,7 +56,7 @@ test("a malutka cannot be laid on top of your own lead", () => {
   assert.equal(B.canMalutka(g, 0), false, "and not again on top of it");
 });
 
-test("in the five-card game a malutka must be the led suit, or allowed", () => {
+test("in the five-card game a plain suit is a malutka only where the table allows", () => {
   const mk = () => {
     const g = B.newGame({ variant: "5" });
     g.trump = S.hearts; g.deck = [];
@@ -66,17 +66,38 @@ test("in the five-card game a malutka must be the led suit, or allowed", () => {
     B.lead(g, 0, [c("A", S.diamonds)]);
     return g;
   };
-  assert.equal(B.canMalutka(mk(), 1), false, "clubs are neither trumps nor what was led");
-  assert.equal(B.canMalutka(mk(), 1, true), true, "unless the table allows any suit");
+  assert.equal(B.canMalutka(mk(), 1), false, "a plain suit needs the table to have said so");
+  assert.equal(B.canMalutka(mk(), 1, true), true, "and counts where it has");
 
-  const trumps = mk();
-  trumps.hands[1] = ["6", "7", "8", "9", "J"].map((r) => c(r, S.hearts));
-  assert.equal(B.canMalutka(trumps, 1), false, "five trumps are ბურა, which wins outright");
-  assert.equal(B.isBura(trumps, 1), true, "and are offered as that instead");
+  const set = mk(); set.openMalutka = true;
+  assert.equal(B.canMalutka(set, 1), true, "a table set up that way needs no argument");
 
   const ledSuit = mk();
   ledSuit.hands[1] = ["6", "7", "8", "9", "J"].map((r) => c(r, S.diamonds));
-  assert.equal(B.canMalutka(ledSuit, 1), true, "and so does the suit that was led");
+  assert.equal(B.canMalutka(ledSuit, 1), false,
+    "even the suit that was led is on the agreement in the long game");
+
+  const trumps = mk();
+  trumps.hands[1] = ["6", "7", "8", "9", "J"].map((r) => c(r, S.hearts));
+  assert.equal(B.canMalutka(trumps, 1), true, "five trumps may always be put down out of turn");
+});
+
+test("a hand of trumps takes the round in the short game only", () => {
+  const three = B.newGame({ variant: "3" });
+  three.trump = S.hearts;
+  three.hands[0] = ["J", "Q", "K"].map((r) => c(r, S.hearts));
+  assert.ok(B.isBura(three, 0));
+  assert.ok(B.sayBura(three, 0), "three trumps take it");
+  assert.equal(three.roundWinner, 0);
+
+  const five = B.newGame({ variant: "5" });
+  five.trump = S.hearts;
+  five.hands[0] = ["J", "Q", "K", "10", "A"].map((r) => c(r, S.hearts));
+  assert.ok(B.isBura(five, 0), "it is still ბურა");
+  assert.equal(B.buraTakesRound(five), false, "but does not win the round in the long game");
+  assert.equal(B.sayBura(five, 0), false, "claiming it does nothing");
+  assert.equal(five.phase, "play", "the round carries on");
+  assert.ok(B.canMalutka(five, 0), "it is put down and played for instead");
 });
 
 test("a part of a hand is never a malutka", () => {
@@ -92,8 +113,8 @@ test("a part of a hand is never a malutka", () => {
   assert.equal(B.canMalutka(g, 1), false, "and all of one suit");
 });
 
-test("a whole hand of trumps is ბურა, and wins the round", () => {
-  for (const [variant, size] of [["3", 3], ["5", 5]]) {
+test("a whole hand of trumps is ბურა, and in the short game wins the round", () => {
+  for (const [variant, size] of [["3", 3]]) {
     const g = B.newGame({ variant });
     g.trump = S.hearts;
     g.hands[0] = ["J", "Q", "K", "10", "A"].slice(0, size).map((r) => c(r, S.hearts));
