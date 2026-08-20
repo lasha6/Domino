@@ -300,11 +300,19 @@ function refreshPause(room) {
 // has walked away (in 1v1 that is just the one player).
 function abandonSeat(room, p) {
   p.bot = true; p.online = false; p.id = null;
-  const deadTeam = [0, 1].find((t) => {
-    const side = room.players.filter((x) => x.team === t);
-    return side.length > 0 && side.every((x) => x.bot);
-  });
-  if (deadTeam != null) return { dead: true };
+  /* A match is over when there is nobody left to play it FOR — which is not
+     the same question in every game. Domino and ბურა are played by sides, so
+     a side that is all computer ends it. ჯოკერი has no sides: everyone plays
+     for themselves, and a table with three people at it is still a table.
+     Counting seats as sides there ended the match the moment one player
+     walked out, for the three who had not. */
+  const dead = room.game === "joker"
+    ? room.players.every((x) => x.bot)
+    : [0, 1].some((t) => {
+        const side = room.players.filter((x) => x.team === t);
+        return side.length > 0 && side.every((x) => x.bot);
+      });
+  if (dead) return { dead: true };
   say(room, `${p.name} გავიდა — მის ქვებს კომპიუტერი აგრძელებს`);
   refreshPause(room);
   return { dead: false };
@@ -1615,12 +1623,27 @@ io.on("connection", (socket) => {
     }, RECONNECT_GRACE);
   }
 
+  /* A match that ends because somebody walked out, or never came back, is
+     still a match: the players who stayed won it and the one who went lost
+     it. The screen says as much before anybody gives a chair up — "the match
+     is lost" — so the books have to agree with the warning.
+
+     `gone` marks the one it goes against: whoever pressed the button, or
+     whoever ran out of time. Anybody else at the table stayed. */
   function endMatchEarly(room, name) {
     room.phase = "over"; room.paused = false;
     clearTimeout(room.dropTimer); room.dropTimer = null;
     room.players.forEach((o) => {
+      const stayed = !o.gone && !o.away && o.online !== false;
+      awardMatch(room, o, stayed);
       const s2 = io.sockets.sockets.get(o.id);
       if (s2) s2.emit("opponentLeft", { name });
+      if (s2) s2.emit("matchOver", {
+        youWon: stayed, scores: null, myTeam: o.team, target: room.target, size: room.size,
+        progress: o.profile ? summarise(o.profile) : null,
+        settled: o.lastSettle || null, earned: o.lastEarned || [], early: true,
+      });
+      o.lastEarned = [];
     });
     pushState(room);
   }

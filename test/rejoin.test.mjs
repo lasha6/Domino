@@ -204,3 +204,46 @@ test("the server survives being asked about nonsense", async () => {
   await wait(600);
   assert.equal(srv.exited, null, `still up: ${srv.log.slice(-300)}`);
 });
+
+test("a match that ends because somebody went is still a match in the books", () => {
+  /* The screen warns that leaving loses the match before anybody gives a chair
+     up. The books have to agree with the warning: the one who went lost it, the
+     one who stayed won it, and both of them are told so. */
+  return (async () => {
+    const tag = "rjb" + (n++);
+    const a = client(), b = client();
+    a.tok = tag + "-a"; b.tok = tag + "-b";
+    let aOver = null, bOver = null;
+    a.on("matchOver", (m) => { aOver = m; });
+    b.on("matchOver", (m) => { bOver = m; });
+    a.emit("quickJoin", { game: "bura", variant: "3", target: 11, name: "წამსვლელი", token: a.tok,
+                          auth: { kind: "guest", id: tag + "a" } });
+    b.emit("quickJoin", { game: "bura", variant: "3", target: 11, name: "დარჩენილი", token: b.tok,
+                          auth: { kind: "guest", id: tag + "b" } });
+    assert.ok(await until(() => a.last && a.last.hand && b.last && b.last.hand), "both dealt");
+
+    a.emit("leaveRoom");                    // said yes to the question
+    assert.ok(await until(() => bOver), "the one who stayed is told the match is over");
+    assert.equal(bOver.youWon, true, "and that they won it");
+    assert.equal(bOver.early, true, "because it ended early");
+    assert.equal(b.last.phase, "over");
+    assert.equal(srv.exited, null, `still up: ${srv.log.slice(-300)}`);
+  })();
+});
+
+test("and in a game of four, walking out does not end anything", () => {
+  return (async () => {
+    const cs = await fourAtJoker();
+    const goner = cs[0], seat = goner.last.seat;
+    const rest = cs.filter((c) => c !== goner);
+    let ended = false;
+    rest.forEach((c) => c.on("matchOver", () => { ended = true; }));
+
+    goner.emit("leaveRoom");
+    await wait(700);
+    assert.equal(ended, false, "nobody was told the match was over");
+    assert.equal(rest[0].last.phase, "play", "the table is still playing");
+    assert.ok((rest[0].last.table.find((x) => x.seat === seat) || {}).bot,
+      "with the computer in the empty chair");
+  })();
+});
