@@ -473,3 +473,8 @@
    the record never hides it — that was the whole complaint. */
 .btable.jk .stock{ left:auto; right:9px; top:7px; bottom:auto; transform:none; z-index:8; }
 /* the record never reaches the right-hand edge, so the trump is never hidden */
+
+/* The joker's declaration: one word each, and the colour says which is which —
+   green takes the trick, red gives it away. */
+.bbtn.hi  { color:#04250f; background:linear-gradient(180deg,#6fdf95,#2fae5e); border-color:#1d8f49; }
+.bbtn.give{ color:#fff4f4; background:linear-gradient(180deg,#e46a73,#bb202f); border-color:#8f1622; }

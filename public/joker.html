@@ -514,9 +514,7 @@
       if (g.phase === "choose")      lbl.textContent = "კოზირი ცხადდება";
       else if (g.phase === "bid")    lbl.textContent = "ბიდი";
       else if (g.trick.length && Joker.isJoker(g.trick[0].card))
-        lbl.textContent = g.trick[0].high
-          ? "ჯოკერი იღებს — " + Joker.SUITS[g.ledSuit]
-          : Joker.SUITS[g.ledSuit] + " იღებს";
+        lbl.textContent = (g.trick[0].high ? "მაღალი — " : "წაიღოს — ") + Joker.SUITS[g.ledSuit];
       else if (g.trick.length)       lbl.textContent = "მაგიდა";
       else if (winner != null)       lbl.textContent = "ხელი აიღო — " + NAMES[winner];
       else                           lbl.textContent = "მაგიდა";
@@ -565,22 +563,22 @@
         for (let n = 0; n <= size; n++) add(String(n), () => makeBid(n), "num", n === no);
         return;
       }
-      if (pending && pending.need === "suit") {
-        setMsg("ჯოკერით შედიხარ — რომელ ფერს ითხოვ?");
-        Joker.SUITS.forEach((sym, i) => add(sym, () => askWhoTakes(i), "suit" + (RED.includes(i) ? " red" : "")));
+      /* What you are declaring comes first and the suit second, and each of the
+         two is the single word a player says at the table: მაღალი, or წაიღოს.
+         Naming the suit before saying which call it is put the choice the wrong
+         way round — the suit means nothing until the call is made. */
+      if (pending && pending.need === "takes") {
+        setMsg("ჯოკერით შედიხარ — რას აცხადებ?");
+        add("მაღალი", () => askSuit(true), "hi");
+        add("წაიღოს", () => askSuit(false), "give");
         add("გაუქმება", cancelJoker, "ghost");
         return;
       }
-      /* The second half of the declaration. Naming the suit is only half of it:
-         you still have to say whether the joker is taking the trick or handing
-         it to that suit — and the two ask completely different things of
-         everybody else. */
-      if (pending && pending.need === "takes") {
-        const sym = Joker.SUITS[pending.suit];
-        setMsg("ვინ წაიღოს?");
-        add("ჯოკერი იღებს", () => finishJoker({ suit: pending.suit, high: true }));
-        add(sym + " იღებს", () => finishJoker({ suit: pending.suit, high: false }),
-            RED.includes(pending.suit) ? "suit red" : "suit");
+      if (pending && pending.need === "suit") {
+        setMsg(pending.high ? "მაღალი — რომელი ფერი?" : "წაიღოს — რომელი ფერი?");
+        Joker.SUITS.forEach((sym, i) =>
+          add(sym, () => finishJoker({ suit: i, high: pending.high }),
+              "suit" + (RED.includes(i) ? " red" : "")));
         add("გაუქმება", cancelJoker, "ghost");
         return;
       }
@@ -618,15 +616,15 @@
     function pickCard(card){
       if (busy || g.phase !== "play" || g.turn !== ME) return;
       if (Joker.isJoker(card)) {
-        pending = { card, need: g.trick.length ? "high" : "suit" };
+        pending = { card, need: g.trick.length ? "high" : "takes" };
         Sound.play("tap");
         render();
         return;
       }
       playMine(card, {});
     }
-    function askWhoTakes(suit){
-      pending = { card: pending.card, need: "takes", suit };
+    function askSuit(high){
+      pending = { card: pending.card, need: "suit", high };
       Sound.play("tap");
       render();
     }
