@@ -265,7 +265,11 @@ function say(room, text) { room.log = text; }
  * game flow
  * ------------------------------------------------------------------ */
 const PAIR_GRACE = 15000;      // ms the full 2v2 table gets to finish choosing partners
-const RECONNECT_GRACE = 90000; // ms a dropped player's seat is held open
+/* How long the table waits, holding everything, before it decides somebody is
+   away rather than blinking. The seat itself is held for as long as the table
+   lives; this is only how long the OTHERS are asked to wait. Settable so the
+   tests do not have to sit through a minute and a half of it. */
+const RECONNECT_GRACE = +process.env.RECONNECT_GRACE || 90000;
 
 /* The clock. Nobody should be able to freeze the table by putting the phone
    down — so every turn has a short countdown, and running it out costs you
@@ -1504,12 +1508,32 @@ io.on("connection", (socket) => {
     buraAdvance(room);
   }
 
+  /* "Am I still at a table?" The front page asks this the moment it opens, so
+     a player who closed the tab, lost the tunnel or simply wandered off is put
+     back where they were rather than being offered a fresh game. A chair given
+     up on purpose is not a chair to go back to. */
+  on("whereAmI", ({ token }) => {
+    if (!token) return socket.emit("atTable", null);
+    const room = [...rooms.values()].find((r) =>
+      r.players.some((p) => p.token === token && !p.gone));
+    if (!room || room.phase === "over") return socket.emit("atTable", null);
+    const p = room.players.find((x) => x.token === token);
+    socket.emit("atTable", {
+      game: room.game, size: room.size, code: room.code,
+      variant: room.variant, phase: room.phase,
+      seat: p.seat, playing: room.phase !== "wait",
+    });
+  });
+
   on("resume", ({ token }) => {
     if (!token) return socket.emit("resumeFailed");
     const room = [...rooms.values()].find((r) => r.players.some((p) => p.token === token));
     if (!room || room.phase === "over") return socket.emit("resumeFailed");
     const p = room.players.find((x) => x.token === token);
+    if (p.gone) return socket.emit("resumeFailed");   // they said yes to leaving
     p.id = socket.id; p.online = true;
+    // whatever the computer was doing in their chair, it stops
+    p.away = false; p.bot = false;
     socket.data.roomId = room.id;
     socket.join(room.id);
     if (room.players.every((x) => x.online !== false)) {
@@ -1522,8 +1546,22 @@ io.on("connection", (socket) => {
     pushState(room);
   });
 
-  // `quit` = the player pressed back and meant it; a plain disconnect is
-  // treated as a drop, and the seat is held open for them.
+  /* Leaving, and being away.
+
+     `quit` means the player was ASKED whether they meant it and said yes. Every
+     other way of vanishing — the phone sleeping, the tunnel, closing the tab —
+     is being away, and being away does not give up your chair.
+
+     A held chair is held for as long as the table is there. What happens while
+     it is empty depends on how many are at it:
+
+     · four players — the computer plays their turns and the others play on.
+       The chair is still theirs and they take it back the moment they return.
+     · two players — there is nobody to play on with. The clock runs, and when
+       it is out the match goes to the player who stayed.
+
+     The player is put back at that table from anywhere, even from the front
+     page: the browser remembers a token and the server remembers the chair. */
   function leave(sock, quit) {
     const room = roomOf(sock);
     if (!room) return;
@@ -1544,15 +1582,15 @@ io.on("connection", (socket) => {
       return;
     }
 
-    // walked out mid-match: hand the seat to the computer, unless that empties
-    // a whole side — then the match really is over
+    // said yes to the question: the chair is given up for good
     if (quit) {
+      p.gone = true;
       if (abandonSeat(room, p).dead) { endMatchEarly(room, p.name); return; }
       carryOn(room);
       return;
     }
 
-    // mid-match drop: hold the seat and pause everything
+    // away: hold the chair, and hold the table for a moment in case it is a blink
     p.online = false;
     p.id = null;
     room.paused = true;
@@ -1562,9 +1600,18 @@ io.on("connection", (socket) => {
     clearTimeout(room.dropTimer);
     room.dropTimer = setTimeout(() => {
       if (!rooms.has(room.id) || p.online) return;
-      // never came back — same rule as walking out
-      if (abandonSeat(room, p).dead) { endMatchEarly(room, p.name); return; }
-      carryOn(room);
+      if (room.size === 4) {
+        /* Four at the table: the computer sits in for them and the game goes
+           on. The chair stays theirs — nothing here gives it away. */
+        p.away = true; p.bot = true;
+        say(room, `${p.name} — ადგილი დაცულია, ქვებს კომპიუტერი აგრძელებს`);
+        refreshPause(room);
+        carryOn(room);
+        return;
+      }
+      // two at the table: their time is out, and the match goes to the other
+      say(room, `${p.name} — დრო ამოიწურა`);
+      endMatchEarly(room, p.name);
     }, RECONNECT_GRACE);
   }
 

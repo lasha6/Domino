@@ -107,6 +107,7 @@
 
   <!-- bundled, so the app opens instantly and works from the APK's own files -->
   <script src="js/socket.io.min.js"></script>
+  <script src="js/leaving.js"></script>
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/ozi.js"></script>
@@ -160,7 +161,9 @@
       if (!seated) document.getElementById("waitText").textContent = "სერვერს ვუკავშირდები";
       hideNetTrouble();
       // socket.io reconnects on its own — don't join a second table, resume
-      if (seated) { socket.emit("resume", { token: TOKEN }); return; }
+      /* "rejoin" is the front page sending them back to the chair the server
+         is still holding. Nothing is asked for; the token is the claim. */
+      if (seated || MODE === "rejoin") { socket.emit("resume", { token: TOKEN }); return; }
       const who = { name: NAME, token: TOKEN, auth: WHO.auth };
       if (MODE === "quick")       socket.emit("quickJoin",   { ...who, target: TARGET, size: SIZE });
       else if (MODE === "friend") socket.emit("createTable", { ...who, target: TARGET, size: SIZE });
@@ -168,6 +171,7 @@
     });
     socket.on("disconnect", () => showNetTrouble());
     socket.on("resumeFailed", () => {
+      if (MODE === "rejoin") { location.replace("index.html"); return; }
       showResult("თამაში ვეღარ დავაბრუნე",
         "კავშირი დიდხანს იყო გაწყვეტილი და მაგიდა დაიხურა.");
     });
@@ -384,7 +388,14 @@
       selIdx = null;
     }
     function drawSlot(i){ socket.emit("draw", { slot:i }); }
-    function quit(){ socket.emit("leaveRoom"); location.href = "index.html"; }
+    /* The back arrow asks first. Walking away by accident keeps your chair —
+       the server holds it and the front page offers the way back — so giving it
+       up has to be something you said yes to. */
+    function quit(){
+      const started = !!(S && S.hand);
+      const go = () => { socket.emit("leaveRoom"); location.href = "index.html"; };
+      if (!started) Leaving.confirmLeaveWaiting(go); else Leaving.confirmLeave(go);
+    }
 
     /* ---------------- boneyard ---------------- */
     function showBone(){

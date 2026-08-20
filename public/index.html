@@ -67,6 +67,13 @@
         </div>
       </div>
 
+      <!-- a chair still being held, somewhere -->
+      <div class="backTable" id="backToTable">
+        <span class="btIco">🪑</span>
+        <span class="btText">მაგიდა შენ გელოდება<b id="backWhat"></b></span>
+        <button class="btGo" onclick="goBackToTable()">დაბრუნება ▶</button>
+      </div>
+
       <!-- ---- which game ---- -->
       <div class="center" id="pickGame">
         <h1 class="logo-title">აირჩიე თამაში</h1>
@@ -470,10 +477,42 @@
       clearTimeout(waking);
       dot.classList.remove("off"); stext.textContent = "ონლაინ";
       askProfile();               // level, coins and the daily streak live here
+      askTable();                 // ...and whether a chair is still being held
     });
     socket.on("disconnect", () => {
       dot.classList.add("off"); stext.textContent = "კავშირი გაწყდა — ვცდილობ…";
     });
+
+    /* ---------------- the table you left ----------------
+       A player who vanished — the phone slept, the tunnel went, the tab closed
+       — did not give up their chair, and the server is still holding it. So the
+       front page asks the moment it connects, and if there is a table waiting
+       it says so and offers the way back. Only saying yes to the question on
+       the table itself gives a chair up. */
+    const TABLE_SCREEN = {
+      domino: (t) => "online.html?mode=rejoin",
+      bura:   (t) => "buraonline.html?mode=rejoin",
+      joker:  (t) => "jokeronline.html?mode=rejoin",
+    };
+    const GAME_LABEL = { domino: "დომინო", bura: "ბურა", joker: "ჯოკერი" };
+    let myTable = null;
+    function askTable(){
+      const t = localStorage.getItem("dominoToken");
+      if (t && socket.connected) socket.emit("whereAmI", { token: t });
+    }
+    socket.on("atTable", (t) => {
+      myTable = t;
+      const box = document.getElementById("backToTable");
+      if (!t || !TABLE_SCREEN[t.game]) { box.classList.remove("show"); return; }
+      document.getElementById("backWhat").textContent =
+        GAME_LABEL[t.game] + (t.size === 4 ? " · 4 მოთამაშე" : "")
+        + (t.playing ? " — თამაში მიდის" : " — მაგიდა ველოდება");
+      box.classList.add("show");
+    });
+    function goBackToTable(){
+      if (!myTable) return;
+      location.href = TABLE_SCREEN[myTable.game](myTable);
+    }
 
     /* ---------------- player name ----------------
        Stored in localStorage and sent to the server when joining a table,
