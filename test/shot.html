@@ -16,6 +16,22 @@ setTimeout(() => {
       const d = w.document;
       if (d.getElementById("handOverlay").classList.contains("show")) { d.getElementById("handBtn").click(); return; }
       if (d.getElementById("resultOverlay").classList.contains("show")) return;
+      /* ?fake=N fills the record with N hands shaped like a real match — the
+         schedule, set by set — so the record can be looked at without playing
+         two hundred tricks to get there. */
+      if (qs.get("fake")) {
+        if (run("histOpen")) return;          // filled already — stop playing, or
+                                              // real hands pile up after the fakes
+        run("g.history.length = 0; g.bonuses = {};");     // start from an empty page
+        run("for (let i=0;i<" + (+qs.get("fake")) + " && i<Joker.HANDS;i++) { const sp=Joker.SCHEDULE[i];" +
+            " g.history.push({hand:i,set:sp.set,size:sp.size," +
+            "  bids:[i%3,(i+1)%3,0,2],took:[i%3,0,0,2]," +
+            "  points:[(i%3)*50+50,-200,50,150]});" +
+            " if (sp.last) g.bonuses[sp.set] = [sp.set%2?200:0,0,50,0]; }");
+        d.getElementById("histPanel").style.transition = "none";
+        run("toggleHist()");
+        return;
+      }
       if (qs.get("hist") && run("g.history.length") >= (+qs.get("hist") || 3)) {
         if (!run("histOpen")) {
           // transitions do not advance under virtual time, so take it out

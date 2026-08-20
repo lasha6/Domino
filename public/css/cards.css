@@ -484,3 +484,13 @@
    green takes the trick, red gives it away. */
 .bbtn.hi  { color:#04250f; background:linear-gradient(180deg,#6fdf95,#2fae5e); border-color:#1d8f49; }
 .bbtn.give{ color:#fff4f4; background:linear-gradient(180deg,#e46a73,#bb202f); border-color:#8f1622; }
+
+/* The record is kept in sets: the hands, then what the set came to, ruled off
+   above and below so the four blocks read as the four sets they are. */
+.histTable tr.setSum td{
+  border-top:1px solid var(--brass-dim); border-bottom:1px solid var(--brass-dim);
+  padding-top:3px; padding-bottom:3px; font-weight:800; color:var(--cream);
+  background:rgba(242,205,126,.07);
+}
+.histTable tr.setSum td.no{ color:var(--brass-lit); }
+.histTable td.bid.bonus{ color:var(--good); font-weight:800; }

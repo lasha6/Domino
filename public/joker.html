@@ -359,38 +359,57 @@
       });
       t.appendChild(head);
 
-      const running = [0, 0, 0, 0];
-      g.history.forEach((h, i) => {
+      const cell = (tr, cls, text) => {
+        const td = document.createElement("td");
+        td.className = cls; td.textContent = text;
+        tr.appendChild(td); return td;
+      };
+
+      /* The record is kept the way the game is played: the eight hands of the
+         first set, then what the set came to, then the four nines, and so on.
+         The left-hand column is how many cards were dealt, not which hand it
+         was — 1 2 3 4 5 6 7 8, 9 9 9 9, 8 7 6 5 4 3 2 1, 9 9 9 9 is the shape
+         of the whole game and a player reads their place in it at a glance. */
+      const setTotal = (set, sum) => {
         const tr = document.createElement("tr");
-        const no = document.createElement("td");
-        no.className = "no";
-        no.textContent = (i + 1) + ".";
-        no.title = "სეტი " + h.set + " · " + h.size + " კარტი";
-        tr.appendChild(no);
+        tr.className = "setSum";
+        cell(tr, "no", "ჯამი");
+        const bonus = g.bonuses ? g.bonuses[set] : null;
         for (let p = 0; p < 4; p++) {
-          running[p] += h.points[p];
-          const bid = document.createElement("td");
-          bid.className = "bid" + (p === ME ? " me" : "");
-          bid.textContent = h.bids[p] === 0 ? PASS : h.bids[p];
-          const pts = document.createElement("td");
-          pts.className = "pts" + (p === ME ? " me" : "")
-                        + (h.points[p] < 0 ? " bad" : h.bids[p] === h.took[p] ? " good" : "");
-          pts.textContent = h.points[p];
-          tr.appendChild(bid); tr.appendChild(pts);
+          const extra = bonus ? bonus[p] : 0;
+          const b = cell(tr, "bid" + (p === ME ? " me" : ""), extra ? "+" + extra : "");
+          if (extra) b.classList.add("bonus");
+          cell(tr, "pts" + (p === ME ? " me" : "") + (sum[p] + extra < 0 ? " bad" : ""),
+               sum[p] + extra);
+        }
+        t.appendChild(tr);
+      };
+
+      let set = null, sum = [0, 0, 0, 0], inSet = 0;
+      g.history.forEach((h) => {
+        if (set !== null && h.set !== set) { setTotal(set, sum); sum = [0, 0, 0, 0]; inSet = 0; }
+        set = h.set; inSet++;
+        const tr = document.createElement("tr");
+        const no = cell(tr, "no", h.size);
+        no.title = "სეტი " + h.set;
+        for (let p = 0; p < 4; p++) {
+          sum[p] += h.points[p];
+          cell(tr, "bid" + (p === ME ? " me" : ""), h.bids[p] === 0 ? PASS : h.bids[p]);
+          cell(tr, "pts" + (p === ME ? " me" : "")
+                 + (h.points[p] < 0 ? " bad" : h.bids[p] === h.took[p] ? " good" : ""),
+               h.points[p]);
         }
         t.appendChild(tr);
       });
+      // the set in progress gets no total until it is finished
+      if (set !== null && inSet === Joker.SET_SIZES[set - 1].length) setTotal(set, sum);
 
       const foot = document.createElement("tr");
       foot.className = "total";
-      const lbl = document.createElement("td"); lbl.className = "no"; lbl.textContent = "სულ";
-      foot.appendChild(lbl);
+      cell(foot, "no", "სულ");
       for (let p = 0; p < 4; p++) {
-        const blank = document.createElement("td"); blank.className = "bid";
-        const sum = document.createElement("td");
-        sum.className = "pts" + (p === ME ? " me" : "") + (g.scores[p] < 0 ? " bad" : "");
-        sum.textContent = g.scores[p];
-        foot.appendChild(blank); foot.appendChild(sum);
+        cell(foot, "bid", "");
+        cell(foot, "pts" + (p === ME ? " me" : "") + (g.scores[p] < 0 ? " bad" : ""), g.scores[p]);
       }
       t.appendChild(foot);
       box.appendChild(t);

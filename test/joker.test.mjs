@@ -536,3 +536,38 @@ test("leading a joker without saying means the joker takes it", () => {
   J.play(g, 3, c("9", S.hearts));
   assert.equal(g.took[0], 1);
 });
+
+test("what each set was worth on top is kept, so the record can total it", () => {
+  /* The record is written out set by set, with what the set came to under it —
+     and the set bonus belongs in that line. It is kept whether it was won or
+     not, so the screen does not have to work it out again. */
+  const g = J.newGame({});
+  const sizes = J.SET_SIZES[0];
+  g.history = sizes.map((size, i) => ({
+    hand: i, set: 1, size,
+    bids: [1, 1, 0, 0], took: [1, i === 2 ? 0 : 1, 0, 0],
+    points: [100, i === 2 ? -200 : 100, 50, 50],
+  }));
+  g.hand = J.SCHEDULE.findIndex((h) => h.set === 1 && h.last);
+  g.bids = g.history[7].bids.slice();
+  g.took = g.history[7].took.slice();
+  g.history.pop();
+  g.scores = [0, 0, 0, 0];
+  J.finishHand(g);
+
+  assert.ok(g.bonuses, "the game keeps them by set");
+  assert.deepEqual(Object.keys(g.bonuses), ["1"], "one set has finished");
+  assert.equal(g.bonuses[1].length, 4);
+  assert.ok(g.bonuses[1][0] > 0, "seat 0 was right every time");
+  assert.equal(g.bonuses[1][1], 0, "seat 1 missed one");
+  assert.equal(g.bonuses[1][2], 50, "and a bid of nothing still counts");
+  assert.deepEqual(g.bonuses[1], g.setBonus, "the same figures the hand dialog shows");
+});
+
+test("a set that has not finished has nothing written against it", () => {
+  const g = J.newGame({});
+  g.hand = 0;                                  // the first hand of set I
+  g.bids = [0, 0, 0, 0]; g.took = [0, 0, 0, 0];
+  J.finishHand(g);
+  assert.deepEqual(g.bonuses, {}, "not until the set is done");
+});

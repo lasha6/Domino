@@ -127,6 +127,7 @@
       scores: [0, 0, 0, 0],
       // every hand's result, so a set bonus can be worked out from the record
       history: [],
+      bonuses: {},                   // what each set was worth on top, by set number
       phase: "deal",                 // deal | choose | bid | play | handOver | over
       rnd: o.rnd || null,
       hands: [[], [], [], []],
@@ -341,6 +342,8 @@
         bonus.forEach((n, p) => { g.scores[p] += n; });
         g.setBonus = bonus;
       }
+      // kept whether it was won or not, so the record can total the set
+      g.bonuses[s.set] = bonus;
     }
 
     g.phase = "handOver";
