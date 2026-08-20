@@ -119,11 +119,11 @@
         <div class="buraArt"><span>🃏</span><span>♠</span><span>♥</span><span>♦</span></div>
         <h1 class="logo-title">ჯოკერი</h1>
         <p class="logo-sub">ონლაინ</p>
-        <button class="play" onclick="toast('ჯოკერი ონლაინში — მალე')">
+        <button class="play" onclick="location.href='jokeronline.html?mode=quick'">
           <span class="arrow">▶</span> ითამაშე
         </button>
         <div class="modes">
-          <button class="mode" onclick="toast('ჯოკერი მეგობართან — მალე')">👥 მეგობართან</button>
+          <button class="mode" onclick="openFriend('joker')">👥 მეგობართან</button>
           <button class="mode" onclick="location.href='joker.html'">🤖 კომპიუტერთან</button>
         </div>
       </div>
@@ -1061,12 +1061,12 @@
        reads them off it — so the screen learns them from the state it is sent
        rather than from the address it was opened with. */
     let friendGame = "domino";
-    const FRIEND_SCREEN = { domino: "online.html", bura: "buraonline.html" };
+    const FRIEND_SCREEN = { domino: "online.html", bura: "buraonline.html", joker: "jokeronline.html" };
     function openFriend(game){
       friendGame = game || "domino";
-      document.getElementById("friendSub").textContent = friendGame === "bura"
-        ? "ბურა — შექმენი მაგიდა და გაუგზავნე კოდი, ან შედი მეგობრის კოდით"
-        : "დომინო — შექმენი მაგიდა და გაუგზავნე კოდი, ან შედი მეგობრის კოდით";
+      const GAME_NAME = { domino: "დომინო", bura: "ბურა", joker: "ჯოკერი" };
+      document.getElementById("friendSub").textContent =
+        GAME_NAME[friendGame] + " — შექმენი მაგიდა და გაუგზავნე კოდი, ან შედი მეგობრის კოდით";
       document.getElementById("friendOverlay").classList.add("show");
     }
     function closeFriend(){
@@ -1075,7 +1075,10 @@
     }
     function friendCreate(){
       closeFriend();
-      if (friendGame === "bura") openBura("friend"); else openRooms("friend");
+      // ჯოკერი has nothing to choose: four players, twenty-four hands, always
+      if (friendGame === "joker") location.href = "jokeronline.html?mode=friend";
+      else if (friendGame === "bura") openBura("friend");
+      else openRooms("friend");
     }
     function doJoin(){
       const c = document.getElementById("codeInput").value.trim().toUpperCase();

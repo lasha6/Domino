@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>ჯოკერი — ონლაინ</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0f5230" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/table.css" />
+  <link rel="stylesheet" href="css/cards.css" />
+  <script src="js/progress.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/viewport.js"></script>
+  <script src="js/fullscreen.js"></script>
+</head>
+<body>
+  <div class="stage">
+    <div class="top">
+      <button class="back" onclick="quit()">←</button>
+      <button class="histBtn" id="histBtn" onclick="toggleHist()">📋 ისტორია <span class="chev">▾</span></button>
+      <div class="jkScores" id="scores"></div>
+      <div class="info">
+        <span class="stat"><span class="k">სეტი</span><b id="setNo">1</b></span>
+        <span class="stat"><span class="k">ხელი</span><b id="handNo">1/24</b></span>
+        <span class="stat"><span class="k">კოზირი</span><b id="trumpLbl">—</b></span>
+        <span class="stat"><span class="k">ბიდი</span><b id="myBid">—</b></span>
+        <span class="stat stake"><span class="k">ფსონი</span><b id="stakeLbl">—</b></span>
+      </div>
+      <div class="spacer" style="flex:0 1 8px"></div>
+      <button class="back sndBtn" id="sndBtn" onclick="toggleSound()" title="ხმა">🔊</button>
+      <div class="turnpill" id="turnPill">—</div>
+    </div>
+
+    <div class="statusrow">
+      <div class="msg" id="msg"></div>
+    </div>
+
+    <div class="btable four jk" id="btable">
+      <div class="histPanel" id="histPanel"><div class="histInner" id="histInner"></div></div>
+      <div class="seatBox left jk"   id="seatLeft"></div>
+      <div class="seatBox across jk" id="seatAcross"></div>
+      <div class="seatBox right jk"  id="seatRight"></div>
+      <div class="stock">
+        <div class="trumpBox" id="trumpBox"></div>
+      </div>
+      <div class="pileLbl" id="pileLbl">
+        <span class="tchip" id="chipMe"></span><span id="pileTxt">მაგიდა</span>
+      </div>
+      <div class="tchip" id="chipLeft"></div>
+      <div class="tchip" id="chipAcross"></div>
+      <div class="tchip" id="chipRight"></div>
+      <div class="trick cross" id="trick"></div>
+    </div>
+
+    <div class="bbar" id="bar"></div>
+    <div class="bhand jkHand" id="myhand"></div>
+  </div>
+
+  <!-- the end of a hand: what everyone said, took and scored -->
+  <div class="overlay" id="handOverlay">
+    <div class="modal">
+      <h2 id="handTitle">ხელი დასრულდა</h2>
+      <div id="handBody"></div>
+      <p class="roomSub" id="handNext">შემდეგი ხელი იწყება…</p>
+    </div>
+  </div>
+
+  <div class="overlay" id="resultOverlay">
+    <div class="modal">
+      <h2 id="resultTitle"></h2>
+      <div id="resultBody"></div>
+      <button id="resultBtn" onclick="location.href='index.html'">მთავარ ეკრანზე</button>
+    </div>
+  </div>
+
+  <!-- waiting for the table to fill / the code to share -->
+  <div class="overlay show" id="waitOverlay">
+    <div class="modal">
+      <h2 id="waitTitle">ველოდებით…</h2>
+      <div class="spin"></div>
+      <p id="waitText">სერვერს ვუკავშირდები</p>
+      <div class="code" id="waitCode" style="display:none"></div>
+      <button class="alt" onclick="quit()">გაუქმება</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="netOverlay">
+    <div class="modal">
+      <h2>კავშირი გაწყდა</h2>
+      <div class="spin"></div>
+      <p>ვცდილობ ხელახლა დაკავშირებას — თამაში შენარჩუნებულია.</p>
+      <button class="alt" onclick="quit()">გასვლა</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="pauseOverlay">
+    <div class="modal">
+      <h2>თამაში შეჩერებულია</h2>
+      <div class="spin"></div>
+      <p id="pauseText">ველოდებით მოთამაშეს…</p>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="rotate">
+    <div class="phone">📱</div>
+    <h2 style="color:var(--brass-lit)">გადააბრუნე მოწყობილობა</h2>
+    <p>თამაში თარაზულ (landscape) რეჟიმში ითამაშება.</p>
+  </div>
+
+  <script src="js/joker.js"></script>
+  <script src="js/coins.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/fx.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/socket.io.min.js"></script>
+  <script>
+    /* ჯოკერი against real people. The server holds the game and checks every
+       move; this screen draws what it is told and asks for moves. It never sees
+       another player's cards — the state it is sent does not contain them.
+
+       Everything drawn here is drawn the same way the practice screen draws it,
+       from the same stylesheet, so the two tables are the same table. */
+    const qs = new URLSearchParams(location.search);
+    const MODE = qs.get("mode") || "quick";              // quick | friend | join
+    const CODE = (qs.get("code") || "").toUpperCase();
+    const WHO  = Auth.credentials();
+    const NAME = WHO.name || "სტუმარი";
+    const REL  = ["me", "left", "across", "right"];
+
+    const TOKEN = (function(){
+      let t = localStorage.getItem("dominoToken");
+      if(!t){ t = "p" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+              localStorage.setItem("dominoToken", t); }
+      return t;
+    })();
+
+    let S = null, seated = false, pending = null, histOpen = false;
+
+    function paintSoundBtn(){ document.getElementById("sndBtn").textContent = Sound.muted() ? "🔇" : "🔊"; }
+    function toggleSound(){ Sound.toggle(); paintSoundBtn(); if(!Sound.muted()) Sound.play("tap"); }
+    paintSoundBtn();
+
+    let toastTimer = null;
+    function toast(m){
+      const t = document.getElementById("toast");
+      t.textContent = m; t.classList.add("show");
+      clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove("show"), 2200);
+    }
+    function setMsg(m){ document.getElementById("msg").textContent = m || ""; }
+    function quit(){ socket.emit("leaveRoom"); location.href = "index.html"; }
+
+    /* ---------------- drawing a card ----------------
+       The jester, and the cards, exactly as the practice screen draws them. */
+    const JESTER =
+      '<svg class="jkArt" viewBox="0 0 100 132" aria-hidden="true">'
+      + '<path class="face" d="M22 56 C21 80 27 102 39 113 C45 118 55 118 61 113 C73 102 79 80 78 56 Z"/>'
+      + '<path class="capR" d="M24 68 C17 56 12 44 11 33 C22 40 30 52 37 66 Z"/>'
+      + '<path class="capB" d="M76 68 C83 56 88 44 89 33 C78 40 70 52 63 66 Z"/>'
+      + '<path class="capR" d="M50 4 C45 24 40 46 39 66 L50 68 Z"/>'
+      + '<path class="capB" d="M50 4 C55 24 60 46 61 66 L50 68 Z"/>'
+      + '<path class="capR" d="M50 51 C34 51 24 55 18 62 C28 69 38 71 50 71 Z"/>'
+      + '<path class="capB" d="M50 51 C66 51 76 55 82 62 C72 69 62 71 50 71 Z"/>'
+      + '<circle class="bell" cx="10" cy="31" r="6.4"/>'
+      + '<circle class="bell" cx="90" cy="31" r="6.4"/>'
+      + '<path class="ink" d="M28 78 C33 70 42 73 47 83 C41 78 33 76 28 78 Z"/>'
+      + '<path class="ink" d="M72 78 C67 70 58 73 53 83 C59 78 67 76 72 78 Z"/>'
+      + '<path class="ink" d="M33 94 C40 109 60 109 67 94 C59 100 41 100 33 94 Z"/>'
+      + '</svg>';
+
+    const RED = [1, 2];
+    function cardEl(card, opts){
+      const o = opts || {};
+      const d = document.createElement("div");
+      if (Joker.isJoker(card)) {
+        d.className = "card jokerCard" + (o.small ? " small" : "") + (o.dim ? " dim" : "");
+        d.innerHTML = '<span class="rank">ჯოკ</span>' + JESTER;
+        return d;
+      }
+      d.className = "card " + (RED.includes(card[0]) ? "red" : "black")
+                  + (o.small ? " small" : "") + (o.dim ? " dim" : "");
+      const suit = Joker.SUITS[card[0]];
+      d.innerHTML = '<span class="rank">' + Joker.RANKS[card[1]] + '</span>'
+                  + '<span class="pip">' + suit + '</span>'
+                  + '<span class="big">' + suit + '</span>';
+      return d;
+    }
+    function backEl(small){
+      const d = document.createElement("div");
+      d.className = "card back" + (small ? " small" : "");
+      return d;
+    }
+    function suitEl(suit, small){
+      const d = document.createElement("div");
+      d.className = "card suitOnly " + (RED.includes(suit) ? "red" : "black") + (small ? " small" : "");
+      d.innerHTML = '<span class="pip">' + Joker.SUITS[suit] + '</span>';
+      return d;
+    }
+
+    /* ---------------- how big everything is drawn ----------------
+       Measured from the screen, exactly as the practice table measures it: the
+       table takes its share first and the hand takes what is left. */
+    const RATIO = 1.5;
+    function fitTable(){
+      const stage = document.querySelector(".stage");
+      const bt = document.getElementById("btable");
+      const hand = document.getElementById("myhand");
+      const h = (s) => { const e = document.querySelector(s);
+                         return e ? e.getBoundingClientRect().height : 0; };
+      const sr = stage.getBoundingClientRect();
+      if (!sr.height) return;
+
+      const free = sr.height - h(".top") - h(".statusrow") - h(".bbar") - 10;
+      if (free < 80) return;
+      const handH = Math.round(Math.max(50, Math.min(96, free * 0.32)));
+      const tableH = Math.max(90, free - handH);
+      hand.style.height = handH + "px";
+      hand.style.minHeight = "0";
+      bt.style.height = tableH + "px";
+      bt.style.flex = "0 0 auto";
+
+      const across = document.getElementById("seatAcross").getBoundingClientRect().height || 20;
+      const padTop = Math.round(across + 12);
+      bt.style.paddingTop = padTop + "px";
+      /* And room at the foot for the line that names the trick. It has to be
+         PADDING, not arithmetic: the cross is centred in the table, and a box
+         that has not been made shorter centres the cross straight through the
+         words. A chip stands taller than the words it sits beside, so the room
+         kept is the room a chip needs. */
+      const padBottom = 44;
+      bt.style.paddingBottom = padBottom + "px";
+
+      const r = bt.getBoundingClientRect();
+      const availH = tableH - padTop - padBottom - 4;
+      const side = Math.min(150, Math.max(70, r.width * 0.18));
+      const availW = Math.max(90, r.width - side * 2);
+      let w = Math.min(availW / 2.9, availH / 2.04 / RATIO);
+      w = Math.max(20, Math.min(78, Math.floor(w)));
+      bt.style.setProperty("--jkW", w + "px");
+      bt.style.setProperty("--jkH", Math.round(w * RATIO) + "px");
+      bt.style.setProperty("--jkDx", Math.round(w * 0.95) + "px");
+      bt.style.setProperty("--jkDy", Math.round(w * RATIO * 0.52) + "px");
+
+      const n = Math.max(1, (S && S.hand && S.hand.length) || 1);
+      const gap = 8;
+      const byWidth = Math.floor((r.width - gap * (n + 1)) / n);
+      const byHeight = Math.floor((handH - 8) / RATIO);
+      const hw = Math.max(22, Math.min(72, byWidth, byHeight));
+      hand.style.setProperty("--jkHandW", hw + "px");
+    }
+    addEventListener("resize", () => { fitTable(); });
+
+    /* ---------------- who is first and who is last ----------------
+       Green where the play starts, red where it ends — the same pair of chairs
+       through the bidding and through the tricks. */
+    function firstSeat(){
+      if (!S || S.stage === "handOver" || S.stage === "over") return null;
+      if (S.stage === "play" && S.trick.length) return S.trick[0].seat;
+      if (S.stage === "play") return S.turn;
+      const dealer = (S.table.find((x) => x.dealer) || {}).seat;
+      return dealer == null ? null : (dealer + 1) % 4;
+    }
+    const lastSeat = () => { const f = firstSeat(); return f == null ? null : (f + 3) % 4; };
+    const CHIP_IDS = { 0: "chipMe", 1: "chipLeft", 2: "chipAcross", 3: "chipRight" };
+    function paintChips(){
+      for (let i = 0; i < 4; i++) {
+        const seat = (S.seat + i) % 4;
+        const el = document.getElementById(CHIP_IDS[i]);
+        const kind = seat === firstSeat() ? "first" : seat === lastSeat() ? "last" : null;
+        el.className = "tchip" + (kind ? " show " + kind : "");
+        el.title = kind === "first" ? "პირველი ჩამომსვლელი"
+                 : kind === "last"  ? "ბოლო ჩამომსვლელი" : "";
+      }
+      placeChips();
+    }
+    function placeChips(){
+      const bt = document.getElementById("btable").getBoundingClientRect();
+      if (!bt.width) return;
+      const put = (chipId, plateId, side) => {
+        const c = document.getElementById(chipId);
+        const p = document.getElementById(plateId).getBoundingClientRect();
+        const w = c.offsetWidth || 20;
+        c.style.top = Math.round(p.top - bt.top + (p.height - w) / 2) + "px";
+        c.style.left = side > 0 ? Math.round(p.right - bt.left + 8) + "px"
+                                : Math.round(p.left - bt.left - w - 8) + "px";
+      };
+      put("chipLeft",  "seatLeft",  +1);
+      put("chipRight", "seatRight", -1);
+      put("chipAcross","seatAcross", +1);
+    }
+
+    /* ---------------- the record of the match ---------------- */
+    const PASS = "–";
+    function toggleHist(){
+      histOpen = !histOpen;
+      document.getElementById("histPanel").classList.toggle("show", histOpen);
+      document.getElementById("histBtn").classList.toggle("on", histOpen);
+      Sound.play("tap");
+      if (histOpen) {
+        paintHist();
+        const box = document.getElementById("histInner");
+        box.scrollTop = box.scrollHeight;
+      }
+    }
+    function nameOfSeat(seat){
+      const x = (S.table || []).find((q) => q.seat === seat);
+      return x ? x.name : "მოთამაშე";
+    }
+    function paintHist(){
+      const box = document.getElementById("histInner");
+      const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 6;
+      box.innerHTML = "";
+      const history = S.history || [];
+      if (!history.length) {
+        const p = document.createElement("p");
+        p.className = "histEmpty";
+        p.textContent = "ჯერ არცერთი ხელი არ დასრულებულა";
+        box.appendChild(p);
+        return;
+      }
+      const t = document.createElement("table");
+      t.className = "histTable";
+      const head = document.createElement("tr");
+      const corner = document.createElement("th"); corner.textContent = "#";
+      head.appendChild(corner);
+      for (let p = 0; p < 4; p++) {
+        const th = document.createElement("th");
+        if (p === S.seat) th.className = "me";
+        th.colSpan = 2; th.textContent = nameOfSeat(p);
+        head.appendChild(th);
+      }
+      t.appendChild(head);
+
+      const cell = (tr, cls, text) => {
+        const td = document.createElement("td");
+        td.className = cls; td.textContent = text;
+        tr.appendChild(td); return td;
+      };
+      const setTotal = (set, sum) => {
+        const tr = document.createElement("tr");
+        tr.className = "setSum";
+        cell(tr, "no", "ჯამი");
+        const bonus = S.bonuses ? S.bonuses[set] : null;
+        for (let p = 0; p < 4; p++) {
+          const extra = bonus ? bonus[p] : 0;
+          const b = cell(tr, "bid" + (p === S.seat ? " me" : ""), extra ? "+" + extra : "");
+          if (extra) b.classList.add("bonus");
+          cell(tr, "pts" + (p === S.seat ? " me" : "") + (sum[p] + extra < 0 ? " bad" : ""),
+               sum[p] + extra);
+        }
+        t.appendChild(tr);
+      };
+
+      let set = null, sum = [0, 0, 0, 0], inSet = 0;
+      history.forEach((h) => {
+        if (set !== null && h.set !== set) { setTotal(set, sum); sum = [0, 0, 0, 0]; inSet = 0; }
+        set = h.set; inSet++;
+        const tr = document.createElement("tr");
+        cell(tr, "no", h.size).title = "სეტი " + h.set;
+        for (let p = 0; p < 4; p++) {
+          sum[p] += h.points[p];
+          cell(tr, "bid" + (p === S.seat ? " me" : ""), h.bids[p] === 0 ? PASS : h.bids[p]);
+          cell(tr, "pts" + (p === S.seat ? " me" : "")
+                 + (h.points[p] < 0 ? " bad" : h.bids[p] === h.took[p] ? " good" : ""),
+               h.points[p]);
+        }
+        t.appendChild(tr);
+      });
+      if (set !== null && inSet === Joker.SET_SIZES[set - 1].length) setTotal(set, sum);
+
+      const foot = document.createElement("tr");
+      foot.className = "total";
+      cell(foot, "no", "სულ");
+      for (let p = 0; p < 4; p++) {
+        cell(foot, "bid", "");
+        cell(foot, "pts" + (p === S.seat ? " me" : "") + (S.scores[p] < 0 ? " bad" : ""), S.scores[p]);
+      }
+      t.appendChild(foot);
+      box.appendChild(t);
+      if (atBottom) box.scrollTop = box.scrollHeight;
+    }
+
+    /* ---------------- the whole screen ---------------- */
+    function render(){
+      if (!S || !S.hand) return;
+      fitTable();
+      document.getElementById("setNo").textContent = S.set;
+      document.getElementById("handNo").textContent = S.handNo + "/" + S.handsInMatch + " · " + S.cards;
+      document.getElementById("trumpLbl").textContent =
+        S.stage === "choose" ? "—"
+        : S.trump === Joker.NOTRUMP ? "ბეზი" : Joker.SUITS[S.trump];
+      document.getElementById("myBid").textContent =
+        S.bids[S.seat] == null ? "—" : S.bids[S.seat] + " / " + S.took[S.seat];
+      document.getElementById("stakeLbl").textContent = Coins.stakeFor(175);
+
+      paintScores();
+      paintTrump();
+      paintSeats();
+      paintChips();
+      paintTrick();
+      paintHand();
+      paintBar();
+      if (histOpen) paintHist();
+      placeChips();
+
+      const pill = document.getElementById("turnPill");
+      if (S.phase === "over")  pill.textContent = "დასრულდა";
+      else if (S.myTurn)       pill.textContent = "შენი სვლა" + (S.moveLeft != null ? " · " + S.moveLeft : "");
+      else                     pill.textContent = nameOfSeat(S.turn) + " ფიქრობს";
+      pill.classList.toggle("mine", !!S.myTurn);
+    }
+
+    function paintScores(){
+      const box = document.getElementById("scores");
+      box.innerHTML = "";
+      const d = document.createElement("div");
+      d.className = "who me" + (S.myTurn ? " turn" : "");
+      const nm = document.createElement("span"); nm.textContent = "შენ";
+      const sc = document.createElement("b"); sc.textContent = S.scores[S.seat];
+      d.appendChild(nm); d.appendChild(sc);
+      box.appendChild(d);
+    }
+
+    function paintTrump(){
+      const tb = document.getElementById("trumpBox");
+      tb.innerHTML = "";
+      if (S.stage === "choose") return;
+      let t;
+      if (S.turned) t = cardEl(S.turned, { small: true });
+      else if (S.trump === Joker.NOTRUMP) {
+        t = document.createElement("div");
+        t.className = "bezCard"; t.textContent = "ბეზი";
+      } else t = suitEl(S.trump, true);
+      t.classList.add("turned");
+      tb.appendChild(t);
+    }
+
+    function paintSeats(){
+      for (let i = 1; i < 4; i++) {
+        const rel = REL[i];
+        const q = (S.table || []).find((x) => x.rel === rel);
+        const box = document.getElementById("seat" + rel[0].toUpperCase() + rel.slice(1));
+        box.innerHTML = "";
+        if (!q) continue;
+        box.classList.toggle("turn", S.turn === q.seat && S.phase === "play");
+
+        const who = document.createElement("div");
+        who.className = "who";
+        who.textContent = q.name + (q.bot ? " 🤖" : "") + (q.dealer ? " 🃏" : "");
+        const tally = document.createElement("div");
+        tally.className = "tally";
+        tally.textContent = q.bid == null ? "—" : q.bid + " / " + q.took;
+        if (q.bid != null) {
+          if (q.took === q.bid) tally.classList.add("done");
+          else if (q.took > q.bid) tally.classList.add("blown");
+        }
+        const score = document.createElement("div");
+        score.className = "seatScore";
+        score.textContent = q.score;
+        const fan = document.createElement("div");
+        fan.className = "fan";
+        for (let k = 0; k < q.cards; k++) fan.appendChild(backEl(true));
+
+        if (rel === "across") { box.appendChild(who); box.appendChild(tally); box.appendChild(score); box.appendChild(fan); }
+        else { box.appendChild(fan); box.appendChild(score); box.appendChild(tally); box.appendChild(who); }
+      }
+    }
+
+    /* The trick as a cross: each card at the side of the table its player sits
+       on, later ones on top, the way they land. */
+    function paintTrick(){
+      const box = document.getElementById("trick");
+      const lbl = document.getElementById("pileTxt");
+      box.innerHTML = "";
+      const show = S.trick.length ? S.trick
+                 : (S.lastTrick && !trickCleared ? S.lastTrick.cards : []);
+      const winner = S.trick.length ? null : (S.lastTrick && !trickCleared ? S.lastTrick.winner : null);
+
+      show.forEach((p, i) => {
+        const d = document.createElement("div");
+        d.className = "trickRow " + (i === 0 ? "led" : "answer") + (winner === p.seat ? " took" : "");
+        const card = cardEl(p.card, { small: true });
+        if (Joker.isJoker(p.card)) card.title = p.high ? "მაღლა" : "დაბლა";
+        d.appendChild(card);
+        d.classList.add("at-" + REL[(p.seat - S.seat + 4) % 4]);
+        d.style.zIndex = String(2 + i);
+        box.appendChild(d);
+      });
+
+      if (S.stage === "choose")   lbl.textContent = "კოზირი ცხადდება";
+      else if (S.stage === "bid") lbl.textContent = "ბიდი";
+      else if (S.trick.length && Joker.isJoker(S.trick[0].card))
+        lbl.textContent = (S.trick[0].high ? "მაღალი — " : "წაიღოს — ") + Joker.SUITS[S.ledSuit];
+      else if (S.trick.length)    lbl.textContent = "მაგიდა";
+      else if (winner != null)    lbl.textContent = winner === S.seat ? "ხელი შენ აიღე"
+                                                  : "ხელი აიღო — " + nameOfSeat(winner);
+      else                        lbl.textContent = "მაგიდა";
+    }
+
+    function paintHand(){
+      const mh = document.getElementById("myhand");
+      mh.innerHTML = "";
+      const legal = (S.stage === "play" && S.myTurn && !pending) ? (S.legal || []) : null;
+      const same = (a, b) => a[0] === b[0] && a[1] === b[1];
+      S.hand.forEach((card) => {
+        const ok = !legal || legal.some((c) => same(c, card));
+        const el = cardEl(card, { dim: legal && !ok });
+        if (legal && ok) el.onclick = () => pickCard(card);
+        mh.appendChild(el);
+      });
+    }
+
+    function paintBar(){
+      const bar = document.getElementById("bar");
+      bar.innerHTML = "";
+      const add = (label, fn, cls, off) => {
+        const b = document.createElement("button");
+        b.className = "bbtn" + (cls ? " " + cls : "");
+        b.textContent = label; b.disabled = !!off; b.onclick = fn;
+        bar.appendChild(b);
+        return b;
+      };
+      setTimeout(() => { bar.style.display = bar.children.length ? "" : "none"; fitTable(); placeChips(); }, 0);
+
+      if (S.stage === "choose" && S.myTurn) {
+        setMsg("სამი კარტი გიჭირავს — დაასახელე კოზირი ან ბეზი");
+        Joker.SUITS.forEach((sym, i) =>
+          add(sym, () => { socket.emit("jChoose", { trump: i }); Sound.play("tap"); },
+              "suit" + (RED.includes(i) ? " red" : "")));
+        add("ბეზი", () => { socket.emit("jChoose", { trump: "bez" }); Sound.play("tap"); }, "ghost");
+        return;
+      }
+      if (S.stage === "bid" && S.myTurn) {
+        setMsg(S.forbidden != null ? "შენ ხარ დილერი — " + S.forbidden + " აკრძალულია"
+                                   : "რამდენ ხელს აიღებ?");
+        for (let k = 0; k <= S.cards; k++)
+          add(String(k), () => { socket.emit("jBid", { n: k }); Sound.play("tap"); },
+              "num", k === S.forbidden);
+        return;
+      }
+      if (pending && pending.need === "takes") {
+        setMsg("ჯოკერით შედიხარ — რას აცხადებ?");
+        add("მაღალი", () => askSuit(true), "hi");
+        add("წაიღოს", () => askSuit(false), "give");
+        add("გაუქმება", cancelJoker, "ghost");
+        return;
+      }
+      if (pending && pending.need === "suit") {
+        setMsg(pending.high ? "მაღალი — რომელი ფერი?" : "წაიღოს — რომელი ფერი?");
+        Joker.SUITS.forEach((sym, i) =>
+          add(sym, () => sendJoker({ suit: i, high: pending.high }),
+              "suit" + (RED.includes(i) ? " red" : "")));
+        add("გაუქმება", cancelJoker, "ghost");
+        return;
+      }
+      if (pending && pending.need === "high") {
+        setMsg("ჯოკერი — მაღლა თუ დაბლა?");
+        add("მაღლა ↑", () => sendJoker({ high: true }));
+        add("დაბლა ↓", () => sendJoker({ high: false }), "ghost");
+        add("გაუქმება", cancelJoker, "ghost");
+        return;
+      }
+      if (S.stage === "play")
+        setMsg(S.myTurn ? "შენი სვლა" : nameOfSeat(S.turn) + " ფიქრობს");
+      else if (S.stage === "bid") setMsg(nameOfSeat(S.turn) + " ბიდავს");
+      else if (S.stage === "choose") setMsg(nameOfSeat(S.turn) + " კოზირს აცხადებს");
+    }
+
+    /* ---------------- your moves ---------------- */
+    function pickCard(card){
+      if (!S.myTurn || S.stage !== "play") return;
+      if (Joker.isJoker(card)) {
+        pending = { card, need: S.trick.length ? "high" : "takes" };
+        Sound.play("tap");
+        render();
+        return;
+      }
+      socket.emit("jPlay", { card });
+      Sound.play("play");
+    }
+    function askSuit(high){ pending = { card: pending.card, need: "suit", high }; Sound.play("tap"); render(); }
+    function sendJoker(opts){
+      const card = pending.card;
+      pending = null;
+      socket.emit("jPlay", Object.assign({ card }, opts));
+      Sound.play("play");
+      render();
+    }
+    function cancelJoker(){ pending = null; render(); }
+
+    /* ---------------- the table sweeps itself ----------------
+       The server keeps the finished trick until somebody leads again, so that
+       everybody is shown the same cards however their connections are timed.
+       On screen it has to be collected, or it reads as the game being stuck. */
+    const TRICK_SHOWN = 2200;
+    let trickKey = null, trickCleared = true, trickTimer = null;
+    function noteTrick(st){
+      const key = st.lastTrick ? JSON.stringify(st.lastTrick) : null;
+      if (key === trickKey) return;
+      trickKey = key;
+      trickCleared = false;
+      clearTimeout(trickTimer);
+      if (!key) { trickCleared = true; return; }
+      trickTimer = setTimeout(() => { trickCleared = true; render(); }, TRICK_SHOWN);
+    }
+
+    /* ---------------- the end of a hand ---------------- */
+    let revealKey = null;
+    function paintReveal(st){
+      const ov = document.getElementById("handOverlay");
+      if (!st.reveal) { ov.classList.remove("show"); revealKey = null; return; }
+      const r = st.reveal;
+      const key = JSON.stringify(r);
+      const box = document.getElementById("handBody");
+      box.innerHTML = "";
+      const t = document.createElement("table");
+      t.className = "jkTable";
+      const head = document.createElement("tr");
+      ["", "ბიდი", "აიღო", "ქულა"].forEach((s) => {
+        const th = document.createElement("th"); th.textContent = s; head.appendChild(th);
+      });
+      t.appendChild(head);
+      for (let p = 0; p < 4; p++) {
+        const tr = document.createElement("tr");
+        if (p === st.seat) tr.className = "me";
+        const name = document.createElement("td"); name.textContent = p === st.seat ? "შენ" : nameOfSeat(p);
+        const bid = document.createElement("td"); bid.textContent = r.bids[p];
+        const took = document.createElement("td"); took.textContent = r.took[p];
+        const pts = document.createElement("td");
+        pts.className = "pts " + (r.points[p] < 0 ? "bad" : r.bids[p] === r.took[p] ? "good" : "");
+        pts.textContent = (r.points[p] > 0 ? "+" : "") + r.points[p];
+        [name, bid, took, pts].forEach((td) => tr.appendChild(td));
+        t.appendChild(tr);
+      }
+      box.appendChild(t);
+      if (r.bonus && r.bonus.some((x) => x > 0)) {
+        const line = document.createElement("p");
+        line.className = "jkBonus";
+        line.textContent = "სეტის ბონუსი: " + r.bonus
+          .map((x, p) => x > 0 ? (p === st.seat ? "შენ" : nameOfSeat(p)) + " +" + x : null)
+          .filter(Boolean).join(" · ");
+        box.appendChild(line);
+      }
+      const mine = r.points[st.seat];
+      document.getElementById("handTitle").textContent =
+        r.bids[st.seat] === r.took[st.seat] ? "ზუსტად! 🎯" : mine < 0 ? "ხიშტი 💥" : "ხელი დასრულდა";
+      ov.classList.add("show");
+      if (key !== revealKey) {
+        revealKey = key;
+        if (r.bids[st.seat] === r.took[st.seat]) { Sound.play("handWin"); Fx.cheer(); }
+        else Sound.play("handLose");
+      }
+    }
+
+    function paintWaiting(st){
+      const here = (st.lobby && st.lobby.length) || 1;
+      const left = Math.max(0, 4 - here);
+      if (st.code) {
+        document.getElementById("waitTitle").textContent = "მაგიდა შექმნილია";
+        document.getElementById("waitText").textContent = "გაუზიარე კოდი — " + left + " მოთამაშე კიდევ";
+        const c = document.getElementById("waitCode");
+        c.style.display = "block"; c.textContent = st.code;
+      } else {
+        document.getElementById("waitTitle").textContent = "ველოდებით…";
+        document.getElementById("waitText").textContent = left + " მოთამაშე კიდევ";
+      }
+    }
+
+    /* ---------------- the server ---------------- */
+    const socket = SERVER_URL ? io(SERVER_URL, { transports: ["websocket", "polling"] }) : io();
+
+    let waking = setTimeout(() => {
+      if (!seated) document.getElementById("waitText").textContent = "სერვერს ვაღვიძებ… ერთი წუთი დასჭირდება";
+    }, 3000);
+
+    socket.on("connect", () => {
+      clearTimeout(waking);
+      document.getElementById("netOverlay").classList.remove("show");
+      if (seated) { socket.emit("resume", { token: TOKEN }); return; }
+      const who = { name: NAME, token: TOKEN, auth: WHO.auth, game: "joker", size: 4 };
+      if (MODE === "quick")       socket.emit("quickJoin",   who);
+      else if (MODE === "friend") socket.emit("createTable", who);
+      else                        socket.emit("joinTable",   Object.assign({ code: CODE }, who));
+    });
+    socket.on("disconnect", () => document.getElementById("netOverlay").classList.add("show"));
+    socket.on("joinError", (m) => {
+      document.getElementById("waitTitle").textContent = "ვერ შევედი";
+      document.querySelector("#waitOverlay .spin").style.display = "none";
+      document.getElementById("waitText").textContent = m;
+    });
+
+    socket.on("state", (st) => {
+      S = st;
+      if (st.hand) { seated = true; document.getElementById("waitOverlay").classList.remove("show"); }
+      else { paintWaiting(st); return; }
+      document.getElementById("pauseOverlay").classList.toggle("show", !!st.paused);
+      if (st.paused && st.waitingFor && st.waitingFor.length)
+        document.getElementById("pauseText").textContent = "ველოდებით: " + st.waitingFor.join(", ");
+      noteTrick(st);
+      paintReveal(st);
+      if (pending && (!st.myTurn || st.stage !== "play")) pending = null;
+      render();
+    });
+
+    socket.on("matchOver", ({ youWon, scores }) => {
+      const box = document.getElementById("resultBody");
+      box.innerHTML = "";
+      const order = [0, 1, 2, 3].sort((a, b) => scores[b] - scores[a]);
+      const t = document.createElement("table");
+      t.className = "jkTable";
+      order.forEach((p, i) => {
+        const tr = document.createElement("tr");
+        if (p === S.seat) tr.className = "me";
+        const pos = document.createElement("td"); pos.textContent = (i + 1) + ".";
+        const name = document.createElement("td"); name.textContent = p === S.seat ? "შენ" : nameOfSeat(p);
+        const pts = document.createElement("td");
+        pts.className = "pts " + (scores[p] < 0 ? "bad" : "");
+        pts.textContent = scores[p];
+        [pos, name, pts].forEach((td) => tr.appendChild(td));
+        t.appendChild(tr);
+      });
+      box.appendChild(t);
+      document.getElementById("resultTitle").textContent = youWon ? "🏆 შენ მოიგე!" : "თამაში დასრულდა";
+      if (youWon) { Sound.play("win"); Fx.confetti(80, { spread: 0.8 }); } else Sound.play("lose");
+      document.getElementById("handOverlay").classList.remove("show");
+      document.getElementById("resultOverlay").classList.add("show");
+    });
+
+    socket.on("opponentLeft", ({ name }) => toast(name + " გავიდა"));
+  </script>
+</body>
+</html>

@@ -494,3 +494,12 @@
 }
 .histTable tr.setSum td.no{ color:var(--brass-lit); }
 .histTable td.bid.bonus{ color:var(--good); font-weight:800; }
+
+/* The ჯოკერი strip carries a lot: a score, five figures, two buttons and the
+   whose-turn pill. The pill gives way first, and the name never shrinks to a
+   letter and a half. */
+.jkScores .who span{ min-width:26px; }
+.top .turnpill{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:34vw; }
+@media (max-width:900px){
+  .stage .top .stat.stake{ display:none; }      /* the stake matters least mid-hand */
+}

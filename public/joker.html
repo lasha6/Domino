@@ -221,9 +221,16 @@
       const across = document.getElementById("seatAcross").getBoundingClientRect().height || 20;
       const padTop = Math.round(across + 12);
       bt.style.paddingTop = padTop + "px";
+      /* And room at the foot for the line that names the trick. It has to be
+         PADDING, not arithmetic: the cross is centred in the table, and a box
+         that has not been made shorter centres the cross straight through the
+         words. A chip stands taller than the words it sits beside, so the room
+         kept is the room a chip needs. */
+      const padBottom = 44;
+      bt.style.paddingBottom = padBottom + "px";
 
       const r = bt.getBoundingClientRect();
-      const availH = tableH - padTop - 8 - 18;         // 18 for the label at the foot
+      const availH = tableH - padTop - padBottom - 4;         // 18 for the label at the foot
       // the two side seats keep the edges; the cross gets between them
       const side = Math.min(150, Math.max(70, r.width * 0.18));
       const availW = Math.max(90, r.width - side * 2);

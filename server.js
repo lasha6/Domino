@@ -21,6 +21,7 @@ const Ozi = require("./public/js/ozi.js");
 // bar a player watches and the number recorded here cannot drift apart
 const Progress = require("./public/js/progress.js");
 const Bura = require("./public/js/bura.js");
+const Joker = require("./public/js/joker.js");
 
 
 const store = await openStore();
@@ -141,10 +142,11 @@ function createRoom(target, isPrivate, size, opts) {
   const id = "r" + Math.random().toString(36).slice(2, 9);
   const room = {
     id, target, size: size === 4 ? 4 : 2, private: !!isPrivate,
-    game: o.game === "bura" ? "bura" : "domino",
+    game: ["bura", "joker"].includes(o.game) ? o.game : "domino",
     variant: o.variant === "3" ? "3" : "5",     // ბურა only
     openMalutka: o.openMalutka !== false,       // ბურა only: the table's agreement
     b: null,                                    // ბურა state, when that is the game
+    j: null,                                    // ჯოკერი state, when that is the game
     code: isPrivate ? makeCode() : null,
     players: [],           // [{id, name, seat}]
     g: null, phase: "wait", // wait | play | draw | roundEnd | over
@@ -155,7 +157,9 @@ function createRoom(target, isPrivate, size, opts) {
 }
 // A table is only the same table if the game, the length and the size all match
 const waitKey = (target, size, game, variant, openMalutka) =>
-  (game === "bura" ? "bura:" + variant + ":" + (openMalutka ? "open" : "shut") : "domino")
+  (game === "bura" ? "bura:" + variant + ":" + (openMalutka ? "open" : "shut")
+   : game === "joker" ? "joker"                     // one shape: four players, 24 hands
+   : "domino")
   + ":" + target + ":" + size;
 
 function roomOf(socket) {
@@ -190,6 +194,7 @@ function assignSeats(room) {
  * ------------------------------------------------------------------ */
 function viewFor(room, seat) {
   if (room.game === "bura") return buraView(room, seat);
+  if (room.game === "joker") return jokerView(room, seat);
   const g = room.g;
   const me = room.players.find((p) => p.seat === seat);
   const base = {
@@ -610,9 +615,181 @@ function buraView(room, seat) {
   });
 }
 
+
+/* ==================================================================
+   ჯოკერი online — four players, nobody paired, everyone for themselves.
+
+   Same shape as the ბურა table: the server holds the game and checks every
+   move, and each player is sent their own hand and nothing of anybody else's.
+   The engine is the one the practice screen uses, so the rules cannot drift
+   between playing a computer and playing people.
+   ================================================================== */
+const JOKER_MOVE_TIME = 30000;                 // a while to think; there is a lot to read
+
+function startJoker(room) {
+  clearAuto(room);
+  room.players.forEach((p, i) => { p.seat = i; p.team = i; });   // no teams here
+  room.j = Joker.newGame({ dealer: room.size - 1 });   // so seat 0 calls first
+  Joker.deal(room.j);
+  room.phase = "play";
+  say(room, "დაიწყო — 24 ხელი");
+  jokerAdvance(room);
+}
+
+function clearJokerClock(room) {
+  if (room.moveTimer) { clearTimeout(room.moveTimer); room.moveTimer = null; }
+  room.moveDeadline = null;
+}
+function armJokerClock(room) {
+  clearJokerClock(room);
+  if (room.paused || !room.j || room.phase !== "play") return;
+  const p = at(room, room.j.turn);
+  if (!p || p.bot) return;
+  room.moveDeadline = Date.now() + JOKER_MOVE_TIME;
+  room.moveTimer = setTimeout(() => jokerBotMove(room, true), JOKER_MOVE_TIME);
+}
+
+/* The computer, for an empty chair or for somebody who ran out of time. It
+   plays the engine's own choice, which is the same one the practice screen
+   uses — nothing here knows anything a player would not. */
+function jokerBotMove(room, force) {
+  if (!rooms.has(room.id) || room.paused || !room.j || room.phase !== "play") return;
+  const j = room.j, seat = j.turn;
+  const p = at(room, seat);
+  if (!p || (!p.bot && !force)) return;
+
+  if (j.phase === "choose") {
+    const count = [0, 0, 0, 0];
+    j.hands[seat].forEach((c) => { if (!Joker.isJoker(c)) count[Joker.suitOf(c)]++; });
+    let best = 0;
+    count.forEach((n, i) => { if (n > count[best]) best = i; });
+    Joker.chooseTrump(j, seat, count[best] ? best : Joker.NOTRUMP);
+    say(room, p.name + " — " + (j.trump === Joker.NOTRUMP ? "ბეზი" : Joker.SUITS[j.trump]));
+  } else if (j.phase === "bid") {
+    const n = Joker.aiBid(j, seat);
+    Joker.bid(j, seat, n);
+    say(room, p.name + ": " + n);
+  } else if (j.phase === "play") {
+    const m = Joker.aiPlay(j, seat);
+    Joker.play(j, seat, m.card, m.opts);
+  }
+  jokerAdvance(room);
+}
+function jokerMaybeBot(room) {
+  const p = at(room, room.j.turn);
+  if (p && p.bot) setTimeout(() => jokerBotMove(room), 900);
+}
+
+function jokerAdvance(room) {
+  refreshPause(room);
+  clearJokerClock(room);
+  if (room.paused) { pushState(room); return; }
+  if (room.j.phase === "handOver") { jokerHandOver(room); return; }
+  if (room.j.phase === "over") { jokerMatchOver(room); return; }
+  armJokerClock(room);
+  jokerMaybeBot(room);
+  pushState(room);
+}
+
+/* The end of a hand: everyone sees what everyone said, took and scored, and a
+   moment later the next one is dealt. */
+function jokerHandOver(room) {
+  clearJokerClock(room);
+  const j = room.j;
+  const h = j.history[j.history.length - 1];
+  room.reveal = { bids: h.bids, took: h.took, points: h.points,
+                  set: h.set, size: h.size, bonus: j.setBonus || null };
+  room.phase = "roundEnd";
+  say(room, "ხელი დასრულდა");
+  pushState(room);
+  setTimeout(function () {
+    if (!rooms.has(room.id) || room.phase !== "roundEnd") return;
+    if (room.paused) { room.pendingNextRound = true; return; }
+    jokerNextHand(room);
+  }, BURA_NEXT_ROUND);
+}
+function jokerNextHand(room) {
+  Joker.nextHand(room.j);
+  room.reveal = null;
+  room.phase = room.j.phase === "over" ? "over" : "play";
+  jokerAdvance(room);
+}
+
+function jokerMatchOver(room) {
+  clearJokerClock(room);
+  room.phase = "over";
+  const j = room.j;
+  room.players.forEach((p) => {
+    const s = io.sockets.sockets.get(p.id);
+    const won = p.seat === j.winner;
+    awardMatch(room, p, won);
+    if (s) s.emit("matchOver", {
+      youWon: won, scores: j.scores, myTeam: p.seat, target: 0, size: room.size,
+      progress: p.profile ? summarise(p.profile) : null,
+      settled: p.lastSettle || null, earned: p.lastEarned || [],
+    });
+    p.lastEarned = [];
+  });
+  pushState(room);
+}
+
+/* What one player may see: their own hand, how many everybody else is holding,
+   what has been bid and taken, and the record of the hands already played.
+   Never a card in somebody else's hand. */
+function jokerView(room, seat) {
+  const j = room.j;
+  const me = room.players.find(function (p) { return p.seat === seat; });
+  const base = {
+    game: "joker",
+    roomId: room.id, code: room.code, size: room.size,
+    phase: room.phase, seat, log: room.log,
+    paused: !!room.paused,
+    waitingFor: room.paused ? room.players.filter(function (p) { return p.online === false; })
+                                          .map(function (p) { return p.name; }) : [],
+    resumeIn: room.resumeBy ? Math.max(0, Math.round((room.resumeBy - Date.now()) / 1000)) : null,
+  };
+  if (!j) {
+    base.lobby = room.players.map(function (p) {
+      return { idx: p.idx, name: p.name, me: !!me && p.idx === me.idx, verified: !!p.verified };
+    });
+    return base;
+  }
+  // everybody, clockwise from this player's own chair
+  const REL = ["me", "left", "across", "right"];
+  const table = [];
+  for (let i = 0; i < room.size; i++) {
+    const st = (seat + i) % room.size;
+    const q = at(room, st) || {};
+    table.push({ seat: st, rel: REL[i], name: q.name || "მოთამაშე", bot: !!q.bot,
+                 verified: !!q.verified, cards: j.hands[st] ? j.hands[st].length : 0,
+                 bid: j.bids[st], took: j.took[st], score: j.scores[st],
+                 dealer: j.dealer === st });
+  }
+  const spec = Joker.spec(j);
+  return Object.assign({}, base, {
+    hand: j.hands[seat],
+    table,
+    handNo: j.hand + 1, handsInMatch: Joker.HANDS, set: spec.set, cards: spec.size,
+    trump: j.trump, turned: j.turned,
+    stage: j.phase,                       // choose | bid | play | handOver | over
+    turn: j.turn, myTurn: j.turn === seat && room.phase === "play",
+    bids: j.bids, took: j.took, scores: j.scores,
+    forbidden: j.phase === "bid" ? Joker.forbiddenBid(j, seat) : null,
+    trick: j.trick.map(function (p) { return { seat: p.seat, card: p.card, high: p.high }; }),
+    ledSuit: j.ledSuit,
+    lastTrick: j.lastTrick,
+    legal: (j.phase === "play" && j.turn === seat) ? Joker.legalPlays(j, seat) : [],
+    history: j.history, bonuses: j.bonuses,
+    reveal: room.reveal || null,
+    moveLeft: room.moveDeadline ? Math.max(0, Math.ceil((room.moveDeadline - Date.now()) / 1000)) : null,
+    moveTime: Math.round(JOKER_MOVE_TIME / 1000),
+  });
+}
+
 function maybeStart(room) {
   if (room.players.length < room.size) { clearAuto(room); return false; }
   if (room.game === "bura") { startBura(room); return true; }
+  if (room.game === "joker") { startJoker(room); return true; }   // no pairs to settle
   if (room.size === 2) { startMatch(room); return true; }
   const c0 = room.players.filter((p) => p.team === 0).length;
   const c1 = room.players.filter((p) => p.team === 1).length;
@@ -931,12 +1108,13 @@ io.on("connection", (socket) => {
      variants; domino counts to one of its four targets. Anything unrecognised
      falls back rather than being refused, so an older client still gets a game. */
   const tableWanted = (p) => {
-    const game = p.game === "bura" ? "bura" : "domino";
-    // pairs are ხუთკარტა only: the short deck cannot feed four hands
-    const size = p.size === 4 ? 4 : 2;
+    const game = ["bura", "joker"].includes(p.game) ? p.game : "domino";
+    // ჯოკერი is four players and twenty-four hands, always; pairs at ბურა are
+    // ხუთკარტა only, because the short deck cannot feed four hands
+    const size = game === "joker" ? 4 : (p.size === 4 ? 4 : 2);
     const variant = (game === "bura" && size === 4) ? "5" : (p.variant === "3" ? "3" : "5");
-    const target = game === "bura"
-      ? ([6, 11, 21].includes(p.target) ? p.target : 11)
+    const target = game === "joker" ? 0
+      : game === "bura" ? ([6, 11, 21].includes(p.target) ? p.target : 11)
       : (TARGETS.includes(p.target) ? p.target : 175);
     // the agreement is part of the table: a quick match must not seat two
     // players who disagree about it together
@@ -1145,6 +1323,42 @@ io.on("connection", (socket) => {
     buraPutDown(room, seat, null, true, at(room, seat).name + ": ბურა!");
   });
 
+
+  /* ---------------- ჯოკერი ----------------
+     Three things a player can do: name the trump when it falls to them, say
+     what they will take, and put a card down. Everything is checked by the
+     engine, so nothing here can be talked into an illegal move. */
+  const jokerRoom = () => {
+    const room = roomOf(socket);
+    return room && room.game === "joker" && room.j && !room.paused ? room : null;
+  };
+
+  on("jChoose", ({ trump }) => {
+    const room = jokerRoom(); if (!room || room.phase !== "play") return;
+    const seat = seatOf(room, socket); if (seat < 0) return;
+    const t = trump === "bez" ? Joker.NOTRUMP : trump;
+    if (!Joker.chooseTrump(room.j, seat, t)) return;
+    say(room, at(room, seat).name + " — "
+      + (room.j.trump === Joker.NOTRUMP ? "ბეზი" : Joker.SUITS[room.j.trump]));
+    jokerAdvance(room);
+  });
+
+  on("jBid", ({ n }) => {
+    const room = jokerRoom(); if (!room || room.phase !== "play") return;
+    const seat = seatOf(room, socket); if (seat < 0) return;
+    if (!Joker.bid(room.j, seat, n)) return;
+    say(room, at(room, seat).name + ": " + n);
+    jokerAdvance(room);
+  });
+
+  on("jPlay", ({ card, high, suit }) => {
+    const room = jokerRoom(); if (!room || room.phase !== "play") return;
+    const seat = seatOf(room, socket); if (seat < 0) return;
+    if (!Array.isArray(card) || card.length !== 2) return;
+    if (!Joker.play(room.j, seat, card, { high, suit })) return;
+    jokerAdvance(room);
+  });
+
   on("bVar", () => {
     const room = buraRoom(); if (!room || room.phase !== "play") return;
     const seat = seatOf(room, socket); if (seat < 0) return;
@@ -1277,9 +1491,11 @@ io.on("connection", (socket) => {
      table has not got, threw, and the state never went out. */
   function carryOn(room) {
     if (room.game === "bura") { buraAdvance(room); return; }
+    if (room.game === "joker") { jokerAdvance(room); return; }
     advance(room);
   }
   function resumeRound(room) {
+    if (room.game === "joker") { jokerNextHand(room); return; }
     if (room.game !== "bura") { startRound(room, false); return; }
     Bura.nextRound(room.b);
     room.lastTrick = null;
