@@ -380,6 +380,11 @@
     [/^\+(\d+) ქულა!$/, (m) => `+${m[1]} points!`],
     [/^(\d+) ქულა$/, (m) => `${m[1]} points`],
     [/^(\d+) ქულა\.$/, (m) => `${m[1]} points.`],
+    // the way back to a table, built from a game name and how it stands
+    [/^(დომინო|ბურა|ჯოკერი)( · 4 მოთამაშე)? — თამაში მიდის$/,
+      (m) => `${one(m[1])}${m[2] ? " · 4 players" : ""} — in play`],
+    [/^(დომინო|ბურა|ჯოკერი)( · 4 მოთამაშე)? — მაგიდა ველოდება$/,
+      (m) => `${one(m[1])}${m[2] ? " · 4 players" : ""} — still filling`],
   ];
 
   let lang = null;
