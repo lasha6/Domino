@@ -435,3 +435,104 @@ test("a turned joker leaves exactly one joker to be played", () => {
   }
   assert.ok(seen > 0, "some deal turns a joker");
 });
+
+/* ---------------- leading a joker to give the trick away ---------------- */
+
+test("a joker can be led to let a suit take it, and nobody owes their highest", () => {
+  /* The player's own example: hearts is called, ნინო holds the ten and გიორგი
+     the six and the ace. გიორგი may put down the six and let ნინო have it, or
+     put down the ace and take it himself. */
+  const g = laid(3, S.spades);
+  g.hands = [
+    [JK(0)],
+    [c("10", S.hearts)],
+    [c("6", S.hearts), c("A", S.hearts)],
+    [c("9", S.hearts)],
+  ];
+  assert.equal(J.play(g, 0, JK(0), { suit: S.hearts, high: false }), true);
+  assert.equal(g.ledSuit, S.hearts);
+  assert.equal(g.trick[0].high, false, "the joker is not taking this one");
+
+  J.play(g, 1, c("10", S.hearts));
+  // both hearts are legal — this is an ordinary lead of the suit, not a demand
+  assert.deepEqual(J.legalPlays(g, 2).map(J.nameOf).sort(), ["6♥", "A♥"],
+    "the six is allowed as well as the ace");
+  J.play(g, 2, c("6", S.hearts));
+  J.play(g, 3, c("9", S.hearts));
+  assert.equal(g.took[1], 1, "so the ten takes it, and the joker takes nothing");
+  assert.equal(g.took[0], 0);
+});
+
+test("...and putting down the ace instead takes it", () => {
+  const g = laid(3, S.spades);
+  g.hands = [
+    [JK(0)],
+    [c("10", S.hearts)],
+    [c("6", S.hearts), c("A", S.hearts)],
+    [c("9", S.hearts)],
+  ];
+  J.play(g, 0, JK(0), { suit: S.hearts, high: false });
+  J.play(g, 1, c("10", S.hearts));
+  J.play(g, 2, c("A", S.hearts));
+  J.play(g, 3, c("9", S.hearts));
+  assert.equal(g.took[2], 1, "the same player, having chosen otherwise");
+});
+
+test("a player with none of the called suit may trump it, and takes it", () => {
+  const g = laid(3, S.spades);
+  g.hands = [
+    [JK(0)],
+    [c("A", S.hearts)],
+    [c("6", S.spades)],                     // no hearts, so the trump is owed
+    [c("9", S.hearts)],
+  ];
+  J.play(g, 0, JK(0), { suit: S.hearts, high: false });
+  J.play(g, 1, c("A", S.hearts));
+  assert.deepEqual(J.legalPlays(g, 2).map(J.nameOf), ["6♠"], "void in hearts, so the trump");
+  J.play(g, 2, c("6", S.spades));
+  J.play(g, 3, c("9", S.hearts));
+  assert.equal(g.took[2], 1, "the smallest trump beats the ace of the called suit");
+});
+
+test("if the called suit is in nobody's hand, the joker takes it after all", () => {
+  const g = laid(3, J.NOTRUMP);             // ბეზი, so nothing can trump either
+  g.hands = [
+    [JK(0)],
+    [c("A", S.spades)],
+    [c("K", S.clubs)],
+    [c("9", S.diamonds)],
+  ];
+  J.play(g, 0, JK(0), { suit: S.hearts, high: false });
+  J.play(g, 1, c("A", S.spades));
+  J.play(g, 2, c("K", S.clubs));
+  J.play(g, 3, c("9", S.diamonds));
+  assert.equal(g.took[0], 1, "nothing else could win, so it comes back to the joker");
+});
+
+test("the older declaration still stands: the joker takes it and the best card is owed", () => {
+  const g = laid(3, S.spades);
+  g.hands = [
+    [JK(0)],
+    [c("9", S.hearts), c("K", S.hearts)],
+    [c("6", S.hearts), c("A", S.hearts)],
+    [c("7", S.hearts)],
+  ];
+  J.play(g, 0, JK(0), { suit: S.hearts, high: true });
+  assert.deepEqual(J.legalPlays(g, 1).map(J.nameOf), ["K♥"], "the king, not the nine");
+  J.play(g, 1, c("K", S.hearts));
+  assert.deepEqual(J.legalPlays(g, 2).map(J.nameOf), ["A♥"], "the ace, not the six");
+  J.play(g, 2, c("A", S.hearts));
+  J.play(g, 3, c("7", S.hearts));
+  assert.equal(g.took[0], 1, "and the joker takes it over the ace");
+});
+
+test("leading a joker without saying means the joker takes it", () => {
+  const g = laid(2, S.spades);
+  g.hands = [[JK(0)], [c("A", S.hearts)], [c("K", S.hearts)], [c("9", S.hearts)]];
+  J.play(g, 0, JK(0), { suit: S.hearts });
+  assert.equal(g.trick[0].high, true, "the older and commoner of the two");
+  J.play(g, 1, c("A", S.hearts));
+  J.play(g, 2, c("K", S.hearts));
+  J.play(g, 3, c("9", S.hearts));
+  assert.equal(g.took[0], 1);
+});

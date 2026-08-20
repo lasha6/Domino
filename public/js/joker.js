@@ -264,11 +264,25 @@
     && legalPlays(g, seat).some((c) => sameCard(c, card));
 
   /* opts for a joker:
-       high  — true takes the trick, false throws it away
+       high  — true takes the trick, false gives it away
        suit  — only when LEADING: the suit everyone is then asked for
-     Leading with a joker is always high. The player was asked and was clear:
-     "low" is not something you can declare on the way in, only on the way past
-     somebody else's trick. */
+
+     Leading a joker is a declaration, and there are two of them.
+
+     "The joker takes it" (high): everybody owes the HIGHEST card they hold of
+     the named suit, and the joker wins.
+
+     "Let hearts take it" (low): the named suit decides instead. Nobody owes
+     their highest — the player gave the example himself: hearts is called,
+     ნინო holds the ten and გიორგი the six and the ace, and გიორგი may put down
+     the six and let ნინო have it, or put down the ace and take it. Which is
+     exactly an ordinary lead of that suit, so it is played as one: follow it if
+     you hold it, trump it if you do not, and the best card wins. A trump does
+     take it, and if the suit turns out to be in nobody's hand the joker takes
+     it after all — both of those the player was asked about.
+
+     Omitting high on a lead means the joker takes it, which is the older and
+     commoner of the two. */
   function play(g, seat, card, opts) {
     if (!canPlay(g, seat, card)) return false;
     const o = opts || {};
@@ -279,7 +293,7 @@
       if (leading) {
         askSuit = o.suit;
         if (!(askSuit >= 0 && askSuit < 4)) return false;      // a suit must be named
-        high = true;                                          // never low on the lead
+        high = o.high !== false;
       } else {
         high = !!o.high;
       }
@@ -373,8 +387,18 @@
     const pick = (arr, big) => arr.slice().sort((a, b) =>
       big ? rankOf(b) - rankOf(a) : rankOf(a) - rankOf(b))[0];
     if (!plain.length) {
-      // only jokers left: take the trick if one is still wanted
-      return { card: legal[0], opts: { high: wantMore, suit: g.trick.length ? undefined : 0 } };
+      /* Only jokers left. Taking the trick if one is still wanted, giving it
+         away if not — and when leading, calling the suit it holds least of, so
+         that whatever it asks for is unlikely to come back to it. */
+      const opts = { high: wantMore };
+      if (!g.trick.length) {
+        const count = [0, 0, 0, 0];
+        g.hands.forEach((h, p) => { if (p === seat) h.forEach((c) => { if (!isJoker(c)) count[suitOf(c)]++; }); });
+        let pick = 0;
+        count.forEach((n, i) => { if (n < count[pick]) pick = i; });
+        opts.suit = pick;
+      }
+      return { card: legal[0], opts };
     }
     const card = pick(plain, wantMore);
     return { card, opts: {} };
