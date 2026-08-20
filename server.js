@@ -945,7 +945,24 @@ io.on("connection", (socket) => {
   };
 
   // --- quick match: pair with anyone waiting on the same target AND table size ---
+  /* A player already sitting at a live match must not be dealt into another
+     one. A second tap, a screen that retries, a stray event — any of them used
+     to pull them out of the game they were playing and leave the table they
+     came from hanging, its other players pushing state at a socket that had
+     gone somewhere else. Nothing on the way out of a match is refused: the
+     screen sends leaveRoom when the player means it, and a finished or
+     still-waiting table is simply left behind. */
+  function busyElsewhere(sock) {
+    const room = roomOf(sock);
+    if (!room) return false;
+    const live = room.phase === "play" || room.phase === "draw" || room.phase === "roundEnd";
+    if (live) return true;
+    leave(sock, true);            // finished or still waiting: leave it properly
+    return false;
+  }
+
   on("quickJoin", async (payload) => {
+    if (busyElsewhere(socket)) return;
     const { name, token, auth } = payload;
     const { game, variant, size: sz, target: t, openMalutka } = tableWanted(payload);
     const who = await whoIs(auth, name);
@@ -969,6 +986,7 @@ io.on("connection", (socket) => {
 
   // --- private table: create / join by code ---
   on("createTable", async (payload) => {
+    if (busyElsewhere(socket)) return;
     const { name, token, auth } = payload;
     const { game, variant, size: sz, target: t, openMalutka } = tableWanted(payload);
     const who = await whoIs(auth, name);
@@ -979,6 +997,7 @@ io.on("connection", (socket) => {
   });
 
   on("joinTable", async ({ code, name, token, auth }) => {
+    if (busyElsewhere(socket)) return;
     const room = [...rooms.values()].find((r) => r.code === String(code || "").toUpperCase());
     if (!room) return socket.emit("joinError", "ასეთი მაგიდა ვერ მოიძებნა");
     if (room.players.length >= room.size) return socket.emit("joinError", "მაგიდა უკვე სავსეა");

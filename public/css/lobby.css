@@ -365,6 +365,18 @@
 .room.poor .rBet{ color:#ffb3aa; border-color:rgba(226,104,90,.4); }
 .roomOverlay.practice .rBet{ display:none; }   /* practice costs nothing */
 
+/* The room picker has to fit as well. On a landscape phone it was taller than
+   the screen, so it scrolled — and the close button, which sticks to the bottom
+   on purpose, then sat on top of two of the rooms. */
+@media (max-height:420px){
+  #roomOverlay .roomModal{ padding:10px 18px 8px; }
+  #roomOverlay .roomModal h2{ font-size:18px; }
+  #roomOverlay .roomSub{ margin-bottom:6px; }
+  #roomOverlay .sizePick{ margin:4px 0 6px; }
+  #roomOverlay .room{ padding:8px 12px 7px; }
+  #roomOverlay .room .rTime{ display:none; }
+}
+
 /* The friend dialog has to fit too, or the code box and the button under it
    end up beneath the close button, which sticks to the bottom on purpose. */
 @media (max-height:420px){

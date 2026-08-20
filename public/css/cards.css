@@ -386,7 +386,7 @@
    The table is the one part of this screen with no room to spare, so the
    record covers it rather than taking a slice of it. */
 .histBtn{
-  flex:none; cursor:pointer; border-radius:11px; padding:7px 12px;
+  flex:none; cursor:pointer; border-radius:11px; padding:8px 12px;
   font:700 12px/1 var(--font-ui); color:var(--cream);
   background:var(--panel); border:1px solid var(--line);
   display:flex; align-items:center; gap:5px; white-space:nowrap;
@@ -442,7 +442,7 @@
 @media (max-height:420px){
   .histTable{ font-size:10.5px; }
   .histTable th{ font-size:10px; }
-  .histBtn{ padding:6px 10px; font-size:11px; }
+  .histBtn{ padding:7px 10px; font-size:11px; }
 }
 
 /* ---- the first and last markers ----

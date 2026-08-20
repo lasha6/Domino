@@ -291,3 +291,110 @@ test("a new lead clears the trick before it off the table", () => {
     assert.equal(foe.last.hand.length, 3);
   })();
 });
+
+test("garbage at EVERY handler leaves the server standing", () => {
+  /* Every event the server listens for, sent nonsense from a socket that is at
+     a table and from one that is not. The guard around the handlers is meant to
+     make this dull; the point of the test is that it stays dull as handlers are
+     added — this list is every one of them, not a sample. */
+  return (async () => {
+    const EVENTS = ["quickJoin", "createTable", "joinTable", "resume", "leaveRoom",
+                    "play", "draw", "stayAlone", "choosePartner",
+                    "bLead", "bAnswer", "bCall", "bAccept", "bConcede", "bVar", "bBura",
+                    "profile", "shop", "buy", "equip", "claimDaily", "redeem", "topup"];
+    const JUNK = [undefined, null, 0, "", "x", [], {}, { cards: null }, { cards: "x" },
+                  { cards: [[99, 99]] }, { cards: [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]] },
+                  { idx: 99 }, { code: null }, { token: 12 }, { name: { a: 1 } },
+                  { id: [] }, { n: -1 }, { side: "nowhere" }, { slot: 999 },
+                  { cards: [{ toString() { throw new Error("boom"); } }] }];
+
+    // one socket sitting at a real table, one that never joined anything
+    const tag = "bjunk" + (n++);
+    const seated = client(), stray = client();
+    seated.emit("quickJoin", { game: "bura", variant: "3", target: 21, name: "ერთი",
+                               auth: { kind: "guest", id: tag + "a" } });
+    const mate = client();
+    mate.emit("quickJoin", { game: "bura", variant: "3", target: 21, name: "ორი",
+                             auth: { kind: "guest", id: tag + "b" } });
+    assert.ok(await until(() => seated.last && seated.last.hand), "the table is running");
+    const room = seated.last.roomId;
+
+    for (const ev of EVENTS)
+      for (const junk of JUNK) { seated.emit(ev, junk); stray.emit(ev, junk); }
+    await wait(1200);
+
+    assert.equal(srv.exited, null, `the server is still up: ${srv.log.slice(-500)}`);
+
+    /* Some of that nonsense is a legal move — bBura takes no payload at all, so
+       a hand of one suit really does go down on the table. What is checked is
+       that the table is still the same table and still makes sense, not that
+       nothing happened. */
+    assert.equal(seated.last.roomId, room, "still at the table it was playing");
+    assert.equal(mate.last.roomId, room, "and so is the other player");
+    for (const c of [seated, mate]) {
+      assert.ok(Array.isArray(c.last.hand), "a hand is still a list of cards");
+      assert.ok(c.last.hand.length <= 3, "and no bigger than a hand should be");
+      assert.equal(c.last.scores.length, 2);
+      c.last.scores.forEach((x) => assert.equal(typeof x, "number"));
+      assert.ok(["play", "roundEnd", "over", "wait"].includes(c.last.phase), c.last.phase);
+      assert.ok(!("hands" in c.last), "and nobody was sent anybody else's cards");
+    }
+
+    /* Shut the stray down. Left open it sits in whatever waiting room its junk
+       put it in, and the next test in this file gets paired with it instead of
+       with its own partner. */
+    stray.close();
+    await wait(200);
+  })();
+});
+
+test("a player in a live match is not dealt into another one", () => {
+  /* Found by sending every event nonsense: a stray quickJoin — a second tap, a
+     screen that retries — pulled the player out of the game they were playing
+     and left the table behind them hanging, its other player pushing state at a
+     socket that had gone elsewhere. */
+  return (async () => {
+    const tag = "bbusy" + (n++);
+    const a = client(), b = client();
+    a.emit("quickJoin", { game: "bura", variant: "3", target: 11, name: "ერთი",
+                          auth: { kind: "guest", id: tag + "a" } });
+    b.emit("quickJoin", { game: "bura", variant: "3", target: 11, name: "ორი",
+                          auth: { kind: "guest", id: tag + "b" } });
+    assert.ok(await until(() => a.last && a.last.hand && b.last && b.last.hand), "the table is running");
+    const room = a.last.roomId, hand = JSON.stringify(a.last.hand);
+
+    // every way of asking for a table, while sitting at one
+    a.emit("quickJoin", { game: "bura", variant: "5", target: 21, name: "ერთი",
+                          auth: { kind: "guest", id: tag + "a" } });
+    a.emit("createTable", { game: "domino", target: 175, name: "ერთი",
+                            auth: { kind: "guest", id: tag + "a" } });
+    a.emit("joinTable", { code: "ABCD", name: "ერთი", auth: { kind: "guest", id: tag + "a" } });
+    await wait(900);
+
+    assert.equal(a.last.roomId, room, "still at the table they were playing");
+    assert.equal(JSON.stringify(a.last.hand), hand, "with the same cards");
+    assert.equal(b.last.roomId, room, "and so is the other player");
+    assert.equal(b.last.paused, false, "whose game did not stop");
+
+    // and the match still plays
+    const lead = a.last.myTurn ? a : b, other = lead === a ? b : a;
+    lead.emit("bLead", { cards: [lead.last.hand[0]] });
+    assert.ok(await until(() => other.last.lead), "the table still takes a move");
+  })();
+});
+
+test("but a finished table is left behind when a new one is asked for", () => {
+  return (async () => {
+    const tag = "bdone" + (n++);
+    const a = client();
+    // a friend table, never filled — waiting, not playing
+    a.emit("createTable", { game: "bura", variant: "3", target: 11, name: "ერთი",
+                            auth: { kind: "guest", id: tag + "a" } });
+    assert.ok(await until(() => a.last && a.last.code), "a table was made");
+    const first = a.last.roomId;
+
+    a.emit("quickJoin", { game: "bura", variant: "3", target: 11, name: "ერთი",
+                          auth: { kind: "guest", id: tag + "a" } });
+    assert.ok(await until(() => a.last && a.last.roomId !== first), "and left for another");
+  })();
+});
