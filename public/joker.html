@@ -48,9 +48,15 @@
       <div class="stock">
         <div class="trumpBox" id="trumpBox"></div>
       </div>
-      <span class="pileLbl" id="pileLbl">მაგიდა</span>
-      <!-- the two markers, laid on the felt beside the players they belong to -->
-      <div class="tchip" id="chipMe"></div>
+      <!-- Your own marker sits ON the line at the foot of the table, beside the
+           words, because that is where you are already looking while you read
+           your cards. It is a child of the label rather than something measured
+           against it: the table changes height as the hand goes on, and a
+           measured position was landing where the label used to be. -->
+      <div class="pileLbl" id="pileLbl">
+        <span class="tchip" id="chipMe"></span><span id="pileTxt">მაგიდა</span>
+      </div>
+      <!-- the other three are laid on the felt beside their plates -->
       <div class="tchip" id="chipLeft"></div>
       <div class="tchip" id="chipAcross"></div>
       <div class="tchip" id="chipRight"></div>
@@ -295,6 +301,12 @@
       put("chipLeft",  "seatLeft",  +1);
       put("chipRight", "seatRight", -1);
       put("chipAcross","seatAcross", +1);
+      /* Yours goes beside the words at the foot of the table. It used to sit in
+         the right-hand corner, and the player made the point: while you are
+         looking at your cards you are not going to glance all the way over
+         there. The middle of the bottom edge is where your eyes already are —
+         and beside the label rather than under the cross, which is what drove
+         it into the corner in the first place. */
     }
 
     /* ---------------- the record of the match ----------------
@@ -494,7 +506,7 @@
        Later cards sit on top of earlier ones, the way they land on a table. */
     function paintTrick(){
       const box = document.getElementById("trick");
-      const lbl = document.getElementById("pileLbl");
+      const lbl = document.getElementById("pileTxt");
       box.innerHTML = "";
       const show = g.trick.length ? g.trick
                  : (g.lastTrick && !trickCleared ? g.lastTrick.cards : []);
@@ -541,7 +553,14 @@
       /* An empty row still takes forty pixels, and while a hand is being played
          there is nothing to ask — so it goes away and the table gets the room.
          Whatever it would have said lives in the strip along the top. */
-      setTimeout(() => { bar.style.display = bar.children.length ? "" : "none"; fitTable(); }, 0);
+      /* Hiding the row changes the height of the table, so everything measured
+         against it has to be measured again — the chips were being placed
+         against the layout as it stood a moment earlier. */
+      setTimeout(() => {
+        bar.style.display = bar.children.length ? "" : "none";
+        fitTable();
+        placeChips();
+      }, 0);
       const add = (label, fn, cls, off) => {
         const b = document.createElement("button");
         b.className = "bbtn" + (cls ? " " + cls : "");

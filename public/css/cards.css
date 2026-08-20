@@ -320,7 +320,10 @@
 .btable.jk .stock .card .big { font-size:1.9em; }
 .btable.jk .trumpBox{ width:auto; height:auto; }
 .btable.jk .trumpBox .card{ position:static; }
-.btable.jk .pileLbl{ position:absolute; left:50%; bottom:7px; transform:translateX(-50%); }
+.btable.jk .pileLbl{
+  position:absolute; left:50%; bottom:7px; transform:translateX(-50%);
+  display:flex; align-items:center; gap:6px; white-space:nowrap;
+}
 
 /* your own hand scales with the table too, so nine cards still fit a narrow one */
 .jkHand .card{
@@ -463,11 +466,14 @@
 .tchip.show{ display:block; }
 .tchip.first{ --c1:#127a37; --c2:#4fd07c; }
 .tchip.last { --c1:#96121f; --c2:#e05a64; }
-/* Yours sits on the cloth on your own side, in the near corner: the middle of
-   the bottom edge is where your own card in the cross comes down, and the chip
-   was landing on top of it. The record opens down the left, so the right corner
-   is the one that is always clear. */
-#chipMe{ right:14px; bottom:12px; }
+/* Yours rides on the label line rather than being positioned on the cloth.
+   position:relative, or its notched ring is drawn against the label instead of
+   against the chip and loops round the words; and an explicit height, or the
+   flex row stretches it into an oval. */
+#chipMe{
+  position:relative; flex:none; align-self:center;
+  height:clamp(19px, calc(var(--jkW, 40px) * .62), 36px);
+}
 
 /* The trump moved to the top-right corner and sits ABOVE the record, so opening
    the record never hides it — that was the whole complaint. */
