@@ -199,7 +199,7 @@
       document.getElementById("netOverlay").classList.remove("show");
       /* "rejoin" is the front page sending them back to the chair the server
          is still holding. Nothing is asked for; the token is the claim. */
-      if (seated || MODE === "rejoin") { socket.emit("resume", { token: TOKEN }); return; }
+      if (seated || MODE === "rejoin") { socket.emit("resume", { token: TOKEN, game: "bura" }); return; }
       const who = { name: NAME, token: TOKEN, auth: WHO.auth, game: "bura",
                     variant: VARIANT, size: SIZE, openMalutka: OPEN };
       if (MODE === "quick")       socket.emit("quickJoin",   { ...who, target: TARGET });

@@ -164,7 +164,7 @@
       // socket.io reconnects on its own — don't join a second table, resume
       /* "rejoin" is the front page sending them back to the chair the server
          is still holding. Nothing is asked for; the token is the claim. */
-      if (seated || MODE === "rejoin") { socket.emit("resume", { token: TOKEN }); return; }
+      if (seated || MODE === "rejoin") { socket.emit("resume", { token: TOKEN, game: "domino" }); return; }
       const who = { name: NAME, token: TOKEN, auth: WHO.auth };
       if (MODE === "quick")       socket.emit("quickJoin",   { ...who, target: TARGET, size: SIZE });
       else if (MODE === "friend") socket.emit("createTable", { ...who, target: TARGET, size: SIZE });

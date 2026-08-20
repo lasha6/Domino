@@ -358,3 +358,27 @@ test("giving up a chair with a token nobody holds changes nothing", () => {
     assert.equal(srv.exited, null, `still up: ${srv.log.slice(-300)}`);
   })();
 });
+
+test("a screen that comes to the wrong table is turned away", () => {
+  /* The chair is found by token alone, so nothing stopped the ჯოკერი screen
+     from being handed a ბურა table — a stale tab, a bookmark, a reload after
+     the player moved on. It would have drawn another game's hand as its own.
+     The screen says which game it is, and the front page does the routing. */
+  return (async () => {
+    const cs = await fourAtJoker();
+    const goner = cs[2];
+    goner.close();
+    await wait(200);
+
+    const wrong = client();
+    let failed = false;
+    wrong.on("resumeFailed", () => { failed = true; });
+    wrong.emit("resume", { token: goner.tok, game: "bura" });
+    assert.ok(await until(() => failed), "the ბურა screen is refused a ჯოკერი chair");
+    assert.equal(wrong.last, null, "and is sent no state it cannot draw");
+
+    const right = client();
+    right.emit("resume", { token: goner.tok, game: "joker" });
+    assert.ok(await until(() => right.last && right.last.hand), "the right screen still gets in");
+  })();
+});

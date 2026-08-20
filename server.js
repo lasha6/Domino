@@ -1561,10 +1561,16 @@ io.on("connection", (socket) => {
     });
   });
 
-  on("resume", ({ token }) => {
+  on("resume", ({ token, game }) => {
     if (!token) return socket.emit("resumeFailed");
     const room = [...rooms.values()].find((r) => r.players.some((p) => p.token === token));
     if (!room || room.phase === "over") return socket.emit("resumeFailed");
+    /* The chair is found by token alone, so a screen can be asked to take back
+       a chair at a table it does not know how to draw: the ჯოკერი screen
+       reloaded while the held chair is at a ბურა table. It says which game it
+       is, and a screen that has come to the wrong table is turned away — the
+       front page knows which screen the chair belongs to. */
+    if (game && game !== room.game) return socket.emit("resumeFailed");
     const p = room.players.find((x) => x.token === token);
     if (p.gone) return socket.emit("resumeFailed");   // they said yes to leaving
     p.id = socket.id; p.online = true;
