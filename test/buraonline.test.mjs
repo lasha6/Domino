@@ -217,3 +217,77 @@ test("a dropped player comes back to the same hand", async () => {
   assert.ok(await until(() => other.last.lead), "the next lead lands");
   assert.equal(srv.exited, null, `the server is still up: ${srv.log.slice(-300)}`);
 });
+
+test("a ბურა turned back on a lead leaves the leader answering with what is left", () => {
+  /* Reported from a real table: the other player had led one card, ბურა was
+     turned back on them, and they were still holding three and being asked for
+     three. The card they had already put down has to count as part of their
+     answer — and it has to be gone from their hand. */
+  return (async () => {
+    const tag = "bmal" + (n++);
+    const a = client(), b = client();
+    a.emit("quickJoin", { game: "bura", variant: "3", target: 11, name: "ერთი",
+                          auth: { kind: "guest", id: tag + "a" } });
+    b.emit("quickJoin", { game: "bura", variant: "3", target: 11, name: "ორი",
+                          auth: { kind: "guest", id: tag + "b" } });
+    assert.ok(await until(() => a.last && a.last.hand && b.last && b.last.hand), "both dealt");
+
+    // give one of them a hand of trumps to turn back with
+    const leader = a.last.myTurn ? a : b;
+    const burista = leader === a ? b : a;
+    assert.equal(leader.last.hand.length, 3);
+
+    leader.emit("bLead", { cards: [leader.last.hand[0]] });
+    assert.ok(await until(() => burista.last.lead), "the lead is on the table");
+    assert.equal(leader.last.hand.length, 2, "and out of the hand that led it");
+
+    if (!burista.last.canMalutka) return;      // not a hand that can turn it back
+    burista.emit("bLead", { unturned: true });
+    assert.ok(await until(() => burista.last.lead && burista.last.lead.cards.length === 3),
+      "the whole hand went down");
+
+    assert.equal(leader.last.hand.length, 2, "the leader still holds two");
+    assert.equal(leader.last.answerSize, 2,
+      "and is asked for two, not three — the card already down is part of it");
+  })();
+});
+test("a new lead clears the trick before it off the table", () => {
+  /* Reported from a real table: ბურა went down and the other player appeared to
+     have a card in front of them already — three still in hand and being asked
+     for three. The counts were right; the table was lying. The ბურა button has
+     its own event on the server and that one walked past clearing the table, so
+     what stood there belonged to the trick before.
+
+     Both ways of putting cards down go through one function now, so this holds
+     for the ბურა button as much as for an ordinary lead — which is what makes
+     an ordinary lead, the one a test can reach every time, worth testing. */
+  return (async () => {
+    const tag = "bclr" + (n++);
+    const a = client(), b = client();
+    a.emit("quickJoin", { game: "bura", variant: "3", target: 11, name: "ერთი",
+                          auth: { kind: "guest", id: tag + "a" } });
+    b.emit("quickJoin", { game: "bura", variant: "3", target: 11, name: "ორი",
+                          auth: { kind: "guest", id: tag + "b" } });
+    assert.ok(await until(() => a.last && a.last.hand && b.last && b.last.hand), "both dealt");
+
+    // a whole trick, so there is something on the table to be left behind
+    const lead = a.last.myTurn ? a : b, other = lead === a ? b : a;
+    lead.emit("bLead", { cards: [lead.last.hand[0]] });
+    assert.ok(await until(() => other.last.lead), "the lead is down");
+    other.emit("bAnswer", { cards: [other.last.hand[0]] });
+    assert.ok(await until(() => a.last.lastTrick && a.last.lastTrick.took != null), "it was settled");
+    assert.equal(a.last.lastTrick.answers.length, 1, "and the table holds both cards");
+
+    // the winner leads again
+    const next = a.last.myTurn ? a : b, foe = next === a ? b : a;
+    const card = next.last.hand[0];
+    next.emit("bLead", { cards: [card] });
+    assert.ok(await until(() => foe.last.lead && foe.last.lead.cards.length === 1), "the new lead is down");
+
+    assert.equal(foe.last.lastTrick.answers.length, 0,
+      "and nothing of the trick before is left in front of anybody");
+    assert.deepEqual(foe.last.lastTrick.led, [card], "the table shows the new card and only it");
+    assert.equal(foe.last.answerSize, 1, "they answer with one, holding three");
+    assert.equal(foe.last.hand.length, 3);
+  })();
+});

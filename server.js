@@ -482,9 +482,21 @@ function buraMaybeBot(room) {
    trick, and so a card thrown face down stays face down for all of them.
    With four players the trick goes round, so the answers are a list. */
 function startBuraTrick(room, led, leadSeat) {
-  room.lastTrick = { led, leadSeat, answers: [], took: null, hidden: false,
+  /* A new lead clears the table. The one thing that survives it is a card
+     somebody had already led when a whole hand was turned back on them: it
+     stays face up and counts towards their answer, so it stays on the table
+     too. Everything else from the trick before has to go — leaving it there
+     showed a card in front of a player who had not played one, which is what
+     it looked like from the table. */
+  const b = room.b;
+  const kept = (b && b.answerSoFar && b.answerSoFar.length && b.answerBy != null)
+    ? [{ seat: b.answerBy, cards: b.answerSoFar.slice(), open: b.answerSoFar.length }]
+    : [];
+  room.lastTrick = { led, leadSeat, answers: kept, took: null, hidden: false,
                      // kept for the two-player screen, which reads these
-                     ans: [], ansSeat: null, open: 0 };
+                     ans: kept.length ? kept[0].cards : [],
+                     ansSeat: kept.length ? kept[0].seat : null,
+                     open: kept.length ? kept[0].cards.length : 0 };
 }
 function recordBuraAnswer(room, seat, cards, alreadyOpen, took) {
   const t = room.lastTrick;
@@ -1057,16 +1069,26 @@ io.on("connection", (socket) => {
     return room && room.game === "bura" && room.b && !room.paused ? room : null;
   };
 
+  /* Putting cards down, whichever way it was asked for. There used to be two
+     doors into this and one of them — the ბურა button, which has its own
+     event — walked past clearing the table, so the trick before it stayed in
+     front of a player who had not played a card. One door now. */
+  function buraPutDown(room, seat, cards, unturned, said) {
+    const ok = unturned ? Bura.malutka(room.b, seat) : Bura.lead(room.b, seat, cards);
+    if (!ok) return false;
+    startBuraTrick(room, room.b.lead.cards.slice(), room.b.lead.seat);
+    say(room, said);
+    buraAdvance(room);
+    return true;
+  }
+
   on("bLead", ({ cards, unturned }) => {
     const room = buraRoom(); if (!room || room.phase !== "play") return;
     const seat = seatOf(room, socket); if (seat < 0) return;
     if (!Array.isArray(cards) || !cards.length || cards.length > 5) return;
     // a malutka may land on an empty table or straight back on a lead
-    const ok = unturned ? Bura.malutka(room.b, seat) : Bura.lead(room.b, seat, cards);
-    if (!ok) return;
-    startBuraTrick(room, room.b.lead.cards.slice(), room.b.lead.seat);
-    say(room, at(room, seat).name + (unturned ? " — მალუტკა!" : " ჩამოვიდა " + cards.length + " ქვით"));
-    buraAdvance(room);
+    buraPutDown(room, seat, cards, unturned,
+      at(room, seat).name + (unturned ? " — მალუტკა!" : " ჩამოვიდა " + cards.length + " ქვით"));
   });
 
   on("bAnswer", ({ cards }) => {
@@ -1108,12 +1130,11 @@ io.on("connection", (socket) => {
 
   /* ბურა is played rather than announced: it goes down like a malutka and
      wins the round only by taking the trick, which the engine settles. */
+  // the same move as a malutka, announced differently — one code path
   on("bBura", () => {
     const room = buraRoom(); if (!room || room.phase !== "play") return;
     const seat = seatOf(room, socket); if (seat < 0) return;
-    if (!Bura.malutka(room.b, seat)) return;
-    say(room, at(room, seat).name + ": ბურა!");
-    buraAdvance(room);
+    buraPutDown(room, seat, null, true, at(room, seat).name + ": ბურა!");
   });
 
   on("bVar", () => {
