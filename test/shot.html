@@ -57,7 +57,20 @@ setTimeout(() => {
   }, 200);
 }, 800);
 </script></body></html>
-<!-- HOW TO USE THIS
+<!-- A NOTE ON THE LOBBY
+     index.html cannot be photographed straight from the game server: its socket
+     stays open and a headless browser never decides the page is finished. Serve
+     public/ from a plain file server instead — the socket then fails at once
+     and the page settles:
+       node - <<JS
+       const http=require("http"),fs=require("fs"),path=require("path");
+       http.createServer((q,r)=>fs.readFile(path.join("public",q.url.split("?")[0]),
+         (e,d)=>e?(r.writeHead(404),r.end()):(r.writeHead(200),r.end(d)))).listen(3099);
+       JS
+     Also pass --user-data-dir to a temp folder, or headless clashes with a
+     Chrome the user already has open and produces nothing at all.
+
+     HOW TO USE THIS
      It drives the real screen so a headless browser can photograph or measure
      it. It needs to sit beside the page, so:
        1. cp test/shot.html public/__shot.html

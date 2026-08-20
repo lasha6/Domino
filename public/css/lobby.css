@@ -365,6 +365,17 @@
 .room.poor .rBet{ color:#ffb3aa; border-color:rgba(226,104,90,.4); }
 .roomOverlay.practice .rBet{ display:none; }   /* practice costs nothing */
 
+/* The friend dialog has to fit too, or the code box and the button under it
+   end up beneath the close button, which sticks to the bottom on purpose. */
+@media (max-height:420px){
+  #friendOverlay .roomModal{ padding:10px 18px 8px; }
+  #friendOverlay .roomModal h2{ font-size:18px; }
+  #friendOverlay .roomSub{ margin-bottom:6px; margin-top:8px !important; }
+  #friendOverlay .room{ padding:9px 13px 8px; }
+  #friendOverlay .room .rTime{ display:none; }
+  #friendOverlay .codeInput{ margin-top:2px; }
+}
+
 /* The ბურა dialog carries the most: two games, 1v1 or 2v2, the malutka
    switch and three targets. On a landscape phone that was 50px taller than the
    screen, so it scrolled — and the close button, which sticks to the bottom on

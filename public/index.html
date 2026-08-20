@@ -426,14 +426,15 @@
           <span class="rName">შექმენი მაგიდა</span>
           <span class="rTime">მიიღებ კოდს</span>
         </button>
-        <button class="room" onclick="showJoin()">
-          <span class="rIco">🔑</span>
-          <span class="rName">კოდით შესვლა</span>
-          <span class="rTime">მეგობრის მაგიდაზე</span>
-        </button>
       </div>
-      <div id="joinBox" style="display:none; margin-top:12px;">
-        <input id="codeInput" class="codeInput" maxlength="4" placeholder="კოდი" autocomplete="off" />
+      <!-- The box is here from the moment the dialog opens. It used to be
+           behind a button marked "join by code", so the answer to "my friend
+           sent me a code, where do I put it?" was one press away and looked
+           like it was missing. -->
+      <p class="roomSub" style="margin-top:14px">მეგობრის კოდი გაქვს? ჩაწერე აქ:</p>
+      <div id="joinBox">
+        <input id="codeInput" class="codeInput" maxlength="4" placeholder="კოდი" autocomplete="off"
+               oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter') doJoin()" />
         <button class="roomClose" style="margin-top:8px" onclick="doJoin()">შესვლა ▶</button>
       </div>
       <button class="roomClose" onclick="closeFriend()">დახურვა</button>
@@ -1070,15 +1071,11 @@
     }
     function closeFriend(){
       document.getElementById("friendOverlay").classList.remove("show");
-      document.getElementById("joinBox").style.display = "none";
+      document.getElementById("codeInput").value = "";
     }
     function friendCreate(){
       closeFriend();
       if (friendGame === "bura") openBura("friend"); else openRooms("friend");
-    }
-    function showJoin(){
-      document.getElementById("joinBox").style.display = "block";
-      document.getElementById("codeInput").focus();
     }
     function doJoin(){
       const c = document.getElementById("codeInput").value.trim().toUpperCase();
