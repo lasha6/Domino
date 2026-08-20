@@ -183,3 +183,37 @@ test("nonsense at the card handlers cannot bring the server down", async () => {
   assert.equal(srv.exited, null, `still up: ${srv.log.slice(-300)}`);
   assert.ok(a.last.hand.length > 0, "and the table is still there");
 });
+
+test("a dropped player comes back to the same hand", async () => {
+  /* The seat is held and the game pauses — that much the room already did for
+     both games. What it did next was domino's: coming back called the domino
+     advance, which reads a domino board a ბურა room has not got. */
+  const tag = "brc" + (n++);
+  const a = client(), b = client();
+  const tokA = tag + "-ta";
+  a.emit("quickJoin", { game: "bura", variant: "5", target: 11, name: "ერთი",
+                        token: tokA, auth: { kind: "guest", id: tag + "a" } });
+  b.emit("quickJoin", { game: "bura", variant: "5", target: 11, name: "ორი",
+                        token: tag + "-tb", auth: { kind: "guest", id: tag + "b" } });
+  assert.ok(await until(() => a.last && a.last.hand && b.last && b.last.hand), "both dealt");
+  const handBefore = JSON.stringify(a.last.hand);
+  const turnBefore = a.last.myTurn;
+
+  a.close();
+  assert.ok(await until(() => b.last && b.last.paused), "the table stops and waits");
+  assert.ok(b.last.waitingFor.includes("ერთი"), "and says who for");
+
+  const back = client();
+  back.emit("resume", { token: tokA });
+  assert.ok(await until(() => back.last && back.last.hand), "they are seated again");
+  assert.equal(JSON.stringify(back.last.hand), handBefore, "with the hand they had");
+  assert.equal(back.last.myTurn, turnBefore, "and it is still their move, or still not");
+  assert.ok(await until(() => !b.last.paused), "and the table starts again");
+
+  // and it really plays on from there
+  const lead = back.last.myTurn ? back : b;
+  const other = lead === back ? b : back;
+  lead.emit("bLead", { cards: [lead.last.hand[0]] });
+  assert.ok(await until(() => other.last.lead), "the next lead lands");
+  assert.equal(srv.exited, null, `the server is still up: ${srv.log.slice(-300)}`);
+});

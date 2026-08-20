@@ -1242,6 +1242,23 @@ io.on("connection", (socket) => {
 
   // Coming back after a drop: the browser remembers a token, we match it to the
   // held seat and carry on from exactly where the hand was.
+  /* Both games share the room, the held seat, the pause and the reconnect —
+     only the turn-taker differs. Reaching for the domino one on a ბურა table
+     is why a dropped ბურა player could not get back in: it reads a board that
+     table has not got, threw, and the state never went out. */
+  function carryOn(room) {
+    if (room.game === "bura") { buraAdvance(room); return; }
+    advance(room);
+  }
+  function resumeRound(room) {
+    if (room.game !== "bura") { startRound(room, false); return; }
+    Bura.nextRound(room.b);
+    room.lastTrick = null;
+    room.reveal = null;
+    room.phase = "play";
+    buraAdvance(room);
+  }
+
   on("resume", ({ token }) => {
     if (!token) return socket.emit("resumeFailed");
     const room = [...rooms.values()].find((r) => r.players.some((p) => p.token === token));
@@ -1254,8 +1271,8 @@ io.on("connection", (socket) => {
       clearTimeout(room.dropTimer); room.dropTimer = null;
       room.paused = false; room.resumeBy = null;
       say(room, `${p.name} დაბრუნდა`);
-      if (room.pendingNextRound) { room.pendingNextRound = false; startRound(room, false); return; }
-      if (room.phase === "play" || room.phase === "draw") { advance(room); return; }
+      if (room.pendingNextRound) { room.pendingNextRound = false; resumeRound(room); return; }
+      if (room.phase === "play" || room.phase === "draw") { carryOn(room); return; }
     }
     pushState(room);
   });
@@ -1286,7 +1303,7 @@ io.on("connection", (socket) => {
     // a whole side — then the match really is over
     if (quit) {
       if (abandonSeat(room, p).dead) { endMatchEarly(room, p.name); return; }
-      advance(room);
+      carryOn(room);
       return;
     }
 
@@ -1302,7 +1319,7 @@ io.on("connection", (socket) => {
       if (!rooms.has(room.id) || p.online) return;
       // never came back — same rule as walking out
       if (abandonSeat(room, p).dead) { endMatchEarly(room, p.name); return; }
-      advance(room);
+      carryOn(room);
     }, RECONNECT_GRACE);
   }
 

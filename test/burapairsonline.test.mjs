@@ -249,3 +249,38 @@ test("a code that belongs to nobody is refused", async () => {
   assert.ok(await until(() => err), "the server said so");
   assert.match(err, /ვერ მოიძებნა/);
 });
+
+test("a player who walks out of a 2v2 ბურა leaves their seat to the computer", async () => {
+  /* Their partner keeps playing: the match is only over when a whole side has
+     gone. The room already knew that rule — it was calling domino's turn-taker
+     to carry on with it, which a ბურა table cannot use. */
+  const tag = "bpq" + (n++);
+  const cs = ["ერთი", "ორი", "სამი", "ოთხი"].map((name, i) => {
+    const c = client();
+    c.emit("quickJoin", { game: "bura", size: 4, variant: "5", target: 11, name,
+                          auth: { kind: "guest", id: tag + i } });
+    return c;
+  });
+  assert.ok(await until(() => cs.every((c) => c.last && c.last.hand)), "all four dealt");
+  cs.sort((x, y) => x.last.seat - y.last.seat);
+
+  // somebody presses back and means it
+  const goner = cs[1];
+  const gonerSeat = goner.last.seat;
+  goner.emit("leaveRoom");
+  const rest = cs.filter((c) => c !== goner);
+
+  assert.ok(await until(() => rest.every((c) =>
+    (c.last.table.find((x) => x.seat === gonerSeat) || {}).bot)), "the computer took the chair");
+  rest.forEach((c) => assert.equal(c.last.paused, false, "and nobody is left waiting"));
+
+  // and the hand goes on — whoever is on lead can still lead
+  const lead = rest.find((c) => c.last.myTurn);
+  if (lead) {
+    lead.emit("bLead", { cards: [lead.last.hand[0]] });
+    assert.ok(await until(() => rest.some((c) => c.last.lead)), "the lead lands");
+  }
+  assert.ok(await until(() => rest.some((c) => c.last.lastTrick || c.last.lead || c.last.reveal), 8000),
+    "the table is playing rather than stuck");
+  assert.equal(srv.exited, null, `the server is still up: ${srv.log.slice(-300)}`);
+});
