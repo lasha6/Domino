@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/lobby.css" />
   <link rel="stylesheet" href="css/cards.css" />
+  <script src="js/i18n.js"></script>
   <script src="js/viewport.js"></script>
   <script src="js/fullscreen.js"></script>
 </head>
@@ -309,6 +310,7 @@
         <button class="menuRow" onclick="closeMenu(); openShop()"><span>🛒</span> მაღაზია</button>
         <button class="menuRow" id="menuSound" onclick="toggleSound(); paintMenu()"><span>🔊</span> ხმა</button>
         <button class="menuRow" onclick="closeMenu(); openRules()"><span>📖</span> როგორ ვთამაშობთ</button>
+        <button class="menuRow" id="menuLang" onclick="switchLang()"><span>🌐</span> <span id="menuLangText">English</span></button>
         <button class="menuRow" id="menuPromo" style="display:none" onclick="closeMenu(); openPromo()"><span>🎟️</span> კოდის გამოყენება</button>
       </div>
       <p class="roomSub" id="menuVersion"></p>
@@ -522,7 +524,10 @@
       const n = getName();
       document.getElementById("pnameLabel").textContent = n || "სტუმარი";
       const ini = document.querySelector("#avatarLetter .ini");
-      const ch = n ? n[0] : "ს";
+      // a player with no name of their own is "სტუმარი", or "Guest" — the
+      // initial has to follow whichever word is actually on the screen
+      const shown = n || (window.I18N ? I18N.t("სტუმარი") : "სტუმარი");
+      const ch = shown[0];
       // capitalise Latin only — a single Georgian mtavruli letter looks wrong
       ini.textContent = /[a-z]/i.test(ch) ? ch.toUpperCase() : ch;
     }
@@ -821,10 +826,24 @@
     }
 
 
+    /* ---------------- which language ----------------
+       Georgian is what the app is written in; English is the same app with the
+       words swapped where it lands. The button says the language you would be
+       switching TO, which is the only label that is never ambiguous. */
+    function switchLang(){
+      Sound.play("tap");
+      I18N.set(I18N.lang === "en" ? "ka" : "en");
+    }
+    function paintLang(){
+      const el = document.getElementById("menuLangText");
+      if (el) el.textContent = I18N.lang === "en" ? "ქართული" : "English";
+    }
+
     /* ---------------- menu ---------------- */
     function openMenu(){ paintMenu(); document.getElementById("menuOverlay").classList.add("show"); }
     function closeMenu(){ document.getElementById("menuOverlay").classList.remove("show"); }
     function paintMenu(){
+      paintLang();
       const row = document.getElementById("menuSound");
       row.querySelector("span").textContent = Sound.muted() ? "🔇" : "🔊";
       row.childNodes[row.childNodes.length - 1].nodeValue = Sound.muted() ? " ხმა — გამორთული" : " ხმა — ჩართული";
