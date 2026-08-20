@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/lobby.css" />
   <link rel="stylesheet" href="css/cards.css" />
+  <script src="js/leaving.js"></script>
   <script src="js/i18n.js"></script>
   <script src="js/viewport.js"></script>
   <script src="js/fullscreen.js"></script>
@@ -73,6 +74,7 @@
         <span class="btIco">🪑</span>
         <span class="btText">მაგიდა შენ გელოდება<b id="backWhat"></b></span>
         <button class="btGo" onclick="goBackToTable()">დაბრუნება ▶</button>
+        <button class="btDrop" onclick="dropHeldTable()">ადგილს ვთმობ</button>
       </div>
 
       <!-- ---- which game ---- -->
@@ -515,6 +517,21 @@
     function goBackToTable(){
       if (!myTable) return;
       location.href = TABLE_SCREEN[myTable.game](myTable);
+    }
+
+    /* The other answer. A chair is held until the player says they mean to
+       give it up, and they have to be able to say it from here: the phone
+       that dropped them may never find its way back to that table alone. */
+    function dropHeldTable(){
+      if (!myTable) return;
+      // a table that has not started yet costs nothing to walk away from,
+      // so it is asked about more lightly
+      const ask = myTable.playing ? Leaving.confirmLeave : Leaving.confirmLeaveWaiting;
+      ask(() => {
+        socket.emit("giveUpSeat", { token: localStorage.getItem("dominoToken") });
+        myTable = null;
+        document.getElementById("backToTable").classList.remove("show");
+      });
     }
 
     /* ---------------- player name ----------------

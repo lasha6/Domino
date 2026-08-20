@@ -309,3 +309,52 @@ test("and the same match is never written down twice", () => {
     assert.equal(pb.stats.matchWins, 1, "won");
   })();
 });
+
+test("a chair can be given up from the front page, without going back to it", () => {
+  /* The one way to lose a chair is to be asked and to say yes, and the front
+     page has to be able to ask. A phone that dropped out mid-hand may never
+     find its way back to that table on its own, and a chair nobody can give up
+     is a chair that holds the player there for as long as the table lives. */
+  return (async () => {
+    const cs = await fourAtJoker();
+    const goner = cs[1], seat = goner.last.seat;
+    const rest = cs.filter((c) => c !== goner);
+    goner.close();                       // the tunnel went
+    assert.ok(await until(() => (rest[0].last.table.find((x) => x.seat === seat) || {}).bot, 8000),
+      "the computer sat down in it");
+
+    // the front page, on some other phone entirely
+    const front = client();
+    front.emit("whereAmI", { token: goner.tok });
+    assert.ok(await until(() => front.table !== undefined));
+    assert.ok(front.table, "the chair is still being held");
+
+    front.table = undefined;
+    front.emit("giveUpSeat", { token: goner.tok });
+    assert.ok(await until(() => front.table !== undefined), "the front page answered");
+    assert.equal(front.table, null, "and there is nothing left to go back to");
+
+    const again = client();
+    again.emit("whereAmI", { token: goner.tok });
+    assert.ok(await until(() => again.table !== undefined));
+    assert.equal(again.table, null, "asking again offers nothing either");
+
+    let failed = false;
+    const back = client();
+    back.on("resumeFailed", () => { failed = true; });
+    back.emit("resume", { token: goner.tok });
+    assert.ok(await until(() => failed), "and the token no longer opens the chair");
+    assert.equal(rest[0].last.phase, "play", "while the others play on");
+  })();
+});
+
+test("giving up a chair with a token nobody holds changes nothing", () => {
+  return (async () => {
+    const c = client();
+    for (const junk of [undefined, null, {}, { token: "" }, { token: 7 }, { token: [] },
+                        { token: "no-such-chair" }])
+      c.emit("giveUpSeat", junk);
+    await wait(500);
+    assert.equal(srv.exited, null, `still up: ${srv.log.slice(-300)}`);
+  })();
+});

@@ -1504,6 +1504,23 @@ io.on("connection", (socket) => {
   });
 
   on("leaveRoom", () => leave(socket, true));   // deliberate exit
+
+  /* Giving a held chair up from somewhere else — the front page offers it
+     next to the way back, because a chair that can only be given up from
+     the table it belongs to cannot be given up at all by somebody whose
+     phone died. The token is what proves the chair is theirs, the same as
+     it does for coming back. */
+  on("giveUpSeat", (msg) => {
+    const token = msg && msg.token;
+    if (!token || typeof token !== "string") return socket.emit("atTable", null);
+    const room = [...rooms.values()].find((r) => r.players.some((p) => p.token === token));
+    if (!room) return socket.emit("atTable", null);
+    const p = room.players.find((x) => x.token === token);
+    p.id = socket.id;                 // so the seat is found the ordinary way
+    socket.data.roomId = room.id;
+    leave(socket, true);
+    socket.emit("atTable", null);     // and the front page stops offering it
+  });
   on("disconnect", () => leave(socket, false)); // dropped — hold the seat
 
   // Coming back after a drop: the browser remembers a token, we match it to the

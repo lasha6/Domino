@@ -93,6 +93,7 @@
       "The connection was gone too long and the table closed.",
     "მაგიდა შენ გელოდება": "A table is waiting for you",
     "დაბრუნება ▶": "Go back ▶",
+    "ადგილს ვთმობ": "Give up the seat",
     "— თამაში მიდის": "— in play",
     "— მაგიდა ველოდება": "— still filling",
     "მაგიდის დატოვება?": "Leave the table?",
