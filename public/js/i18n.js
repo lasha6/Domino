@@ -43,7 +43,7 @@
     "მოგებულს ფსონი ემატება, წაგებულს აკლდება": "The winner takes the stake, the loser pays it",
     "🎓 კომპიუტერთან პრაქტიკაა — მონეტები არ ითვლება":
       "🎓 Practice against the computer — no coins at stake",
-    "👤 1v1": "👤 1v1", "👥 2v2 წყვილებით": "👥 2v2 in pairs",
+    "👥 2v2 წყვილებით": "👥 2v2 in pairs",
     "2v2 (წყვილებით)": "2v2 (in pairs)",
     "ხუთკარტა": "Five-card", "სამკარტა": "Three-card",
     "36 კარტი": "36 cards", "20 კარტი · „ვარ\"": "20 cards · \"var\"",
@@ -262,51 +262,124 @@
     "ერთი": "One", "ორი": "Two", "სამი": "Three", "ოთხი": "Four",
     "მასპინძელი": "Host",
 
-        // --- the bottom bar of the front page ---
+        // --- the rules, and the rest of the front page ---
+    "მიზანი.": "The goal.", "ქულა.": "Scoring.", "სტავკა.": "The spinner.",
+    "ბაზარი.": "The boneyard.", "ხელის დასასრული.": "The end of a hand.",
+    "ბლოკი.": "Blocked.", "რიბა.": "Riba.",
+    "პირველმა დააგროვე ოთახის ქულა — 75, 175, 255 ან 355.":
+      "Be first to the table's target — 75, 175, 255 or 355.",
+    "ყოველი დადების შემდეგ დაითვალე მაგიდის ღია ბოლოები. თუ ჯამი 5-ზე იყოფა, ეს ქულა შენია.":
+      "After every tile, add up the open ends. If the total divides by five, those points are yours.",
+    "პირველი დადებული დუბლი (ან პირველი, რომელსაც ორივე მხრიდან ქვა დაედება) ხდება სტავკა — მას ორი დამატებითი მკლავი აქვს.":
+      "The first double played (or the first with a tile on both sides) becomes the spinner, and the line grows two more arms from it.",
+    "სვლა თუ არ გაქვს, აიღე ქვა. ბოლო ორი ქვა არასდროს იღება.":
+      "With no move, take a tile. The last two are never taken.",
+    "ვინც ქვებს ადრე მორჩება, იღებს მოწინააღმდეგის ხელში დარჩენილ ქულებს — მრგვალდება 5-მდე ზემოთ.":
+      "Whoever runs out of tiles first takes what is left in the other hands, rounded up to five.",
+    "თუ სვლა არავის აქვს, იგებს ის, ვისაც ხელში ნაკლები დარჩა.":
+      "If nobody can move, the hand goes to whoever holds the least.",
+    "თუ ვინმემ მიზანს მიაღწია, მაგრამ ხელი ბლოკით დასრულდა, ინიშნება დამატებითი ხელი — მოწინააღმდეგეს კიდევ აქვს შანსი.":
+      "If the target is reached on a blocked hand, one more hand is played — the other side still has a chance.",
+    "💎 გროვდება დონეებით — ყოველ დონეზე 2": "💎 Earned by levelling up — two a level",
+    "ცოცხალ მოწინააღმდეგესთან": "Against a live opponent",
+    "კომპიუტერთან — პრაქტიკა, მონეტების გარეშე": "Against the computer — practice, no coins",
+    "მიიღებ კოდს და გაუზიარებ მეგობარს": "You get a code to share with a friend",
+    // --- the domino table talks a lot ---
+    "აირჩიე ადგილი მაგიდაზე — მწვანე ადგილები": "Pick a place on the table — the green ones",
+    "ბაზარი დახურულია (ბოლო 2 რჩება) — პასი": "The boneyard is shut (the last two stay) — pass",
+    "კომპიუტერი: პასი (ბაზარი დახურულია)": "Computer: pass (the boneyard is shut)",
+    "კომპიუტერს სვლა არ აქვს, ბაზარი დახურულია — პასი":
+      "The computer has no move and the boneyard is shut — pass",
+    "სვლა არ გაქვს, ბაზარი დახურულია — პასი": "You have no move and the boneyard is shut — pass",
+    "პასი": "pass",
+    // --- the bottom bar of the front page ---
     "რეჟიმები": "Modes", "დავალებები": "Tasks", "ბორბალი": "Wheel",
     "თასები": "Cups", "სოციალური": "Social",
   };
 
   /* Strings built at run time — a name and a verb, a count and a word. Matched
-     on the finished text, because that is what reaches the page. */
+     on the finished text, because that is what reaches the page. A name inside
+     one is put through the dictionary too: the three computer players have
+     names, and half-translating a sentence is worse than not touching it. */
   const PATTERNS = [
-    [/^(.+) ჩამოვიდა (\d+) ქვით$/, (m) => `${m[1]} led ${m[2]} card${m[2] === "1" ? "" : "s"}`],
-    [/^(.+) ჩამოვიდა$/, (m) => `${m[1]} led`],
-    [/^(.+) ფიქრობს$/, (m) => `${m[1]} is thinking`],
-    [/^(.+) ბიდავს$/, (m) => `${m[1]} is bidding`],
-    [/^(.+) კოზირს აცხადებს$/, (m) => `${m[1]} is naming the trump`],
-    [/^(.+) გავიდა$/, (m) => `${m[1]} left`],
-    [/^(.+) დაბრუნდა$/, (m) => `${m[1]} is back`],
-    [/^(.+) გაჭრა$/, (m) => `${m[1]} beat it`],
-    [/^(.+) ვერ გაჭრა$/, (m) => `${m[1]} could not beat it`],
-    [/^(.+): ბურა!$/, (m) => `${m[1]}: bura!`],
-    [/^(.+) — მალუტკა!$/, (m) => `${m[1]} — malutka!`],
-    [/^(.+) — ბურა!$/, (m) => `${m[1]} — bura!`],
-    [/^ხელი აიღო — (.+)$/, (m) => `Trick to ${m[1]}`],
-    [/^(.+)-მ აიღო$/, (m) => `Taken by ${m[1]}`],
+    [/^(.+) ჩამოვიდა (\d+) ქვით$/, (m) => `${one(m[1])} led ${m[2]} card${m[2] === "1" ? "" : "s"}`],
+    [/^(.+) ჩამოვიდა$/, (m) => `${one(m[1])} led`],
+    [/^(.+) ფიქრობს$/, (m) => `${one(m[1])} is thinking`],
+    [/^(.+) ბიდავს$/, (m) => `${one(m[1])} is bidding`],
+    [/^(.+) კოზირს აცხადებს$/, (m) => `${one(m[1])} is naming the trump`],
+    [/^(.+) გავიდა$/, (m) => `${one(m[1])} left`],
+    [/^(.+) დაბრუნდა$/, (m) => `${one(m[1])} is back`],
+    [/^(.+) გაჭრა$/, (m) => `${one(m[1])} beat it`],
+    [/^(.+) ვერ გაჭრა$/, (m) => `${one(m[1])} could not beat it`],
+    [/^(.+): ბურა!$/, (m) => `${one(m[1])}: bura!`],
+    [/^(.+): (\d+)$/, (m) => `${one(m[1])}: ${m[2]}`],
+    [/^(.+) — მალუტკა!$/, (m) => `${one(m[1])} — malutka!`],
+    [/^(.+) — ბურა!$/, (m) => `${one(m[1])} — bura!`],
+    [/^ხელი აიღო — (.+)$/, (m) => `Trick to ${one(m[1])}`],
+    [/^(.+)-მ აიღო$/, (m) => `Taken by ${one(m[1])}`],
     [/^ველოდებით — (\d+)\/(\d+)$/, (m) => `Waiting — ${m[1]}/${m[2]}`],
     [/^(\d+) მოთამაშე კიდევ$/, (m) => `${m[1]} more player${m[1] === "1" ? "" : "s"}`],
     [/^გაუზიარე კოდი — (\d+) მოთამაშე კიდევ$/,
       (m) => `Share the code — ${m[1]} more player${m[1] === "1" ? "" : "s"}`],
-    [/^ველოდებით: (.+)$/, (m) => `Waiting for: ${m[1]}`],
-    [/^(.+) დატოვა მაგიდა\.$/, (m) => `${m[1]} left the table.`],
-    [/^(.+) — კავშირი გაწყდა, ველოდებით…$/, (m) => `${m[1]} — connection lost, waiting…`],
+    [/^ველოდებით: (.+)$/, (m) => `Waiting for: ${one(m[1])}`],
+    [/^(.+) დატოვა მაგიდა\.$/, (m) => `${one(m[1])} left the table.`],
+    [/^(.+) — კავშირი გაწყდა, ველოდებით…$/, (m) => `${one(m[1])} — connection lost, waiting…`],
     [/^(.+) — ადგილი დაცულია, ქვებს კომპიუტერი აგრძელებს$/,
-      (m) => `${m[1]} — the chair is held; the computer plays it`],
-    [/^(.+) — დრო ამოიწურა$/, (m) => `${m[1]} — out of time`],
+      (m) => `${one(m[1])} — the chair is held; the computer plays it`],
+    [/^(.+) — დრო ამოიწურა$/, (m) => `${one(m[1])} — out of time`],
     [/^(.+) გავიდა — მის ქვებს კომპიუტერი აგრძელებს$/,
-      (m) => `${m[1]} left — the computer plays their tiles`],
-    [/^(.+) გავიდა — (\d+)\/(\d+)$/, (m) => `${m[1]} left — ${m[2]}/${m[3]}`],
+      (m) => `${one(m[1])} left — the computer plays their tiles`],
+    [/^(.+) გავიდა — (\d+)\/(\d+)$/, (m) => `${one(m[1])} left — ${m[2]}/${m[3]}`],
     [/^სახელი შენახულია: (.+)$/, (m) => `Name saved: ${m[1]}`],
     [/^გამარჯობა, (.+)$/, (m) => `Hello, ${m[1]}`],
     [/^შენ ხარ დილერი — (\d+) აკრძალულია$/, (m) => `You are the dealer — ${m[1]} is not allowed`],
     [/^მოწინააღმდეგის ხელი: \+(\d+) ქულა\.$/, (m) => `Opponent's hand: +${m[1]} points.`],
-    [/^დაიწყო — (.+)$/, (m) => `Started — ${m[1]}`],
-    [/^ხელი დასრულდა$/, () => "The hand is over"],
+    [/^დაიწყო — (.+)$/, (m) => `Started — ${one(m[1])}`],
     [/^სეტის ბონუსი: (.+)$/, (m) => `Set bonus: ${m[1]}`],
     [/^ანგარიში (\d+) : (\d+)$/, (m) => `Score ${m[1]} : ${m[2]}`],
-    [/^(.+) — რიბა! დამატებითი ხელი$/, (m) => `${m[1]} — riba! one more hand`],
-    [/^(.+) — თანაბარია! დამატებითი ხელი$/, (m) => `${m[1]} — level! one more hand`],
+    [/^(.+) — რიბა! დამატებითი ხელი$/, (m) => `${one(m[1])} — riba! one more hand`],
+    [/^(.+) — თანაბარია! დამატებითი ხელი$/, (m) => `${one(m[1])} — level! one more hand`],
+
+    // a name wearing the dealer's mark, or the computer's
+    [/^(.+) 🃏$/, (m) => `${one(m[1])} 🃏`],
+    [/^(.+) 🤖$/, (m) => `${one(m[1])} 🤖`],
+
+    // the domino table narrates every move, with the tile in brackets
+    [/^კომპიუტერმა ითამაშა \[(.+)\]$/, (m) => `The computer played [${m[1]}]`],
+    [/^შენ ითამაშე \[(.+)\] — ახლა შენი სვლაა$/, (m) => `You played [${m[1]}] — your move again`],
+    [/^შენ ითამაშე \[(.+)\]$/, (m) => `You played [${m[1]}]`],
+    [/^აიღე \[(.+)\] — ახლა შენი სვლაა$/, (m) => `You took [${m[1]}] — your move`],
+    [/^აიღე \[(.+)\]$/, (m) => `You took [${m[1]}]`],
+    [/^კომპიუტერმა აიღო ქვა \((\d+) ასაღები დარჩა\)…$/,
+      (m) => `The computer took a tile (${m[1]} left to take)…`],
+    [/^ახალი ხელი — (.+)$/, (m) => `New hand — ${one(m[1])}`],
+    [/^კომპიუტერს დარჩა (.+)$/, (m) => `The computer has ${m[1]} left`],
+    [/^ხელში დარჩა — (.+)$/, (m) => `Left in hand — ${m[1]}`],
+
+    // a name or a word with a count after it
+    [/^(.+) \((\d+)\)$/, (m) => `${one(m[1])} (${m[2]})`],
+
+    // the friend dialog puts a game name in front of the same sentence
+    [/^(დომინო|ბურა|ჯოკერი) — შექმენი მაგიდა და გაუგზავნე კოდი, ან შედი მეგობრის კოდით$/,
+      (m) => `${one(m[1])} — make a table and send the code, or join with a friend's`],
+    [/^შენ გახსენი \[(.+)\]$/, (m) => `You opened with [${m[1]}]`],
+    [/^კომპიუტერმა გახსნა \[(.+)\]$/, (m) => `The computer opened with [${m[1]}]`],
+    [/^კომპიუტერს სვლა არ აქვს, იღებს ბაზრიდან…$/,
+      () => "The computer has no move and is drawing…"],
+    [/^სვლა არ გაქვს\. აირჩიე ქვა \((\d+) ასაღები, ბოლო 2 რჩება\)\.$/,
+      (m) => `You have no move. Take a tile (${m[1]} to take, the last two stay).`],
+    [/^\[(.+)\], მაინც არ ჯდება — აიღე კიდევ \((\d+) ასაღები დარჩა\)…$/,
+      (m) => `[${m[1]}] still does not fit — take another (${m[2]} left)…`],
+    [/^ორივეს თანაბარი ქულა დარჩა \((\d+)\)$/, (m) => `Both are left holding the same (${m[1]})`],
+    [/^(\d+) ნაკლები დარჩა \((\d+) — (\d+)\)$/, (m) => `${m[1]} fewer left (${m[2]} — ${m[3]})`],
+    /* A move that scored says so in a span of its own, so the sentence before
+       it ends in a dash and nothing else. */
+    [/^კომპიუტერმა ითამაშა \[(.+)\] —$/, (m) => `The computer played [${m[1]}] —`],
+    [/^შენ ითამაშე \[(.+)\] —$/, (m) => `You played [${m[1]}] —`],
+    [/^აიღე \[(.+)\] —$/, (m) => `You took [${m[1]}] —`],
+    [/^\+(\d+) ქულა!$/, (m) => `+${m[1]} points!`],
+    [/^(\d+) ქულა$/, (m) => `${m[1]} points`],
+    [/^(\d+) ქულა\.$/, (m) => `${m[1]} points.`],
   ];
 
   let lang = null;
@@ -318,21 +391,21 @@
   function one(text) {
     if (lang !== "en" || !text || !KA.test(text)) return text;
     const lead = text.match(/^\s*/)[0], tail = text.match(/\s*$/)[0];
-    const core = text.trim();
+    /* A paragraph written across three lines of HTML arrives with the line
+       breaks still in it. What is looked up is the sentence, so the spaces
+       inside are squeezed first — and the English that comes back is one
+       line, which is what a paragraph wanted anyway. */
+    const core = text.trim().replace(/[\s\u00a0]+/g, " ");
     if (EN[core] !== undefined) return lead + EN[core] + tail;
     for (const [re, fn] of PATTERNS) {
       const m = core.match(re);
       if (m) return lead + fn(m) + tail;
     }
-    /* Not a whole string we know — try it as a sentence built from pieces we
-       do. "ბიდი | ანგარიში 3 : 2" and the like are joined at run time. */
-    let out = core, hit = false;
-    for (const part of Object.keys(EN)) {
-      if (part.length < 4 || out.indexOf(part) < 0) continue;
-      out = out.split(part).join(EN[part]);
-      hit = true;
-    }
-    return hit ? lead + out + tail : text;
+    /* Nothing matched the whole of it, so it stays Georgian. Swapping the
+       words it happens to contain was tried and is worse than useless here:
+       Georgian glues its endings on, so "ცოცხალ მოწინააღმდეგესთან" came out as
+       "ცოცხალ Opponentსთან". A sentence is translated whole or not at all. */
+    return text;
   }
 
   const SKIP = { SCRIPT: 1, STYLE: 1, TEXTAREA: 1, SVG: 1 };

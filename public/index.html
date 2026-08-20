@@ -530,6 +530,12 @@
       const ch = shown[0];
       // capitalise Latin only — a single Georgian mtavruli letter looks wrong
       ini.textContent = /[a-z]/i.test(ch) ? ch.toUpperCase() : ch;
+      /* The profile carries the same face, and it is only filled in when the
+         server answers — which may be never, on a phone with no signal. It
+         gets the letter now so it is never left showing the one baked into
+         the page. */
+      const pini = document.querySelector("#profAvatar .ini");
+      if (pini) pini.textContent = ini.textContent;
     }
 
     /* Two ways in. Guest is always there; the Google half only appears once the
@@ -694,9 +700,13 @@
       Look.remember(ME.equipped);          // wear what this account has on
 
       // the profile screen itself
-      const n = ME.name || Auth.name() || "სტუმარი";
+      // a player with no name of their own is "სტუმარი", or "Guest" — and the
+      // initial has to be the initial of whichever word is on the screen
+      const n = ME.name || Auth.name()
+        || (window.I18N ? I18N.t("სტუმარი") : "სტუმარი");
       document.getElementById("profName").textContent = n;
-      document.querySelector("#profAvatar .ini").textContent = n[0] || "ს";
+      // the same as the chip: the letter follows the name that is shown
+      document.querySelector("#profAvatar .ini").textContent = n[0];
       // the Google photo, if the account has one — the initial stays behind it
       // and shows through whenever the picture is missing or will not load
       const local = Auth.load();
