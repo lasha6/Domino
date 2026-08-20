@@ -1153,17 +1153,40 @@ io.on("connection", (socket) => {
      gone somewhere else. Nothing on the way out of a match is refused: the
      screen sends leaveRoom when the player means it, and a finished or
      still-waiting table is simply left behind. */
-  function busyElsewhere(sock) {
-    const room = roomOf(sock);
+  /* A chair a player is still holding, whether or not this socket is the one
+     sitting in it. After a drop they come back on a new socket, and the chair
+     is theirs by token — which is the whole point of holding it. */
+  function heldRoom(sock, token) {
+    const mine = roomOf(sock);
+    if (mine) return mine;
+    if (!token || typeof token !== "string") return null;
+    return [...rooms.values()].find((r) =>
+      r.players.some((x) => x.token === token && !x.gone)) || null;
+  }
+
+  /* Nobody sits at two tables. A live one holds them until they say they mean
+     to leave it, so the table is named back to them and the join is refused;
+     the screen offers the way back. One that is finished or still filling is
+     nothing to hold anybody, so it is left properly and the join goes ahead. */
+  function busyElsewhere(sock, token) {
+    const room = heldRoom(sock, token);
     if (!room) return false;
     const live = room.phase === "play" || room.phase === "draw" || room.phase === "roundEnd";
-    if (live) return true;
+    const p = room.players.find((x) => x.id === sock.id || (token && x.token === token));
+    if (live) {
+      if (p) sock.emit("atTable", {
+        game: room.game, size: room.size, code: room.code,
+        variant: room.variant, phase: room.phase, seat: p.seat, playing: true,
+      });
+      return true;
+    }
+    if (p && p.id !== sock.id) { p.id = sock.id; sock.data.roomId = room.id; }
     leave(sock, true);            // finished or still waiting: leave it properly
     return false;
   }
 
   on("quickJoin", async (payload) => {
-    if (busyElsewhere(socket)) return;
+    if (busyElsewhere(socket, payload && payload.token)) return;
     const { name, token, auth } = payload;
     const { game, variant, size: sz, target: t, openMalutka } = tableWanted(payload);
     const who = await whoIs(auth, name);
@@ -1187,7 +1210,7 @@ io.on("connection", (socket) => {
 
   // --- private table: create / join by code ---
   on("createTable", async (payload) => {
-    if (busyElsewhere(socket)) return;
+    if (busyElsewhere(socket, payload && payload.token)) return;
     const { name, token, auth } = payload;
     const { game, variant, size: sz, target: t, openMalutka } = tableWanted(payload);
     const who = await whoIs(auth, name);
@@ -1198,7 +1221,7 @@ io.on("connection", (socket) => {
   });
 
   on("joinTable", async ({ code, name, token, auth }) => {
-    if (busyElsewhere(socket)) return;
+    if (busyElsewhere(socket, token)) return;
     const room = [...rooms.values()].find((r) => r.code === String(code || "").toUpperCase());
     if (!room) return socket.emit("joinError", "ასეთი მაგიდა ვერ მოიძებნა");
     if (room.players.length >= room.size) return socket.emit("joinError", "მაგიდა უკვე სავსეა");

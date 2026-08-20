@@ -382,3 +382,37 @@ test("a screen that comes to the wrong table is turned away", () => {
     assert.ok(await until(() => right.last && right.last.hand), "the right screen still gets in");
   })();
 });
+
+test("a chair you are still holding will not let you sit at another table", () => {
+  /* The whole point of holding a chair is that it is yours until you say it is
+     not. Joining somewhere else was the one way round it: the drop put the
+     player on a new socket, the guard only knew about sockets, and they ended
+     up at two tables with the computer playing the first one. The token is
+     what says the chair is theirs, so the token is what is checked. */
+  return (async () => {
+    const cs = await fourAtJoker();
+    const goner = cs[1], seat = goner.last.seat;
+    goner.close();
+    await wait(300);
+
+    const fresh = client();                 // the same player, a new socket
+    fresh.emit("quickJoin", { game: "bura", variant: "3", target: 11,
+                              name: "ორი", token: goner.tok,
+                              auth: { kind: "guest", id: "elsewhere" } });
+    assert.ok(await until(() => fresh.table !== undefined), "it named the table back");
+    assert.ok(fresh.table, "the chair they are holding");
+    assert.equal(fresh.table.game, "joker");
+    assert.equal(fresh.table.seat, seat);
+    await wait(400);
+    assert.equal(fresh.last, null, "and never dealt them into a second one");
+
+    // give the chair up and the same join goes through
+    fresh.emit("giveUpSeat", { token: goner.tok });
+    await wait(300);
+    const after = client();
+    after.emit("quickJoin", { game: "bura", variant: "3", target: 11,
+                              name: "ორი", token: goner.tok + "-new",
+                              auth: { kind: "guest", id: "elsewhere2" } });
+    assert.ok(await until(() => after.last), "a free player can still sit down");
+  })();
+});

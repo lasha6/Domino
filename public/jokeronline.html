@@ -701,6 +701,11 @@
     });
     /* The chair was not there after all — given up, or the table finished
        while they were away. Back to the front page rather than a blank table. */
+    /* Told we are holding a chair somewhere else. It only ever means the
+       join was refused because that chair is still ours, so the front
+       page takes it from here: it is the screen that offers the way
+       back, and the way to give the chair up. */
+    socket.on("atTable", (t) => { if (t) location.replace("index.html"); });
     socket.on("resumeFailed", () => {
       if (MODE === "rejoin") { location.replace("index.html"); return; }
     });
