@@ -56,6 +56,12 @@ function client() {
   clients.push(c);
   return c;
 }
+// what the books say about a player, asked the way a screen asks
+const ask = (id) => new Promise((res) => {
+  const c = client();
+  c.once("profile", res);
+  c.emit("profile", { auth: { kind: "guest", id } });
+});
 const until = async (fn, ms = 15000) => {
   const t0 = Date.now();
   while (!fn() && Date.now() - t0 < ms) await wait(60);
@@ -245,5 +251,61 @@ test("and in a game of four, walking out does not end anything", () => {
     assert.equal(rest[0].last.phase, "play", "the table is still playing");
     assert.ok((rest[0].last.table.find((x) => x.seat === seat) || {}).bot,
       "with the computer in the empty chair");
+  })();
+});
+
+test("the computer may finish your cards, but the match is lost the moment you go", () => {
+  /* Four at a ბურა table and one of them says yes to leaving. The other three
+     play on and the computer picks the empty seat's cards up, so the side they
+     were on may still win — but the match is not theirs. The screen warns that
+     leaving counts as a loss before it asks, so it is written down as one there
+     and then, rather than whenever the others happen to finish. */
+  return (async () => {
+    const tag = "rjg" + (n++);
+    const ids = [0, 1, 2, 3].map((i) => tag + i);
+    const cs = ["ერთი", "ორი", "სამი", "ოთხი"].map((name, i) => {
+      const c = client();
+      c.who = ids[i];
+      c.emit("quickJoin", { game: "bura", size: 4, variant: "5", target: 6, name,
+                            auth: { kind: "guest", id: ids[i] } });
+      return c;
+    });
+    assert.ok(await until(() => cs.every((c) => c.last && c.last.hand)), "all four dealt");
+    cs.sort((x, y) => x.last.seat - y.last.seat);
+    const goner = cs[0];
+
+    goner.emit("leaveRoom");
+    await wait(400);
+    const prof = await ask(goner.who);
+    assert.equal(prof.stats.matches, 1, "the match counted against them");
+    assert.equal(prof.stats.matchWins, 0, "and never as a win");
+    assert.equal(prof.stats.streak, 0, "the run is broken");
+    assert.equal(cs[1].last.phase, "play", "while the table plays on without them");
+  })();
+});
+
+test("and the same match is never written down twice", () => {
+  /* Two at the table: leaving books the loss, and the table ends there. Nothing
+     may add a second match to either player's record afterwards. */
+  return (async () => {
+    const tag = "rjd" + (n++);
+    const a = client(), b = client();
+    a.who = tag + "a"; b.who = tag + "b";
+    let over = null;
+    b.on("matchOver", (m) => { over = m; });
+    a.emit("quickJoin", { game: "bura", variant: "3", target: 11, name: "წამსვლელი",
+                          token: tag + "-a", auth: { kind: "guest", id: a.who } });
+    b.emit("quickJoin", { game: "bura", variant: "3", target: 11, name: "დარჩენილი",
+                          token: tag + "-b", auth: { kind: "guest", id: b.who } });
+    assert.ok(await until(() => a.last && a.last.hand && b.last && b.last.hand), "both dealt");
+
+    a.emit("leaveRoom");
+    assert.ok(await until(() => over), "the match ended");
+    await wait(400);
+    const pa = await ask(a.who), pb = await ask(b.who);
+    assert.equal(pa.stats.matches, 1, "one match for the one who went");
+    assert.equal(pa.stats.matchWins, 0, "lost");
+    assert.equal(pb.stats.matches, 1, "one match for the one who stayed");
+    assert.equal(pb.stats.matchWins, 1, "won");
   })();
 });

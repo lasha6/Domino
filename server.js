@@ -442,6 +442,7 @@ const BURA_MOVE_TIME = 30000;
 const BURA_NEXT_ROUND = 4000;
 
 function startBura(room) {
+  room.players.forEach((p) => { p.settled = false; });   // a fresh match to write down
   clearAuto(room);
   // partners sit across, so a side is every other chair round the table
   room.players.forEach((p, i) => { p.seat = i; p.team = i % 2; });
@@ -639,6 +640,7 @@ function buraView(room, seat) {
 const JOKER_MOVE_TIME = 30000;                 // a while to think; there is a lot to read
 
 function startJoker(room) {
+  room.players.forEach((p) => { p.settled = false; });   // a fresh match to write down
   clearAuto(room);
   room.players.forEach((p, i) => { p.seat = i; p.team = i; });   // no teams here
   room.j = Joker.newGame({ dealer: room.size - 1 });   // so seat 0 calls first
@@ -817,6 +819,7 @@ function maybeStart(room) {
 }
 
 function startMatch(room) {
+  room.players.forEach((p) => { p.settled = false; });   // a fresh match to write down
   clearAuto(room);
   assignSeats(room);                 // partners opposite; fills in anyone unpaired
   room.g = Ozi.newGame(room.target, room.size);
@@ -957,6 +960,14 @@ const STAKES = { 75: 50, 175: 100, 255: 250, 355: 500 };
 const stakeFor = (target) => STAKES[target] || STAKES[175];
 
 function awardMatch(room, p, won) {
+  /* Giving a chair up loses the match, which is what the screen warns
+     before it asks. Without this the computer could go on and win with the
+     cards of somebody who had already walked out, and the win would be
+     written down as theirs. A player who leaves is booked there and then,
+     so this also has to refuse to write the same match down twice. */
+  if (p.gone) won = false;
+  if (p.settled) return;
+  p.settled = true;
   touch(room, p, (pr) => {
     pr.stats.matches++;
     if (won) {
@@ -1594,6 +1605,9 @@ io.on("connection", (socket) => {
     if (quit) {
       p.gone = true;
       if (abandonSeat(room, p).dead) { endMatchEarly(room, p.name); return; }
+      // the table plays on without them; the match is lost from this moment,
+      // not whenever the others happen to finish it
+      if (room.g || room.b || room.j) awardMatch(room, p, false);
       carryOn(room);
       return;
     }
