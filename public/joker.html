@@ -49,7 +49,11 @@
         <div class="trumpBox" id="trumpBox"></div>
       </div>
       <span class="pileLbl" id="pileLbl">მაგიდა</span>
-      <div class="chipMe" id="chipMe"></div>   <!-- your own first/last marker -->
+      <!-- the two markers, laid on the felt beside the players they belong to -->
+      <div class="tchip" id="chipMe"></div>
+      <div class="tchip" id="chipLeft"></div>
+      <div class="tchip" id="chipAcross"></div>
+      <div class="tchip" id="chipRight"></div>
       <div class="trick cross" id="trick"></div>
     </div>
 
@@ -254,12 +258,43 @@
       return Joker.leftOfDealer(g);            // bidding, and choosing the trump
     }
     const lastSeat = () => { const f = firstSeat(); return f == null ? null : (f + 3) % 4; };
-    function chipFor(seat){
+    /* A chip is a chip: a round counter with a rim, laid on the cloth beside
+       its player, not a dot pinned to their name plate. */
+    function chipKind(seat){
       if (seat == null) return null;
-      const d = document.createElement("span");
-      if (seat === firstSeat()) { d.className = "chip first"; d.title = "პირველი ჩამომსვლელი"; return d; }
-      if (seat === lastSeat())  { d.className = "chip last";  d.title = "ბოლო ჩამომსვლელი";  return d; }
+      if (seat === firstSeat()) return "first";
+      if (seat === lastSeat())  return "last";
       return null;
+    }
+    const CHIP_IDS = { 0: "chipMe", 1: "chipLeft", 2: "chipAcross", 3: "chipRight" };
+    function paintChips(){
+      for (let i = 0; i < 4; i++) {
+        const seat = (ME + i) % 4;
+        const el = document.getElementById(CHIP_IDS[i]);
+        const kind = chipKind(seat);
+        el.className = "tchip" + (kind ? " show " + kind : "");
+        el.title = kind === "first" ? "პირველი ჩამომსვლელი"
+                 : kind === "last"  ? "ბოლო ჩამომსვლელი" : "";
+      }
+      placeChips();
+    }
+    /* The three plates are different widths — a name can be long — so where the
+       chip sits beside each one is measured rather than guessed. Yours needs no
+       measuring: it goes on the cloth in front of you. */
+    function placeChips(){
+      const bt = document.getElementById("btable").getBoundingClientRect();
+      if (!bt.width) return;
+      const put = (chipId, plateId, side) => {
+        const c = document.getElementById(chipId);
+        const p = document.getElementById(plateId).getBoundingClientRect();
+        const w = c.offsetWidth || 20;
+        c.style.top = Math.round(p.top - bt.top + (p.height - w) / 2) + "px";
+        c.style.left = side > 0 ? Math.round(p.right - bt.left + 8) + "px"
+                                : Math.round(p.left - bt.left - w - 8) + "px";
+      };
+      put("chipLeft",  "seatLeft",  +1);
+      put("chipRight", "seatRight", -1);
+      put("chipAcross","seatAcross", +1);
     }
 
     /* ---------------- the record of the match ----------------
@@ -278,10 +313,18 @@
       document.getElementById("histPanel").classList.toggle("show", histOpen);
       document.getElementById("histBtn").classList.toggle("on", histOpen);
       Sound.play("tap");
-      if (histOpen) paintHist();
+      if (histOpen) {
+        paintHist();
+        const box = document.getElementById("histInner");
+        box.scrollTop = box.scrollHeight;      // opens showing the latest
+      }
     }
     function paintHist(){
       const box = document.getElementById("histInner");
+      /* Stay at the newest hand as they are added, unless the reader has
+         scrolled back to look at an earlier one — then leave them where they
+         are until they come back down. */
+      const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 6;
       box.innerHTML = "";
       if (!g.history.length) {
         const p = document.createElement("p");
@@ -339,6 +382,7 @@
       }
       t.appendChild(foot);
       box.appendChild(t);
+      if (atBottom) box.scrollTop = box.scrollHeight;
     }
 
     /* ---------------- the whole screen ---------------- */
@@ -358,15 +402,12 @@
       paintScores();
       paintTrump();
       paintSeats();
-      const mine = document.getElementById("chipMe");
-      mine.innerHTML = "";
-      const myChip = chipFor(ME);
-      mine.style.display = myChip ? "" : "none";
-      if (myChip) mine.appendChild(myChip);
+      paintChips();
       paintTrick();
       paintHand();
       paintBar();
       if (histOpen) paintHist();
+      placeChips();
     }
 
     /* Only your own total goes up here. The other three carry theirs at their
@@ -431,8 +472,7 @@
         const score = document.createElement("div");
         score.className = "seatScore";
         score.textContent = g.scores[seat];
-        const chip = chipFor(seat);
-        if (chip) who.appendChild(chip);
+
         if (g.bids[seat] != null) {
           if (g.took[seat] === g.bids[seat]) tally.classList.add("done");
           else if (g.took[seat] > g.bids[seat]) tally.classList.add("blown");

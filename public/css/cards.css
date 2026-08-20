@@ -392,22 +392,39 @@
 .histBtn.on{ color:var(--ink); background:linear-gradient(180deg,var(--brass-lit),var(--brass)); border-color:var(--brass-dim); }
 .histBtn.on .chev{ transform:rotate(180deg); }
 
+/* The record comes in down the LEFT side rather than over the whole table: the
+   player asked to keep the rest of it in view while reading, and to have the
+   panel gone completely when the button is pressed again. */
 .histPanel{
-  position:absolute; left:0; right:0; top:0; z-index:6;
-  max-height:100%; overflow:auto; padding:8px 10px 10px;
-  background:linear-gradient(180deg, rgba(4,26,15,.985), rgba(3,20,11,.975));
-  border-bottom:1px solid var(--brass-dim); border-radius:14px 14px 12px 12px;
-  transform:translateY(-102%); transition:transform .2s ease-out;
-  box-shadow:0 14px 30px rgba(0,0,0,.5);
+  position:absolute; left:0; top:0; bottom:0; z-index:6;
+  width:clamp(232px, 38%, 400px);
+  overflow:hidden; padding:8px 4px 8px 10px;
+  background:linear-gradient(100deg, rgba(4,26,15,.99), rgba(3,20,11,.965));
+  border-right:1px solid var(--brass-dim); border-radius:14px 12px 12px 14px;
+  transform:translateX(-102%); transition:transform .2s ease-out;
+  box-shadow:14px 0 30px rgba(0,0,0,.45);
 }
-.histPanel.show{ transform:translateY(0); }
+.histPanel.show{ transform:translateX(0); }
+/* the record scrolls, and the scrollbar does not show — it is a card table */
+.histInner{
+  height:100%; overflow-y:auto; overflow-x:hidden; padding-right:6px;
+  scrollbar-width:none; -ms-overflow-style:none;
+}
+.histInner::-webkit-scrollbar{ width:0; height:0; display:none; }
 .histEmpty{ margin:10px 0; text-align:center; color:var(--cream-dim); font:600 12px/1 var(--font-ui); }
 
 .histTable{ width:100%; border-collapse:collapse; font:600 11.5px/1.25 var(--font-ui); }
+/* the names stay put while the hands scroll under them — twenty-two rows in
+   and there is otherwise no telling which column belongs to whom */
 .histTable th{
-  font:700 11px/1 var(--font-ui); color:var(--cream-dim); padding:2px 4px 5px;
+  position:sticky; top:0; z-index:2;
+  font:700 11px/1 var(--font-ui); color:var(--cream-dim); padding:3px 4px 5px;
+  background:linear-gradient(180deg, rgba(4,26,15,.99) 70%, rgba(4,26,15,.92));
   border-bottom:1px solid var(--line);
 }
+/* and the totals stay at the foot, for the same reason */
+.histTable tr.total td{ position:sticky; bottom:0; z-index:2;
+  background:linear-gradient(0deg, rgba(4,26,15,.99) 70%, rgba(4,26,15,.92)); }
 .histTable th.me{ color:var(--brass-lit); }
 .histTable td{ padding:2px 4px; color:var(--cream); text-align:right; }
 .histTable td.no{ color:var(--cream-dim); text-align:left; white-space:nowrap; }
@@ -426,21 +443,33 @@
 }
 
 /* ---- the first and last markers ----
-   Green where the play starts, red where it ends. Laid beside the player they
-   belong to, the way a chip is pushed across a real table. */
-.chip{
-  display:inline-block; width:11px; height:11px; border-radius:50%;
-  margin-left:5px; vertical-align:middle; flex:none;
-  box-shadow:0 0 0 1.5px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.5);
+   Green where the play starts, red where it ends. They are chips: round
+   counters with a notched rim, laid on the cloth beside the player they belong
+   to, the way one is pushed across a real table — not dots pinned to a name.
+   They take their size from the cards, so they grow and shrink with the table. */
+.tchip{
+  position:absolute; display:none; z-index:5;
+  width:clamp(19px, calc(var(--jkW, 40px) * .62), 36px); aspect-ratio:1;
+  border-radius:50%;
+  background:radial-gradient(circle at 50% 32%, var(--c2), var(--c1) 74%);
+  box-shadow:0 3px 7px rgba(0,0,0,.55), inset 0 -3px 6px rgba(0,0,0,.35),
+             inset 0 0 0 1px rgba(0,0,0,.4);
 }
-.chip.first{ background:#3fbf6a; }
-.chip.last { background:#d2434f; }
-/* yours goes in the corner on your own side of the table, clear of the line
-   that says who took the trick */
-.chipMe{ position:absolute; left:11px; bottom:8px; z-index:4; display:flex; align-items:center; }
-.chipMe .chip{ width:13px; height:13px; margin:0; }
+/* the notched white ring a counter has round its edge */
+.tchip::after{
+  content:""; position:absolute; inset:2px; border-radius:50%;
+  border:2px dashed rgba(255,255,255,.9);
+}
+.tchip.show{ display:block; }
+.tchip.first{ --c1:#127a37; --c2:#4fd07c; }
+.tchip.last { --c1:#96121f; --c2:#e05a64; }
+/* Yours sits on the cloth on your own side, in the near corner: the middle of
+   the bottom edge is where your own card in the cross comes down, and the chip
+   was landing on top of it. The record opens down the left, so the right corner
+   is the one that is always clear. */
+#chipMe{ right:14px; bottom:12px; }
 
 /* The trump moved to the top-right corner and sits ABOVE the record, so opening
    the record never hides it — that was the whole complaint. */
 .btable.jk .stock{ left:auto; right:9px; top:7px; bottom:auto; transform:none; z-index:8; }
-.histPanel{ padding-right:74px; }
+/* the record never reaches the right-hand edge, so the trump is never hidden */
