@@ -206,3 +206,46 @@ test("a whole round is played out and one side is credited", async () => {
     assert.equal(r.winner, null, "60 apiece is a draw");
   assert.equal(srv.exited, null, `the server is still up: ${srv.log.slice(-400)}`);
 });
+
+test("a 2v2 ბურა table is made with a code and filled by three friends", async () => {
+  /* The lobby had only half of this: you could make a table and be given a
+     code, but ბურა had nowhere to type a friend's code in. The screen sends
+     nothing but the code — what is being played, for how many and to what score
+     all belong to the table that was made — so this checks the server really
+     does take them from the room rather than from whoever is joining. */
+  const tag = "bpf" + (n++);
+  const host = client();
+  let code = null;
+  host.on("state", (st) => { if (st.code) code = st.code; });
+  host.emit("createTable", { game: "bura", size: 4, variant: "5", target: 21, name: "მასპინძელი",
+                             auth: { kind: "guest", id: tag + "h" } });
+  assert.ok(await until(() => code), "the host was given a code");
+  assert.equal(code.length, 4, "four characters, as the box expects");
+
+  const guests = ["ორი", "სამი", "ოთხი"].map((name, i) => {
+    const c = client();
+    // exactly what the code box sends: the code, and nothing about the table
+    c.emit("joinTable", { code, name, auth: { kind: "guest", id: tag + i } });
+    return c;
+  });
+  const all = [host, ...guests];
+  assert.ok(await until(() => all.every((c) => c.last && c.last.hand)), "all four were dealt");
+
+  all.forEach((c) => {
+    assert.equal(c.last.size, 4, "the table the host made is the table they got");
+    assert.equal(c.last.target, 21, "including how far it is played");
+    assert.equal(c.last.hand.length, 5, "ხუთკარტა, which is the only pairs game");
+    assert.equal(c.last.table.length, 4);
+  });
+  assert.deepEqual(all.map((c) => c.last.seat).sort(), [0, 1, 2, 3], "one to a chair");
+  assert.equal(all.filter((c) => c.last.myTurn).length, 1, "and one of them is on lead");
+});
+
+test("a code that belongs to nobody is refused", async () => {
+  const c = client();
+  let err = null;
+  c.on("joinError", (m) => { err = m; });
+  c.emit("joinTable", { code: "ZZZZ", name: "მაწანწალა", auth: { kind: "guest", id: "bp-nobody" } });
+  assert.ok(await until(() => err), "the server said so");
+  assert.match(err, /ვერ მოიძებნა/);
+});

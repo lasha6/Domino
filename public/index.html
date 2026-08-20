@@ -108,7 +108,7 @@
           <span class="arrow">▶</span> ითამაშე
         </button>
         <div class="modes">
-          <button class="mode" onclick="openFriend()">👥 მეგობართან</button>
+          <button class="mode" onclick="openFriend('domino')">👥 მეგობართან</button>
           <button class="mode" onclick="openRooms('cpu')">🤖 კომპიუტერთან</button>
         </div>
       </div>
@@ -138,7 +138,7 @@
           <span class="arrow">▶</span> ითამაშე
         </button>
         <div class="modes">
-          <button class="mode" onclick="openBura('friend')">👥 მეგობართან</button>
+          <button class="mode" onclick="openFriend('bura')">👥 მეგობართან</button>
           <button class="mode" onclick="openBura('cpu')">🤖 კომპიუტერთან</button>
         </div>
       </div>
@@ -419,9 +419,9 @@
   <div class="roomOverlay" id="friendOverlay">
     <div class="roomModal">
       <h2>მეგობართან თამაში</h2>
-      <p class="roomSub">შექმენი მაგიდა და გაუგზავნე კოდი, ან შედი მეგობრის კოდით</p>
+      <p class="roomSub" id="friendSub">შექმენი მაგიდა და გაუგზავნე კოდი, ან შედი მეგობრის კოდით</p>
       <div class="rooms">
-        <button class="room best" onclick="closeFriend(); openRooms('friend')">
+        <button class="room best" onclick="friendCreate()">
           <span class="rIco">➕</span>
           <span class="rName">შექმენი მაგიდა</span>
           <span class="rTime">მიიღებ კოდს</span>
@@ -1050,11 +1050,31 @@
                          + "&target=" + target + "&size=" + roomSize;
     }
 
-    // --- play with a friend: create a table, or join one by code ---
-    function openFriend(){ document.getElementById("friendOverlay").classList.add("show"); }
+    /* --- play with a friend: create a table, or join one by code ---
+       Both games use this, so it has to know which one asked. ბურა had only
+       half of it: you could make a table and be given a code, but there was
+       nowhere to type a friend's code in.
+
+       Joining needs nothing but the code. What is being played, for how many
+       and to what score all belong to the table that was made, and the server
+       reads them off it — so the screen learns them from the state it is sent
+       rather than from the address it was opened with. */
+    let friendGame = "domino";
+    const FRIEND_SCREEN = { domino: "online.html", bura: "buraonline.html" };
+    function openFriend(game){
+      friendGame = game || "domino";
+      document.getElementById("friendSub").textContent = friendGame === "bura"
+        ? "ბურა — შექმენი მაგიდა და გაუგზავნე კოდი, ან შედი მეგობრის კოდით"
+        : "დომინო — შექმენი მაგიდა და გაუგზავნე კოდი, ან შედი მეგობრის კოდით";
+      document.getElementById("friendOverlay").classList.add("show");
+    }
     function closeFriend(){
       document.getElementById("friendOverlay").classList.remove("show");
       document.getElementById("joinBox").style.display = "none";
+    }
+    function friendCreate(){
+      closeFriend();
+      if (friendGame === "bura") openBura("friend"); else openRooms("friend");
     }
     function showJoin(){
       document.getElementById("joinBox").style.display = "block";
@@ -1063,7 +1083,7 @@
     function doJoin(){
       const c = document.getElementById("codeInput").value.trim().toUpperCase();
       if(c.length !== 4) return toast("კოდი 4 სიმბოლოა");
-      location.href = "online.html?mode=join&code=" + encodeURIComponent(c);
+      location.href = FRIEND_SCREEN[friendGame] + "?mode=join&code=" + encodeURIComponent(c);
     }
 
     let toastTimer;
