@@ -8,6 +8,8 @@ import http from "http";
 import { Server } from "socket.io";
 import { fileURLToPath } from "url";
 import path from "path";
+// what the ბურა table is showing — the server draws it; no screen needs it
+import * as BuraTable from "./buratable.js";
 import { createRequire } from "module";
 
 import { openStore } from "./store.js";
@@ -19,6 +21,7 @@ const Ozi = require("./public/js/ozi.js");
 // bar a player watches and the number recorded here cannot drift apart
 const Progress = require("./public/js/progress.js");
 const Bura = require("./public/js/bura.js");
+
 
 const store = await openStore();
 
@@ -482,31 +485,17 @@ function buraMaybeBot(room) {
    trick, and so a card thrown face down stays face down for all of them.
    With four players the trick goes round, so the answers are a list. */
 function startBuraTrick(room, led, leadSeat) {
-  /* A new lead clears the table. The one thing that survives it is a card
-     somebody had already led when a whole hand was turned back on them: it
-     stays face up and counts towards their answer, so it stays on the table
-     too. Everything else from the trick before has to go — leaving it there
-     showed a card in front of a player who had not played one, which is what
-     it looked like from the table. */
   const b = room.b;
-  const kept = (b && b.answerSoFar && b.answerSoFar.length && b.answerBy != null)
-    ? [{ seat: b.answerBy, cards: b.answerSoFar.slice(), open: b.answerSoFar.length }]
-    : [];
-  room.lastTrick = { led, leadSeat, answers: kept, took: null, hidden: false,
-                     // kept for the two-player screen, which reads these
-                     ans: kept.length ? kept[0].cards : [],
-                     ansSeat: kept.length ? kept[0].seat : null,
-                     open: kept.length ? kept[0].cards.length : 0 };
+  const committed = (b && b.answerSoFar && b.answerSoFar.length && b.answerBy != null)
+    ? { seat: b.answerBy, cards: b.answerSoFar } : null;
+  room.lastTrick = BuraTable.startTrick(led, leadSeat, committed);
 }
 function recordBuraAnswer(room, seat, cards, alreadyOpen, took) {
-  const t = room.lastTrick;
-  if (!t) return;
   // a card already led is one everyone has seen; it stays face up
-  t.answers.push({ seat, cards, open: alreadyOpen || 0 });
-  t.ans = cards; t.ansSeat = seat; t.open = alreadyOpen || 0;
+  BuraTable.addAnswer(room.lastTrick, seat, cards, alreadyOpen || 0);
   if (took === -1) return;                       // still going round the table
-  t.took = took;
-  t.hidden = room.variant === "3" && took === t.leadSeat;
+  BuraTable.settle(room.lastTrick, took,
+                   room.variant === "3" && took === room.lastTrick.leadSeat);
 }
 
 function buraAdvance(room) {
