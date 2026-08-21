@@ -139,6 +139,21 @@
         tone(165 - t * 120, 0.09, 0.24 * v, "triangle", t, 105);
       });
     },
+    /* A wooden case being laid open: the hinge complains, the two halves come
+       down onto the table, and the whole thing settles. Low and unhurried —
+       this one plays once, when you sit down. */
+    boardOpen() {
+      noise(0.30, 420, 0.8, 0.10, 3, 0.02);          // the hinge
+      tone(70, 0.28, 0.20, "triangle", 0.10, 48);
+      noise(0.16, 260, 0.7, 0.34, 5, 0.30);          // the near half lands
+      tone(95, 0.20, 0.26, "triangle", 0.30, 55);
+      noise(0.16, 300, 0.7, 0.30, 5, 0.40);          // and the far half
+      tone(110, 0.18, 0.22, "triangle", 0.40, 62);
+      noise(0.10, 1600, 1.2, 0.10, 8, 0.52);         // the last shiver of it
+    },
+    // a checker set down on the felt during the lay-out: lighter than a move
+    lay() { noise(0.05, 1800, 1.3, 0.20, 9); tone(150, 0.06, 0.12, "sine", 0, 100); },
+
     // a double is worth a little bell
     diceDouble() { tone(988, 0.16, 0.18, "triangle", 0.02); tone(1319, 0.22, 0.14, "sine", 0.1); },
 

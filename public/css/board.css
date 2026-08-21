@@ -36,6 +36,47 @@
    The stacks still sit against the bottom edge: that is `column-reverse` on the
    point below, not the row's alignment. */
 
+/* ---------------- opening the board ----------------
+   A ნარდი board is a hinged case. It comes to the table shut, and the two
+   halves come down onto the felt along the seam in the middle — which is what
+   the two rows already are, so the fold costs nothing but a transform-origin
+   on each of them and a perspective on the pair.
+
+   Both classes are taken off by a timer once the animation has had its time.
+   That matters: `backwards` holds the FIRST frame of an animation that never
+   runs, and a browser that does not run this one would otherwise leave the
+   board folded shut for good.  */
+.nrows{ perspective:1100px; perspective-origin:50% 50%; }
+.nboard.opening .nrow{ backface-visibility:hidden; }
+.nboard.opening .nrow.ntop{
+  transform-origin:50% 100%;
+  animation:openTop .82s cubic-bezier(.42,.02,.24,1) backwards;
+}
+.nboard.opening .nrow.nbot{
+  transform-origin:50% 0;
+  animation:openBot .82s cubic-bezier(.42,.02,.24,1) backwards;
+}
+@keyframes openTop{ from{ transform:rotateX(-90deg); } 78%{ transform:rotateX(5deg); } to{ transform:none; } }
+@keyframes openBot{ from{ transform:rotateX(90deg); }  78%{ transform:rotateX(-5deg); } to{ transform:none; } }
+
+/* and then the checkers are laid out, one after another, each dropped onto its
+   point. `--i` is how many were set down before it. */
+.nboard.dealing .chk{
+  animation:layDown .30s cubic-bezier(.2,.9,.35,1) backwards;
+  animation-delay:calc(var(--i, 0) * 34ms);
+}
+@keyframes layDown{
+  from{ opacity:0; transform:translateY(-34px) scale(.72); }
+  70%{ opacity:1; transform:translateY(2px) scale(1.04); }
+  to{ opacity:1; transform:none; }
+}
+
+/* the draughtsmen get the same welcome, without the case */
+.dboard.dealing .pc{
+  animation:layDown .28s cubic-bezier(.2,.9,.35,1) backwards;
+  animation-delay:calc(var(--i, 0) * 26ms);
+}
+
 /* the strip down the middle: the bar in backgammon, and the seam in ნარდი */
 .nmid{
   flex:none; width:var(--barW); align-self:stretch;

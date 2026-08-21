@@ -181,6 +181,35 @@
     if (won && window.Fx) Fx.confetti();
   }
 
+  /* The pieces are set out one after another when you sit down, the same as
+     the ნარდი checkers are. There is no case to open here — a draughts board
+     is a board — so it is only the laying out.
+
+     Nothing depends on it: if the animation does not run, a background tab or a
+     system asking for less movement, the pieces are simply already there. */
+  const LAY_STEP = 26;
+
+  function layOut() {
+    const pcs = [...document.querySelectorAll("#board .pc")];
+    pcs.forEach((p, i) => p.style.setProperty("--i", i));
+    return pcs.length;
+  }
+
+  function intro() {
+    return new Promise((done) => {
+      const b = document.getElementById("board");
+      const n = layOut();
+      const still = document.hidden ||
+        (matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+      if (still) { done(); return; }
+      b.classList.add("dealing");
+      layOut();
+      for (let i = 0; i < n; i += 3)
+        setTimeout(() => { if (Sound) Sound.play("lay"); }, i * LAY_STEP);
+      setTimeout(() => { b.classList.remove("dealing"); done(); }, n * LAY_STEP + 280);
+    });
+  }
+
   function show(title, text) {
     document.getElementById("resTitle").textContent = title;
     document.getElementById("resText").textContent = text || "";
@@ -188,12 +217,15 @@
   }
   const hide = () => document.getElementById("resultOverlay").classList.remove("show");
 
-  function startGame() {
+  async function startGame() {
     hide();
     g = Damka.newGame({});
-    picked = null; busy = false;
+    picked = null;
+    busy = true;                     // the board is not yours until it is set
     document.getElementById("msg").textContent = "";
     build(); fit(); draw();
+    await intro();
+    busy = false; draw();
   }
 
   function toggleSound() {

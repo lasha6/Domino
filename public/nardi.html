@@ -298,6 +298,7 @@
     const wrap = document.createElement("div");
     wrap.style.display = "flex";
     const cols = document.createElement("div");
+    cols.className = "nrows";
     cols.style.flex = "1 1 auto"; cols.style.minWidth = "0";
     cols.appendChild(top); cols.appendChild(bot);
     wrap.appendChild(cols); wrap.appendChild(tray);
@@ -537,6 +538,59 @@
     })();
   }
 
+  /* =====================================================================
+     Sitting down at the board.
+
+     The case is laid open, and then the checkers are set out one after another
+     — which is what anybody does before a game, and it is worth watching once.
+     `layOut` gives every checker its place in the queue; the CSS does the rest.
+
+     Nothing here is allowed to be load-bearing. If the animations do not run —
+     a background tab, a system asking for less movement — the board is simply
+     there, already open, with the checkers on it.
+     ===================================================================== */
+  const INTRO_FOLD = 820, INTRO_STEP = 34;
+
+  function layOut() {
+    const chks = [...document.querySelectorAll("#board .chk")];
+    chks.forEach((c, i) => c.style.setProperty("--i", i));
+    return chks.length;
+  }
+
+  function stillness() {
+    return document.hidden ||
+      (matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+
+  /* `withCase` opens the board as well; a new round inside a match only needs
+     the checkers set out again. Resolves when the table is ready to play. */
+  function intro(withCase) {
+    return new Promise((done) => {
+      const b = document.getElementById("board");
+      const n = layOut();
+      if (stillness()) { done(); return; }
+
+      const dealFor = n * INTRO_STEP + 300;
+      if (withCase) {
+        b.classList.add("opening");
+        if (Sound) Sound.play("boardOpen");
+        setTimeout(() => b.classList.remove("opening"), INTRO_FOLD + 120);
+      }
+      setTimeout(() => {
+        b.classList.add("dealing");
+        layOut();                       // the class arrived after the checkers did
+        // a light tick every few, so it sounds like a handful being set out
+        // rather than a drum roll
+        for (let i = 0; i < n; i += 3)
+          setTimeout(() => { if (Sound) Sound.play("lay"); }, i * INTRO_STEP);
+        setTimeout(() => { b.classList.remove("dealing"); done(); }, dealFor);
+        /* The case is flat well before its animation ends — the last of it is
+           the settle. So the checkers start coming out then, and the two run
+           into each other instead of waiting politely in turn. */
+      }, withCase ? INTRO_FOLD - 340 : 0);
+    });
+  }
+
   /* ---------------- rounds and the match ---------------- */
   function finish() {
     const won = g.roundWinner === ME;
@@ -550,10 +604,13 @@
     show(won ? "პარტია შენია" : "პარტია კომპიუტერს",
       (what ? what + " — " : "") + "+" + g.roundWorth +
       " · ანგარიში " + g.scores[ME] + " : " + g.scores[CPU]);
-    setTimeout(() => {
+    setTimeout(async () => {
       hide();
       Nardi.nextRound(g);
       draw();
+      busy = true; draw();
+      await intro(false);
+      busy = false; draw();
       if (g.side === CPU) setTimeout(cpuTurn, 500);
     }, 2200);
   }
@@ -566,12 +623,15 @@
   const hide = () => document.getElementById("resultOverlay").classList.remove("show");
   const say = (t) => { document.getElementById("msg").textContent = t; };
 
-  function startMatch() {
+  async function startMatch() {
     hide();
     g = Nardi.newGame({ variant: VARIANT, target: TARGET });
-    picked = null; busy = false;
+    picked = null;
+    busy = true;                    // the board is not yours until it is open
     say("");                 // the bar is for what happens, not for the title
     build(); fit(); clearDice(false); draw();
+    await intro(true);
+    busy = false; draw();
     if (g.side === CPU) setTimeout(cpuTurn, 600);
   }
 
