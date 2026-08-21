@@ -24,7 +24,6 @@
       <button class="back" onclick="location.href='index.html'">←</button>
       <div class="info">
         <span class="stat"><span class="k">ანგარიში</span><b id="scoreLbl">0 : 0</b></span>
-        <span class="stat"><span class="k">მიზანი</span><b id="targetLbl">3</b></span>
         <span class="stat"><span class="k">გზა</span><b id="pipLbl">—</b></span>
         <span class="badge">🎓 პრაქტიკა</span>
       </div>
@@ -222,8 +221,10 @@
       });
     }
 
-    document.getElementById("scoreLbl").textContent = g.scores[ME] + " : " + g.scores[CPU];
-    document.getElementById("targetLbl").textContent = g.target;
+    // the target rides along with the score rather than taking a plate of its
+    // own: the bar already carries a turn, a pair of dice and a roll button
+    document.getElementById("scoreLbl").textContent =
+      g.scores[ME] + " : " + g.scores[CPU] + "  → " + g.target;
     document.getElementById("pipLbl").textContent =
       Nardi.pipCount(g, ME) + " / " + Nardi.pipCount(g, CPU);
     document.getElementById("turnDot").className = "dot " + (g.side === 0 ? "w" : "b");

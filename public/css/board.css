@@ -141,6 +141,22 @@
 .stage .top .stat, .stage .top .stat b, .stage .top .msg{ white-space:nowrap; }
 .stage .top .msg{ flex:0 1 auto; overflow:hidden; text-overflow:ellipsis; }
 .stage .top .newgame{ white-space:nowrap; }
+/* A board screen carries more in its bar than a card table does — a score, a
+   pip count, whose turn it is, the dice and a roll button — so its captions
+   drop away at a wider screen than the shared rule does it at. */
+/* Georgian is wider than English, and at 740 the bar was five pixels over in
+   one language and comfortable in the other. The buttons give the pixels up
+   rather than the board. */
+@media (max-width:820px){
+  .stage .top{ gap:6px; }
+  .stage .top .newgame{ padding:8px 11px; font-size:12px; }
+  .stage .top .rollBtn{ padding:8px 12px; font-size:12px; }
+  .bStat{ font-size:11.5px; }
+}
+@media (max-width:960px){
+  .stage .top .stat .k{ display:none; }
+  .stage .top .stat b{ font-size:13px; }
+}
 .bStat .dot{ width:13px; height:13px; border-radius:50%; flex:none;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.3); }
 .bStat .dot.w{ background:linear-gradient(180deg, var(--bone-hi), var(--bone-lo)); }
