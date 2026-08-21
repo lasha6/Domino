@@ -76,8 +76,6 @@
       dice: null,               // what was rolled, kept for the screen
       left: [],                 // the dice still to be used this turn
       moved: [],                // what has been played this turn, for undo
-      headLeft: 0,              // checkers taken off the head this turn (long)
-      firstTurn: [true, true],  // the head rule is kinder on the opening roll
       phase: "roll",
       round: 1,
       roundWinner: null,
@@ -111,7 +109,6 @@
     g.dice = [a, b];
     g.left = a === b ? [a, a, a, a] : [a, b];
     g.moved = [];
-    g.headLeft = 0;
     g.phase = "move";
     g.log = "";
     // a roll with nothing to play is still a roll: the turn simply passes.
@@ -148,16 +145,12 @@
     return true;
   }
 
-  /* ---------------- the head rule (გრძელი ნარდი) ----------------
-     One checker leaves the head in a turn, and no more — otherwise the game is
-     over before it starts. The opening roll is the exception every table plays:
-     6-6, 4-4 and 3-3 let a second one out. */
-  function headAllowance(g, side) {
-    if (g.variant !== "long") return Infinity;
-    if (!g.firstTurn[side] || !g.dice) return 1;
-    const d = g.dice[0];
-    return (g.dice[0] === g.dice[1] && (d === 6 || d === 4 || d === 3)) ? 2 : 1;
-  }
+  /* There is no head rule here. Most tables that play გრძელი ნარდი let only
+     one checker leave the head in a turn; this one does not, and the player was
+     explicit about it: any checker may be played, anywhere it is not blocked.
+     What keeps the game from being over on move one is the six-point wall
+     below — without that rule, and without this one, a player could shut the
+     other in before they had moved. */
 
   /* ---------------- the six-prime rule (გრძელი ნარდი) ----------------
      Six of your points in a row is a wall nothing can pass. It is allowed only
@@ -192,7 +185,6 @@
     }
     if (from < 0 || from >= POINTS) return false;
     if (atIndex(g, side, from) === 0) return false;
-    if (g.variant === "long" && from === 0 && g.headLeft >= headAllowance(g, side)) return false;
     const to = from + die;
     if (to >= POINTS) return canBearOff(g, side, from, die);
     if (!landable(g, side, to)) return false;
@@ -225,14 +217,11 @@
       }
       put(g, side, pt, 1);
     }
-    const usedHead = g.variant === "long" && from === 0;
-    if (usedHead) g.headLeft++;
     const i = g.left.indexOf(die);
     g.left.splice(i, 1);
 
     return function undo() {
       g.left.splice(i, 0, die);
-      if (usedHead) g.headLeft--;
       if (to >= POINTS) {
         g.off[side]--;
       } else {
@@ -268,7 +257,7 @@
      where the whole turn could end up. */
   function deepest(g, side, seen) {
     if (!g.left.length) return 0;
-    const key = g.pts.join(",") + "|" + g.bar + "|" + g.off + "|" + g.left.join(",") + "|" + g.headLeft;
+    const key = g.pts.join(",") + "|" + g.bar + "|" + g.off + "|" + g.left.join(",");
     if (seen.has(key)) return seen.get(key);
     let best = 0;
     for (const mv of rawMoves(g, side)) {
@@ -322,11 +311,9 @@
   }
 
   function endTurn(g) {
-    g.firstTurn[g.side] = false;
     g.side = other(g.side);
     g.left = [];
     g.dice = null;
-    g.headLeft = 0;
     g.phase = "roll";
   }
 
@@ -361,8 +348,7 @@
     g.round++;
     g.side = other(g.roundWinner);        // the loser opens the next one
     g.roundWinner = null; g.roundWorth = 0;
-    g.firstTurn = [true, true];
-    g.dice = null; g.left = []; g.moved = []; g.headLeft = 0;
+    g.dice = null; g.left = []; g.moved = [];
     g.phase = "roll";
     g.log = "";
     setUp(g);
@@ -441,7 +427,7 @@
     newGame, setUp, roll, move, legalMoves, targetsFrom, canStep,
     endTurn, nextRound, finishRound, roundWorth,
     pointAt, indexOf, atIndex, countAt, homeReady, canBearOff,
-    headAllowance, wallsThemIn, pipCount, view,
+    wallsThemIn, pipCount, view,
     bestTurn, scoreBoard,
   };
 });

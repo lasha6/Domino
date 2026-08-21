@@ -222,8 +222,9 @@
         ], { duration: DUR + i * 90, easing: "cubic-bezier(.22,.62,.3,1)" }));
       });
 
+      const double = values.length === 2 && values[0] === values[1];
       if (still) {
-        if (values.length === 4 && Sound) Sound.play("diceDouble");
+        if (double && Sound) Sound.play("diceDouble");
         setTimeout(done, 60);
         return;
       }
@@ -237,14 +238,16 @@
            were always going to land. Timers advance where animations sometimes
            do not, so this is the belt to that pair of braces. */
         running.forEach((a) => { try { a.cancel(); } catch (e) { /* already gone */ } });
-        if (values.length === 4 && Sound) Sound.play("diceDouble");
+        if (double && Sound) Sound.play("diceDouble");
         done();
       }, DUR + (values.length - 1) * 90 + 160);   // a margin, so a busy main
       // thread never has its animation cut off mid-bounce
     });
   }
 
-  /* Dim the ones already played, so the board says what is left. */
+  /* Dim the ones already played, so the board says what is left without being
+     asked. On a double there are four moves in two dice, so both stay lit until
+     fewer moves remain than there are dice lying there. */
   function markSpent() {
     if (!g || !g.dice) return;
     const left = g.left.slice();
@@ -429,7 +432,10 @@
     if (!g || g.phase !== "roll" || g.side !== ME || busy) return;
     busy = true;
     const rolled = Nardi.roll(g);
-    shownValues = rolled[0] === rolled[1] ? [rolled[0], rolled[0], rolled[0], rolled[0]] : rolled;
+    /* Two dice are thrown, and two land, even on a double — a double is worth
+       four moves, not four dice. The player was clear: if there are two in your
+       hand, four on the table make no sense. */
+    shownValues = rolled;
     draw();
     await throwDice(shownValues, true);
     busy = false;
@@ -485,7 +491,7 @@
     busy = true; draw();
     if (g.phase === "roll") {
       const rolled = Nardi.roll(g);
-      shownValues = rolled[0] === rolled[1] ? [rolled[0], rolled[0], rolled[0], rolled[0]] : rolled;
+      shownValues = rolled;
       draw();
       await throwDice(shownValues, false);
       draw();

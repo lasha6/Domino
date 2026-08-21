@@ -145,42 +145,41 @@ test("a checker on the bar comes back before anything else moves", () => {
 
 /* ---------------- the head ---------------- */
 
-test("only one checker leaves the head in a turn", () => {
+test("any number of checkers may leave the head", () => {
+  /* Most tables that play გრძელი ნარდი let only one checker off the head in a
+     turn. This one does not — the player asked for it plainly: any checker may
+     be played anywhere it is not blocked. It is the six-point wall, further
+     down, that keeps the game from being decided on move one. */
   const g = N.newGame({ variant: "long" });
-  g.firstTurn = [false, false];              // an ordinary turn, not the opening
+  rollAs(g, 5, 5);
+  assert.deepEqual(g.left, [5, 5, 5, 5]);
+  for (let k = 1; k <= 4; k++) {
+    assert.ok(N.legalMoves(g).some((m) => m.from === 0), `the head is open on move ${k}`);
+    N.move(g, 0, 5);
+  }
+  assert.equal(N.atIndex(g, 0, 0), 11, "four came off the head in one turn");
+  assert.equal(N.atIndex(g, 0, 5), 4, "and they are all sitting together");
+});
+
+test("and an ordinary roll takes two off it", () => {
+  const g = N.newGame({ variant: "long" });
   rollAs(g, 5, 3);
-  assert.ok(N.legalMoves(g).some((m) => m.from === 0), "the first one may go");
   N.move(g, 0, 5);
-  assert.ok(!N.legalMoves(g).some((m) => m.from === 0), "the second one may not");
+  assert.ok(N.legalMoves(g).some((m) => m.from === 0), "the second one may go too");
+  N.move(g, 0, 3);
+  assert.equal(N.atIndex(g, 0, 0), 13, "thirteen left on the head");
 });
 
-test("but the opening roll of 6-6, 4-4 or 3-3 lets a second one out", () => {
-  for (const d of [6, 4, 3]) {
-    const g = N.newGame({ variant: "long" });
-    rollAs(g, d, d);
-    assert.equal(N.headAllowance(g, 0), 2, `${d}-${d} on the opening roll`);
-    N.move(g, 0, d);
-    assert.ok(N.legalMoves(g).some((m) => m.from === 0), `${d}-${d}: a second may follow`);
-    N.move(g, 0, d);
-    assert.ok(!N.legalMoves(g).some((m) => m.from === 0), `${d}-${d}: but never a third`);
-  }
-});
-
-test("and no other double is that generous", () => {
-  for (const d of [5, 2, 1]) {
-    const g = N.newGame({ variant: "long" });
-    rollAs(g, d, d);
-    assert.equal(N.headAllowance(g, 0), 1, `${d}-${d} is an ordinary turn`);
-  }
-});
-
-test("the kindness is for the opening roll only", () => {
+test("a checker already on the board is offered as well as the head", () => {
+  /* The complaint that took the head rule out was that only one checker could
+     ever be moved. Every checker with somewhere to go is offered now. */
   const g = N.newGame({ variant: "long" });
-  g.firstTurn = [false, false];
-  rollAs(g, 6, 6);
-  assert.equal(N.headAllowance(g, 0), 1, "later on, one is one");
+  place(g, { 0: { 0: 12, 4: 1, 7: 1, 9: 1 }, 1: { 0: 15 } });
+  g.side = 0;
+  rollAs(g, 2, 1);
+  const froms = [...new Set(N.legalMoves(g).map((m) => m.from))].sort((a, b) => a - b);
+  assert.deepEqual(froms, [0, 4, 7, 9], "all four of them");
 });
-
 /* ---------------- the wall ---------------- */
 
 test("six points in a row are not allowed if nothing has got past them", () => {
