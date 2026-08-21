@@ -22,11 +22,34 @@
 /* =====================================================================
    ნარდი
    ===================================================================== */
+/* ---------------- the wood ----------------
+   Carved walnut, the way the boards actually are — but lifted several shades
+   out of the near-black of the photographs, which swallows the checkers and
+   everything drawn on it. Warm mid-brown, with the grain suggested rather than
+   drawn. */
+/* The two drawings this board is made of, each held once and used everywhere:
+   the teardrop that is a point, and the bunch of grapes that is carved into
+   every checker in the bag. Both are masks — the ink is a CSS colour. */
 .nboard{
+  --tearMask:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 420" preserveAspectRatio="none"><path fill="%23000" d="M50 8c21 0 37 18 37 42 0 46-23 130-34 268l-3 26-3-26C36 178 13 96 13 50 13 26 29 8 50 8z"/><path fill="%23000" d="M50 348l8 13-8 15-8-15z"/></svg>');
+  --vineMask:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 120"><g fill="none" stroke="%23000" stroke-width="4.5" stroke-linecap="round"><path d="M75 26v16"/><path d="M75 26c-4-8-2-16 4-20"/></g><g fill="%23000"><path d="M72 30c-8-16-26-24-44-20-4 16 8 30 26 32 6 1 12 0 18-2l-8-2 10-4-8-2 10-2z"/><path d="M78 30c8-16 26-24 44-20 4 16-8 30-26 32-6 1-12 0-18-2l8-2-10-4 8-2-10-2z"/></g><g fill="%23000"><circle cx="61" cy="52" r="9"/><circle cx="75" cy="48" r="9"/><circle cx="89" cy="52" r="9"/><circle cx="54" cy="68" r="9"/><circle cx="68" cy="65" r="9"/><circle cx="82" cy="65" r="9"/><circle cx="96" cy="68" r="9"/><circle cx="61" cy="82" r="9"/><circle cx="75" cy="82" r="9"/><circle cx="89" cy="82" r="9"/><circle cx="68" cy="97" r="8.5"/><circle cx="82" cy="97" r="8.5"/><circle cx="75" cy="110" r="7.5"/></g></svg>');
+  --pomMask:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 120"><g fill="%23000"><path d="M75 34c22 0 38 17 38 39 0 24-17 41-38 41S37 97 37 73c0-22 16-39 38-39z"/><path d="M75 6l7 14 9-9-2 13 13-3-8 11 12 4-13 5 5 8-13-3-2 10-8-8-8 8-2-10-13 3 5-8-13-5 12-4-8-11 13 3-2-13 9 9z"/></g><g fill="%23000"><path d="M113 62c12-9 25-7 31 3-10 10-23 10-31-3z"/></g></svg>');
+  --grapeMask:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><g fill="none" stroke="%23000" stroke-width="3" stroke-linecap="round"><path d="M32 10v8"/><path d="M31 12c-4-5-11-6-15-3 3 5 10 7 15 3z"/><path d="M33 12c4-5 11-6 15-3-3 5-10 7-15 3z"/></g><g fill="%23000"><circle cx="24" cy="27" r="5.2"/><circle cx="32" cy="25" r="5.2"/><circle cx="40" cy="27" r="5.2"/><circle cx="20" cy="36" r="5.2"/><circle cx="28" cy="35" r="5.2"/><circle cx="36" cy="35" r="5.2"/><circle cx="44" cy="36" r="5.2"/><circle cx="24" cy="44" r="5.2"/><circle cx="32" cy="44" r="5.2"/><circle cx="40" cy="44" r="5.2"/><circle cx="28" cy="52" r="5"/><circle cx="36" cy="52" r="5"/><circle cx="32" cy="59" r="4.2"/></g></svg>');
+  --n-wood-hi:#9a6f42;
+  --n-wood:#79512c;
+  --n-wood-lo:#5b3a1d;
+  --n-field:#6b4526;
+  --n-field-lo:#54341a;
+  --n-carve:#f2e2ba;          /* the light maple that is inlaid into it */
+  --n-carve-lo:#cbb083;
+  --n-inlay:#c2884b;          /* and the second, redder wood between */
   position:relative; display:flex; flex-direction:column;
   border-radius:7px; overflow:hidden;
-  background:linear-gradient(180deg, var(--baize-mid), var(--baize) 60%, var(--baize-deep));
-  box-shadow:inset 0 0 0 1px rgba(0,0,0,.5), inset 0 4px 16px rgba(0,0,0,.35);
+  background:
+    repeating-linear-gradient(93deg, rgba(0,0,0,.055) 0 2px, rgba(255,255,255,.03) 2px 5px,
+                              rgba(0,0,0,0) 5px 11px),
+    linear-gradient(180deg, var(--n-field) 0%, var(--n-field-lo) 55%, var(--n-field) 100%);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.45), inset 0 6px 20px rgba(0,0,0,.30);
 }
 .nrow{ display:flex; height:var(--rowH); align-items:stretch; }
 /* The bottom row used to align its points to flex-end, which sized each of them
@@ -46,18 +69,40 @@
    That matters: `backwards` holds the FIRST frame of an animation that never
    runs, and a browser that does not run this one would otherwise leave the
    board folded shut for good.  */
-.nrows{ perspective:1100px; perspective-origin:50% 50%; }
-.nboard.opening .nrow{ backface-visibility:hidden; }
-.nboard.opening .nrow.ntop{
-  transform-origin:50% 100%;
-  animation:openTop .82s cubic-bezier(.42,.02,.24,1) backwards;
+.nrows{ display:flex; perspective:1400px; perspective-origin:50% 50%; }
+.nhalf{ flex:1 1 0; min-width:0; display:flex; flex-direction:column; position:relative; }
+/* Every one of these boards has something inlaid in the middle of each half —
+   a bunch of grapes on one side and a pomegranate on the other. It is also
+   exactly where the points stop and the wood would otherwise sit empty. */
+.nhalf::after{
+  content:""; position:absolute; z-index:0; pointer-events:none;
+  left:50%; top:50%; transform:translate(-50%, -50%);
+  width:62%; height:40%;
+  background:var(--n-carve);
+  opacity:.42;
+  -webkit-mask:var(--halfMotif) no-repeat center / contain;
+  mask:var(--halfMotif) no-repeat center / contain;
 }
-.nboard.opening .nrow.nbot{
-  transform-origin:50% 0;
-  animation:openBot .82s cubic-bezier(.42,.02,.24,1) backwards;
+.nhalf.left::after{ --halfMotif:var(--vineMask); }
+.nhalf.right::after{ --halfMotif:var(--pomMask); }
+/* the checkers belong on top of the inlay, not under it */
+.nhalf .nrow{ position:relative; z-index:1; }
+
+/* A ნარდი board is hinged down the MIDDLE and opens like a book. It is the left
+   half and the right half that swing, about the vertical seam — not a lid off
+   the top. Doing it the other way looked wrong to anybody who has ever opened
+   one, and it was. */
+.nboard.opening .nhalf{ backface-visibility:hidden; }
+.nboard.opening .nhalf.left{
+  transform-origin:100% 50%;
+  animation:openLeft .86s cubic-bezier(.42,.02,.24,1) backwards;
 }
-@keyframes openTop{ from{ transform:rotateX(-90deg); } 78%{ transform:rotateX(5deg); } to{ transform:none; } }
-@keyframes openBot{ from{ transform:rotateX(90deg); }  78%{ transform:rotateX(-5deg); } to{ transform:none; } }
+.nboard.opening .nhalf.right{
+  transform-origin:0 50%;
+  animation:openRight .86s cubic-bezier(.42,.02,.24,1) backwards;
+}
+@keyframes openLeft{ from{ transform:rotateY(-90deg); } 78%{ transform:rotateY(4deg); } to{ transform:none; } }
+@keyframes openRight{ from{ transform:rotateY(90deg); } 78%{ transform:rotateY(-4deg); } to{ transform:none; } }
 
 /* and then the checkers are laid out, one after another, each dropped onto its
    point. `--i` is how many were set down before it. */
@@ -77,13 +122,27 @@
   animation-delay:calc(var(--i, 0) * 26ms);
 }
 
-/* the strip down the middle: the bar in backgammon, and the seam in ნარდი */
+/* The seam: where the two halves meet, with a brass hinge top and bottom, and
+   between them the bar a hit checker waits on. */
 .nmid{
-  flex:none; width:var(--barW); align-self:stretch;
-  background:linear-gradient(90deg, var(--wood-lo), var(--wood) 40%, var(--wood-hi) 60%, var(--wood-lo));
-  box-shadow:inset 0 0 0 1px rgba(0,0,0,.45);
+  flex:none; width:var(--barW); align-self:stretch; position:relative;
+  background:linear-gradient(90deg,
+    var(--n-wood-lo), var(--n-wood) 34%, var(--n-wood-hi) 52%, var(--n-wood) 68%, var(--n-wood-lo));
+  box-shadow:inset 1px 0 0 rgba(0,0,0,.35), inset -1px 0 0 rgba(0,0,0,.35);
+  display:flex; flex-direction:column; align-items:center; justify-content:space-between;
+  padding:3% 0;
+}
+.nmid .hinge{
+  flex:none; width:76%; height:0; padding-bottom:76%; border-radius:22%;
+  background:linear-gradient(150deg, var(--brass-lit), var(--brass) 55%, var(--brass-dim));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5), 0 1px 3px rgba(0,0,0,.5);
+}
+.nmid .barHalf{
+  flex:1 1 0; min-height:0; width:100%;
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
 }
+.nmid .barHalf.can{ box-shadow:inset 0 0 0 2px var(--good); }
+.nmid .barHalf.from{ box-shadow:inset 0 0 0 2px var(--brass-lit); }
 
 /* one point: a long triangle with its checkers stacked from the outer edge */
 .npt{
@@ -91,31 +150,34 @@
   display:flex; flex-direction:column; align-items:center;
 }
 .nrow.nbot .npt{ flex-direction:column-reverse; }
+/* A point on one of these boards is not a triangle. It is a long carved
+   teardrop inlaid in light maple, round at the head and tapering to a finial.
+   It is a MASK rather than a picture, so the colour stays in CSS and the
+   highlights can recolour it without a second copy of the drawing. */
 .npt .tri{
-  position:absolute; left:8%; right:8%; top:0; bottom:0;
-  clip-path:polygon(0 0, 100% 0, 50% 100%);
-  background:linear-gradient(180deg, rgba(246,239,221,.20), rgba(246,239,221,.03));
+  position:absolute; left:9%; right:9%; top:1.5%; bottom:1.5%;
+  background:var(--ptInk, var(--n-carve));
+  opacity:var(--ptAlpha, .95);
+  -webkit-mask:var(--tearMask) no-repeat center / 100% 100%;
+  mask:var(--tearMask) no-repeat center / 100% 100%;
 }
-.npt.odd .tri{ background:linear-gradient(180deg, rgba(7,48,28,.75), rgba(7,48,28,.15)); }
-.nrow.nbot .npt .tri{ clip-path:polygon(0 100%, 100% 100%, 50% 0); }
+.npt.odd .tri{ --ptInk:var(--n-inlay); --ptAlpha:.95; }
+.nrow.nbot .npt .tri{ transform:scaleY(-1); }
 
 /* Three different things, three different marks — they were all green once,
    and a player cannot tell "lift this one" from "put it here" if both look the
    same.
-     · pick  — one of yours that has somewhere to go: the point warmed brass
-     · from  — the one in your hand: the same brass, twice as bright
-     · can   — where it may go: the point lit green
-   Warm means "this is yours"; green means "it goes here". */
-.npt.can .tri{ background:linear-gradient(180deg, rgba(74,208,125,.78), rgba(74,208,125,.16)); }
-.npt.from .tri{ background:linear-gradient(180deg, rgba(242,205,126,.6), rgba(242,205,126,.12)); }
-.npt.pick .tri{ background:linear-gradient(180deg, rgba(242,205,126,.22), rgba(242,205,126,.02)); }
-/* The bottom row's triangles point the other way, so their gradients have to
-   as well: left as they were, the strong end sat in the thin tip and the wide
-   base — the part you actually see — faded out to nothing.
-   A highlight nobody can see is a highlight that is not there. */
-.nrow.nbot .npt.can .tri{ background:linear-gradient(0deg, rgba(74,208,125,.78), rgba(74,208,125,.16)); }
-.nrow.nbot .npt.from .tri{ background:linear-gradient(0deg, rgba(242,205,126,.6), rgba(242,205,126,.12)); }
-.nrow.nbot .npt.pick .tri{ background:linear-gradient(0deg, rgba(242,205,126,.22), rgba(242,205,126,.02)); }
+     · pick  — one of yours that has somewhere to go: the inlay warmed brass
+     · from  — the one in your hand: the same brass, brighter still
+     · can   — where it may go: the inlay lit green
+   Warm means "this is yours"; green means "it goes here".
+
+   The inlay is one colour now rather than a gradient, so it reads the same
+   either way up. The old gradients faded out at exactly the end the bottom row
+   shows you, which is how half a board came to look unmarked. */
+.npt.can .tri{ --ptInk:#57e096; --ptAlpha:1; }
+.npt.from .tri{ --ptInk:var(--brass-lit); --ptAlpha:1; }
+.npt.pick .tri{ --ptInk:#ffe7af; --ptAlpha:1; }
 /* The mark that matters goes on the checker you would actually touch — the one
    on top of the stack. A tint on the triangle alone is hidden underneath them. */
 .npt.pick .chk:last-child{ box-shadow:0 0 0 2px var(--brass-lit), 0 0 7px rgba(242,205,126,.55),
@@ -127,13 +189,38 @@
   position:relative; flex:none;
   width:var(--cd); height:var(--cd); border-radius:50%;
   margin-top:var(--chkGap, 0px);
-  box-shadow:0 1px 2px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.35);
+  /* the last shadow is what keeps a stack of fifteen from reading as one
+     striped column: every disc gets an edge of its own */
+  box-shadow:0 1px 2px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.35),
+             0 0 0 1px rgba(0,0,0,.28);
 }
 .nrow.nbot .chk{ margin-top:0; margin-bottom:var(--chkGap, 0px); }
-.chk.w{ background:radial-gradient(circle at 34% 30%, var(--bone-hi), var(--bone) 55%, var(--bone-lo));
-        border:1px solid var(--bone-edge); }
-.chk.b{ background:radial-gradient(circle at 34% 30%, #4a4038, #241d18 55%, #120e0b);
-        border:1px solid #0a0806; }
+/* Turned wood, with a rim turned into the face and a bunch of grapes carved in
+   the middle of it — which is what comes in the bag with every one of these
+   boards. One drawing, inked dark in the pale wood and pale in the dark. */
+.chk.w{
+  background:
+    radial-gradient(circle at 50% 50%, rgba(120,84,44,0) 60%, rgba(120,84,44,.28) 63%, rgba(120,84,44,0) 72%),
+    radial-gradient(circle at 34% 28%, #fcf3da, #ecd9ad 58%, #cfb681);
+  border:1px solid #b39a70;
+  --grapeInk:#7c5527;
+}
+.chk.b{
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255,231,183,0) 60%, rgba(255,231,183,.26) 63%, rgba(255,231,183,0) 72%),
+    radial-gradient(circle at 34% 28%, #9a6a3d, #684226 58%, #472b14);
+  border:1px solid #33200f;
+  --grapeInk:#f0d6a4;
+}
+.chk::after{
+  content:""; position:absolute; inset:20%;
+  background:var(--grapeInk);
+  opacity:.8;
+  -webkit-mask:var(--grapeMask) no-repeat center / 100% 100%;
+  mask:var(--grapeMask) no-repeat center / 100% 100%;
+}
+/* the count on a tall stack sits above the carving */
+.chk .more{ z-index:2; }
 .chk .more{
   position:absolute; inset:0; display:grid; place-items:center;
   font:700 calc(var(--cd) * .5)/1 var(--font-ui); color:var(--ink);
@@ -209,8 +296,6 @@
 
 /* the bar: hit checkers waiting to come back in */
 .nmid .barChk{ width:calc(var(--cd) * .8); height:calc(var(--cd) * .8); border-radius:50%; }
-.nmid.can{ box-shadow:inset 0 0 0 2px var(--good); }
-.nmid.from{ box-shadow:inset 0 0 0 2px var(--brass-lit); }
 
 /* =====================================================================
    დამკა

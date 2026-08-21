@@ -66,16 +66,48 @@ test("the highlights are told apart by colour, not by luck", () => {
      same green once and a player cannot read that. */
   const can = ruleFor(".npt.can .tri");
   const pick = ruleFor(".npt.pick .tri");
-  assert.match(can, /74,\s*208,\s*125/, "a destination is green");
-  assert.match(pick, /242,\s*205,\s*126/, "one of yours is brass");
+  const from = ruleFor(".npt.from .tri");
+  assert.match(can, /--ptInk\s*:\s*#5/, "a destination is green");
+  assert.match(pick, /--ptInk\s*:\s*#ffe/, "one of yours is brass");
+  assert.match(from, /--ptInk\s*:\s*var\(--brass-lit\)/, "the one in hand, brighter");
+  assert.notEqual(can, pick, "and they are not the same mark");
   assert.ok(css.includes(".npt.pick .chk:last-child"),
-    "and the top checker of the stack is marked, where the finger goes");
+    "the top checker of the stack is marked too, where the finger goes");
 });
 
-test("the bottom row's gradients run the way its triangles point", () => {
-  /* They point up, so a gradient written for the top row puts its strong end in
-     the thin tip and fades the wide base away to nothing. */
-  for (const sel of [".nrow.nbot .npt.can .tri", ".nrow.nbot .npt.from .tri",
-                     ".nrow.nbot .npt.pick .tri"])
-    assert.match(ruleFor(sel), /linear-gradient\(0deg/, sel + " must be flipped");
+test("a highlight reads the same either way up", () => {
+  /* The bottom row is the top row upside down. A highlight painted as a
+     top-to-bottom gradient therefore fades out at exactly the end that half of
+     the board shows you, which is how the near half once came to look
+     unmarked. One flat colour has no end to fade at. */
+  for (const sel of [".npt.can .tri", ".npt.from .tri", ".npt.pick .tri"])
+    assert.doesNotMatch(ruleFor(sel), /linear-gradient/,
+      sel + " must not depend on which way the point points");
+});
+
+test("the case opens the way a real one does", () => {
+  /* A ნარდი board is hinged down the MIDDLE and opens like a book: the left
+     half and the right half swing about the vertical seam. It was written as a
+     lid folding off the top once, and the player who owns one said so at once.
+     So the fold is pinned to the axis it actually turns about. */
+  assert.ok(css.includes("@keyframes openLeft"), "there is a left half to open");
+  assert.ok(css.includes("@keyframes openRight"), "and a right half");
+  const left = css.match(/@keyframes openLeft\{([^}]*\}[^}]*)\}/);
+  assert.ok(left && /rotateY\(-?90deg\)/.test(left[1]),
+    "it turns about the vertical axis, not the horizontal one");
+  assert.doesNotMatch(css, /@keyframes openTop/,
+    "the old lid-off-the-top fold is gone");
+  assert.match(ruleFor(".nboard.opening .nhalf.left"), /transform-origin\s*:\s*100%/,
+    "the left half is hinged on its inner edge");
+  assert.match(ruleFor(".nboard.opening .nhalf.right"), /transform-origin\s*:\s*0/,
+    "and the right half on its own");
+});
+
+test("a point is the carved teardrop, not a triangle", () => {
+  const tri = ruleFor(".npt .tri");
+  assert.match(tri, /mask\s*:\s*var\(--tearMask\)/, "the shape is a mask");
+  assert.doesNotMatch(tri, /clip-path/, "the flat triangle is gone");
+  assert.ok(css.includes("--tearMask:url("), "and the drawing is held once");
+  assert.ok(css.includes("--vineMask:url(") && css.includes("--pomMask:url("),
+    "each half has its own inlay in the middle");
 });

@@ -261,14 +261,18 @@
   let shownValues = [];
 
   /* ---------------- drawing ---------------- */
+  /* A ნარდი board is a case hinged down the MIDDLE, and it opens like a book:
+     a left half and a right half, not a top and a bottom. So that is how it is
+     built — two halves either side of the seam, each holding its own six points
+     above and six below. Getting this wrong is what made the opening look like
+     a lid instead of a board.
+
+     Points, left to right: the top row runs 12..23, the bottom row 11..0. The
+     left half therefore holds 12..17 over 11..6, and the right half 18..23 over
+     5..0. */
   function build() {
     const b = document.getElementById("board");
     b.innerHTML = "";
-    const top = document.createElement("div"); top.className = "nrow ntop";
-    const bot = document.createElement("div"); bot.className = "nrow nbot";
-    // the middle strip is one element spanning both rows, so the board is
-    // built as three columns rather than two rows; simpler to keep two rows
-    // and give each of them its own half of the strip
     const mkPoint = (pt) => {
       const d = document.createElement("div");
       d.className = "npt" + (pt % 2 ? " odd" : "");
@@ -277,20 +281,33 @@
       d.onclick = () => tapPoint(pt);
       return d;
     };
-    const mkMid = (which) => {
-      const m = document.createElement("div");
-      m.className = "nmid"; m.id = "mid" + which;
-      m.onclick = () => tapBar();
-      return m;
+    const row = (kind, from, to) => {
+      const r = document.createElement("div");
+      r.className = "nrow " + kind;
+      const step = from <= to ? 1 : -1;
+      for (let pt = from; step > 0 ? pt <= to : pt >= to; pt += step) r.appendChild(mkPoint(pt));
+      return r;
     };
-    for (let pt = 12; pt <= 23; pt++) {
-      if (pt === 18) top.appendChild(mkMid("T"));
-      top.appendChild(mkPoint(pt));
-    }
-    for (let pt = 11; pt >= 0; pt--) {
-      if (pt === 5) bot.appendChild(mkMid("B"));
-      bot.appendChild(mkPoint(pt));
-    }
+    const half = (which, top, bot) => {
+      const h = document.createElement("div");
+      h.className = "nhalf " + which;
+      h.appendChild(top); h.appendChild(bot);
+      return h;
+    };
+
+    const left = half("left", row("ntop", 12, 17), row("nbot", 11, 6));
+    const right = half("right", row("ntop", 18, 23), row("nbot", 5, 0));
+
+    /* The seam: the hinges, and in მოკლე ნარდი the bar a hit checker waits on.
+       Two halves of it keep their old names, so the rest of the screen does not
+       have to know the board was rebuilt. */
+    const mid = document.createElement("div");
+    mid.className = "nmid";
+    mid.innerHTML = '<span class="hinge"></span>' +
+      '<div class="barHalf" id="midT"></div><div class="barHalf" id="midB"></div>' +
+      '<span class="hinge"></span>';
+    mid.onclick = () => tapBar();
+
     const tray = document.createElement("div"); tray.className = "ntray"; tray.id = "tray";
     tray.innerHTML = '<div class="half" id="offTop"></div><div class="half bottom" id="offBot"></div>';
     tray.onclick = () => tapOff();
@@ -300,7 +317,7 @@
     const cols = document.createElement("div");
     cols.className = "nrows";
     cols.style.flex = "1 1 auto"; cols.style.minWidth = "0";
-    cols.appendChild(top); cols.appendChild(bot);
+    cols.appendChild(left); cols.appendChild(mid); cols.appendChild(right);
     wrap.appendChild(cols); wrap.appendChild(tray);
     b.appendChild(wrap);
   }
@@ -361,7 +378,7 @@
     // the bar
     ["T", "B"].forEach((k) => {
       const m = document.getElementById("mid" + k);
-      m.innerHTML = ""; m.className = "nmid";
+      m.innerHTML = ""; m.className = "barHalf";   // its own class, not the seam's
     });
     for (const side of [0, 1]) {
       const m = document.getElementById(side === ME ? "midB" : "midT");
