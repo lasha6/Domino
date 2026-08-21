@@ -81,10 +81,12 @@
 .menuRow span{ font-size:17px; width:22px; text-align:center; }
 
 /* ---- rules ---- */
-.rulesText{ text-align:left; max-height:min(250px,46vh); overflow-y:auto; margin-top:10px;
+.rulesText{ text-align:left; max-height:min(300px,44vh); overflow-y:auto; margin-top:10px;
   font:400 12.5px/1.55 var(--font-ui); color:var(--cream-dim); }
 .rulesText p{ margin:0 0 9px; }
 .rulesText b{ color:var(--cream); }
+/* the one line under the tabs that says who the game is for */
+.rulesText .rSub{ color:var(--brass-lit); font-weight:600; margin-bottom:11px; }
 
 /* ---- shop ---- */
 .shopHead{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
