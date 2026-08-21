@@ -41,7 +41,7 @@
 
   /* ---------------- building blocks ---------------- */
   // a short burst of noise, shaped — this is what makes wood sound like wood
-  function noise(dur, freq, q, gain, decay) {
+  function noise(dur, freq, q, gain, decay, delay) {
     const c = ensure(); if (!c || muted()) return;
     const len = Math.max(1, Math.floor(c.sampleRate * dur));
     const buf = c.createBuffer(1, len, c.sampleRate);
@@ -52,7 +52,7 @@
     bp.frequency.value = freq; bp.Q.value = q;
     const g = c.createGain(); g.gain.value = gain;
     src.connect(bp).connect(g).connect(master);
-    src.start();
+    src.start(c.currentTime + (delay || 0));
   }
   // a plain tone with a soft attack and decay
   function tone(freq, dur, gain, type, delay, endFreq) {
@@ -116,6 +116,32 @@
       tone(196, 1.0, 0.2, "sine", 0.56, 130);          // a slow sag at the end
       tone(233, 0.9, 0.12, "triangle", 0.56);
     },
+    /* ---- dice ----
+       Two bone cubes in a hand: a dozen little collisions, each a bright tick
+       over a hollow knock, thrown at slightly different moments so it rattles
+       rather than buzzes. `secs` is how long the throw takes, so the sound and
+       the picture end together. */
+    diceShake(secs) {
+      const dur = secs || 0.55;
+      const n = Math.round(11 * dur / 0.55);
+      for (let i = 0; i < n; i++) {
+        const t = (i / n) * dur * 0.92;
+        const bite = 0.5 + Math.random() * 0.5;
+        noise(0.026, 2300 + Math.random() * 2200, 2.2, 0.1 * bite, 13, t);
+        if (i % 2 === 0) tone(150 + Math.random() * 90, 0.05, 0.05, "triangle", t, 90);
+      }
+    },
+    /* Landing: the first hit is the loudest, then two smaller bounces as they
+       settle. Bone on wood — a sharp tick with a low knock under it. */
+    diceLand() {
+      [[0, 1], [0.085, 0.55], [0.155, 0.28]].forEach(([t, v]) => {
+        noise(0.055, 2600 - t * 3000, 1.3, 0.42 * v, 9, t);
+        tone(165 - t * 120, 0.09, 0.24 * v, "triangle", t, 105);
+      });
+    },
+    // a double is worth a little bell
+    diceDouble() { tone(988, 0.16, 0.18, "triangle", 0.02); tone(1319, 0.22, 0.14, "sine", 0.1); },
+
     // ui
     tap()  { noise(0.03, 2600, 1.6, 0.18, 12); },
     deal() { noise(0.06, 1500, 1.2, 0.22, 10); },

@@ -31,7 +31,6 @@
       <div class="bStat">
         <span class="dot" id="turnDot"></span>
         <span id="turnName">შენი სვლა</span>
-        <span class="ndice" id="dice"></span>
         <button class="rollBtn" id="rollBtn" onclick="doRoll()">გააგორე</button>
       </div>
       <div class="msg" id="msg"></div>
@@ -43,6 +42,7 @@
     <div class="boardWrap">
       <div class="boardFrame" id="frame">
         <div class="nboard" id="board"></div>
+        <div class="diceLayer" id="diceLayer"></div>
       </div>
     </div>
   </div>
@@ -84,6 +84,178 @@
   let busy = false;         // the computer is thinking; the board is not yours
 
   document.title = (VARIANT === "short" ? "მოკლე ნარდი" : "გრძელი ნარდი") + " — კომპიუტერთან";
+
+  /* =====================================================================
+     Throwing the dice.
+
+     Two bone cubes, thrown from off the edge of the board into the near half,
+     tumbling as they go and bouncing once when they land. The engine has
+     already decided what they say — the throw only has to end with those faces
+     pointing at the player, which is a rotation plus a few whole turns on the
+     way there.
+
+     A face is shown by turning the cube so that face is at the front. The six
+     rotations are the inverses of where the faces were built.
+     ===================================================================== */
+  const FACE_TURN = {
+    1: [0, 0], 6: [0, 180], 2: [0, -90], 5: [0, 90], 3: [-90, 0], 4: [90, 0],
+  };
+  // which of the nine cells a face's pips occupy
+  const PIPS = {
+    1: ["d"], 2: ["a", "g"], 3: ["a", "d", "g"],
+    4: ["a", "b", "f_", "g"], 5: ["a", "b", "d", "f_", "g"],
+    6: ["a", "b", "c", "e", "f_", "g"],
+  };
+
+  function makeDie() {
+    const d = document.createElement("div");
+    d.className = "d3";
+    for (let f = 1; f <= 6; f++) {
+      const face = document.createElement("div");
+      face.className = "f f" + f;
+      face.innerHTML = PIPS[f].map((p) => '<i class="' + p + '"></i>').join("");
+      d.appendChild(face);
+    }
+    return d;
+  }
+
+  /* Where the dice come to rest. Each player throws into their own half of the
+     board and from their own side of the table, the way two people sitting
+     opposite each other do — so you can tell whose throw it was without being
+     told. */
+  function restingPlace(i, n, mine) {
+    const layer = document.getElementById("diceLayer");
+    const W = layer.clientWidth, H = layer.clientHeight;
+    const ds = dieSize();
+    const spread = ds * 1.25;
+    const cx = W * (mine ? 0.72 : 0.28) - (n - 1) * spread / 2 + i * spread;
+    const cy = H * 0.52;
+    return [cx - ds / 2 + (Math.random() - 0.5) * ds * 0.18,
+            cy - ds / 2 + (Math.random() - 0.5) * ds * 0.5];
+  }
+  function dieSize() {
+    const b = document.getElementById("board");
+    return Math.max(22, parseFloat(getComputedStyle(b).getPropertyValue("--cd")) * 1.05);
+  }
+
+  /* The board is measured from the space it is given, and that space changes:
+     the phone turns, the address bar slides away, the window is dragged. The
+     checkers are redrawn from the game each time — the dice are not, so they
+     are told where to lie again, as a fraction of the board rather than in
+     pixels of the board it used to be. */
+  function placeDice() {
+    const layer = document.getElementById("diceLayer");
+    if (!layer) return;
+    const ds = dieSize();
+    layer.style.setProperty("--ds", ds + "px");
+    const W = layer.clientWidth, H = layer.clientHeight;
+    diceEls.forEach((d) => {
+      if (!d.rest) return;
+      d.style.transform = `translate3d(${d.rest.fx * W}px, ${d.rest.fy * H}px, 0)` +
+        ` rotateX(${d.rest.rx}deg) rotateY(${d.rest.ry}deg) scale(1)`;
+    });
+  }
+
+  let diceEls = [];
+  function clearDice(fade) {
+    const layer = document.getElementById("diceLayer");
+    if (!layer) return;
+    if (!fade) { layer.innerHTML = ""; diceEls = []; return; }
+    diceEls.forEach((d) => d.classList.add("gone"));
+    const old = diceEls; diceEls = [];
+    setTimeout(() => old.forEach((d) => d.remove()), 300);
+  }
+
+  /* Throw `values` onto the board. Resolves when they have settled, so the
+     turn can wait for them rather than racing them. */
+  function throwDice(values, mine) {
+    return new Promise((done) => {
+      const layer = document.getElementById("diceLayer");
+      clearDice(false);
+      const ds = dieSize();
+      layer.style.setProperty("--ds", ds + "px");
+      const W = layer.clientWidth, H = layer.clientHeight;
+      const DUR = 820;
+
+      /* A throw needs the animation to actually run. It does not when the tab
+         is in the background — a locked phone, another app — and it should not
+         when the player has asked their system for less movement. In both cases
+         the dice are simply put down where they belong: the alternative is an
+         animation frozen at frame one, holding two dice off the edge of the
+         board until the player comes back. */
+      const still = document.hidden ||
+        (matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+      const running = [];
+
+      if (Sound) Sound.play(still ? "diceLand" : "diceShake", DUR / 1000);
+      values.forEach((v, i) => {
+        const d = makeDie();
+        layer.appendChild(d);
+        diceEls.push(d);
+        const [x1, y1] = restingPlace(i, values.length, mine);
+        // in from beyond the edge on the thrower's side, low and fast
+        const x0 = mine ? W + ds * (1.2 + i * 0.5) : -ds * (1.2 + i * 0.5);
+        const y0 = H * (0.18 + Math.random() * 0.2);
+        const xm = x1 + (x0 - x1) * 0.42, ym = y1 - H * 0.16 - i * 6;
+        const [fx, fy] = FACE_TURN[v];
+        const turns = 2 + Math.floor(Math.random() * 2);
+        const rx = fx + 360 * turns, ry = fy - 360 * (turns + 1);
+        const at = (x, y, sx, sy, s) =>
+          `translate3d(${x}px, ${y}px, 0) rotateX(${sx}deg) rotateY(${sy}deg) scale(${s})`;
+
+        /* Where it ends up is written on the die itself, and the throw is
+           played over the top of that. A browser that never runs the animation
+           — a tab in the background while the phone is locked — then still has
+           the dice lying in the right place when the player looks again,
+           instead of stuck off the edge where they were thrown from. */
+        d.rest = { fx: x1 / W, fy: y1 / H, rx, ry };
+        d.style.transform = at(x1, y1, rx, ry, 1);
+
+        if (still) return;
+        running.push(d.animate([
+          { transform: at(x0, y0, 0, 0, 0.7), offset: 0 },
+          { transform: at(xm, ym, rx * 0.55, ry * 0.55, 1.12), offset: 0.42 },
+          { transform: at(x1, y1 + ds * 0.05, rx * 0.9, ry * 0.9, 1), offset: 0.72 },
+          // the bounce: up a little, then down for good
+          { transform: at(x1 + ds * 0.06, y1 - ds * 0.3, rx * 0.97, ry * 0.97, 1), offset: 0.85 },
+          { transform: at(x1, y1, rx, ry, 1), offset: 1 },
+        ], { duration: DUR + i * 90, easing: "cubic-bezier(.22,.62,.3,1)" }));
+      });
+
+      if (still) {
+        if (values.length === 4 && Sound) Sound.play("diceDouble");
+        setTimeout(done, 60);
+        return;
+      }
+      // the clatter lands with the first die, not with the animation's end
+      setTimeout(() => { if (Sound) Sound.play("diceLand"); }, DUR * 0.72);
+      setTimeout(() => {
+        /* And when the throw is over, the animation is taken away — whether it
+           ran or not. A browser that never advanced it would otherwise hold the
+           dice at frame one, off the edge of the board, for good. With it gone
+           they fall back to the transform written on them, which is where they
+           were always going to land. Timers advance where animations sometimes
+           do not, so this is the belt to that pair of braces. */
+        running.forEach((a) => { try { a.cancel(); } catch (e) { /* already gone */ } });
+        if (values.length === 4 && Sound) Sound.play("diceDouble");
+        done();
+      }, DUR + (values.length - 1) * 90 + 160);   // a margin, so a busy main
+      // thread never has its animation cut off mid-bounce
+    });
+  }
+
+  /* Dim the ones already played, so the board says what is left. */
+  function markSpent() {
+    if (!g || !g.dice) return;
+    const left = g.left.slice();
+    diceEls.forEach((d, i) => {
+      const v = shownValues[i];
+      const k = left.indexOf(v);
+      if (k >= 0) { left.splice(k, 1); d.classList.remove("spent"); }
+      else d.classList.add("spent");
+    });
+  }
+  let shownValues = [];
 
   /* ---------------- drawing ---------------- */
   function build() {
@@ -157,7 +329,7 @@
     b.style.setProperty("--cd", cd + "px");
     b.style.setProperty("--barW", (boardW * barF) + "px");
     b.style.setProperty("--trayW", (boardW * trayF) + "px");
-    document.documentElement.style.setProperty("--dieS", Math.max(20, Math.min(30, cd * 0.9)) + "px");
+    placeDice();                 // the dice lie on the board, so they move with it
   }
 
   function draw() {
@@ -206,21 +378,7 @@
       }
     }
 
-    // the dice
-    const dd = document.getElementById("dice");
-    dd.innerHTML = "";
-    if (g.dice) {
-      const shown = g.dice[0] === g.dice[1] ? [g.dice[0], g.dice[0], g.dice[0], g.dice[0]] : g.dice.slice();
-      const left = g.left.slice();
-      shown.forEach((v) => {
-        const i = left.indexOf(v);
-        if (i >= 0) left.splice(i, 1);
-        const e = document.createElement("span");
-        e.className = "die" + (i < 0 ? " spent" : "");
-        e.textContent = v;
-        dd.appendChild(e);
-      });
-    }
+    markSpent();       // the dice are on the board; they only need dimming
 
     // the target rides along with the score rather than taking a plate of its
     // own: the bar already carries a turn, a pair of dice and a roll button
@@ -264,13 +422,28 @@
   const ptEl = (pt) => document.querySelector('.npt[data-pt="' + pt + '"]');
 
   /* ---------------- what the player does ---------------- */
-  function doRoll() {
+  /* A throw is not instant, so the turn waits for it. `busy` holds the board
+     shut while the dice are in the air — otherwise a fast tap could move a
+     checker with a die that has not landed yet. */
+  async function doRoll() {
     if (!g || g.phase !== "roll" || g.side !== ME || busy) return;
-    Nardi.roll(g);
-    if (Sound) Sound.play("tap");
+    busy = true;
+    const rolled = Nardi.roll(g);
+    shownValues = rolled[0] === rolled[1] ? [rolled[0], rolled[0], rolled[0], rolled[0]] : rolled;
+    draw();
+    await throwDice(shownValues, true);
+    busy = false;
     say(g.log || "");
     draw();
-    if (g.side !== ME) setTimeout(cpuTurn, 500);
+    if (g.side !== ME) setTimeout(cpuTurn, 700);
+  }
+
+  /* Tapping the felt throws them, the same as the button does. On a board you
+     roll onto the board, and reaching for a button in the corner is not how
+     anybody plays. */
+  function tapBoard(e) {
+    if (!g || g.phase !== "roll" || g.side !== ME || busy) return;
+    doRoll();
   }
 
   function tapPoint(pt) {
@@ -303,15 +476,18 @@
     if (Sound) Sound.play("place");
     draw();
     if (g.phase === "roundOver" || g.phase === "over") { finish(); return; }
-    if (g.side !== was) { say(""); setTimeout(cpuTurn, 450); }
+    if (g.side !== was) { say(""); clearDice(true); setTimeout(cpuTurn, 620); }
   }
 
   /* ---------------- the computer ---------------- */
-  function cpuTurn() {
+  async function cpuTurn() {
     if (!g || g.phase === "over" || g.side !== CPU) return;
     busy = true; draw();
     if (g.phase === "roll") {
-      Nardi.roll(g);
+      const rolled = Nardi.roll(g);
+      shownValues = rolled[0] === rolled[1] ? [rolled[0], rolled[0], rolled[0], rolled[0]] : rolled;
+      draw();
+      await throwDice(shownValues, false);
       draw();
       if (g.side === ME) { busy = false; say("კომპიუტერს სვლა არ ჰქონდა"); draw(); return; }
     }
@@ -321,6 +497,7 @@
       if (!plan[k] || g.phase !== "move" || g.side !== CPU) {
         if (g.phase === "move" && g.side === CPU) Nardi.endTurn(g);
         busy = false;
+        clearDice(true);
         draw();
         if (g.phase === "roundOver" || g.phase === "over") finish();
         return;
@@ -368,7 +545,7 @@
     g = Nardi.newGame({ variant: VARIANT, target: TARGET });
     picked = null; busy = false;
     say("");                 // the bar is for what happens, not for the title
-    build(); fit(); draw();
+    build(); fit(); clearDice(false); draw();
     if (g.side === CPU) setTimeout(cpuTurn, 600);
   }
 
@@ -377,7 +554,19 @@
     document.getElementById("sndBtn").textContent = on ? "🔊" : "🔇";
   }
 
+  document.querySelector(".boardWrap").addEventListener("click", tapBoard);
   addEventListener("resize", () => { fit(); draw(); });
+  /* The first measurement is taken before the fonts have landed and before the
+     browser has decided how much of the screen it is keeping for itself, so it
+     is usually wrong by a little and sometimes wrong by a lot. Watching the box
+     is more honest than guessing when it has settled. */
+  /* Kept in a variable on purpose: an observer nobody holds a reference to can
+     be collected, and then the board silently stops following its box. */
+  let boardWatch = null;
+  if (window.ResizeObserver) {
+    boardWatch = new ResizeObserver(() => fit());
+    boardWatch.observe(document.querySelector(".boardWrap"));
+  }
   startMatch();
   </script>
 </body>
