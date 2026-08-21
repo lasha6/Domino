@@ -28,8 +28,13 @@
   background:linear-gradient(180deg, var(--baize-mid), var(--baize) 60%, var(--baize-deep));
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.5), inset 0 4px 16px rgba(0,0,0,.35);
 }
-.nrow{ display:flex; height:var(--rowH); }
-.nrow.nbot{ align-items:flex-end; }
+.nrow{ display:flex; height:var(--rowH); align-items:stretch; }
+/* The bottom row used to align its points to flex-end, which sized each of them
+   to its checkers — and an EMPTY point has no checkers, so it had no height and
+   nothing could be drawn on it. Every highlight in the bottom half of the board
+   was invisible, and a player could not see where a checker was allowed to go.
+   The stacks still sit against the bottom edge: that is `column-reverse` on the
+   point below, not the row's alignment. */
 
 /* the strip down the middle: the bar in backgammon, and the seam in ნარდი */
 .nmid{
@@ -53,9 +58,29 @@
 .npt.odd .tri{ background:linear-gradient(180deg, rgba(7,48,28,.75), rgba(7,48,28,.15)); }
 .nrow.nbot .npt .tri{ clip-path:polygon(0 100%, 100% 100%, 50% 0); }
 
-/* a point you may move to */
-.npt.can .tri{ background:linear-gradient(180deg, rgba(74,208,125,.55), rgba(74,208,125,.10)); }
+/* Three different things, three different marks — they were all green once,
+   and a player cannot tell "lift this one" from "put it here" if both look the
+   same.
+     · pick  — one of yours that has somewhere to go: the point warmed brass
+     · from  — the one in your hand: the same brass, twice as bright
+     · can   — where it may go: the point lit green
+   Warm means "this is yours"; green means "it goes here". */
+.npt.can .tri{ background:linear-gradient(180deg, rgba(74,208,125,.78), rgba(74,208,125,.16)); }
 .npt.from .tri{ background:linear-gradient(180deg, rgba(242,205,126,.6), rgba(242,205,126,.12)); }
+.npt.pick .tri{ background:linear-gradient(180deg, rgba(242,205,126,.22), rgba(242,205,126,.02)); }
+/* The bottom row's triangles point the other way, so their gradients have to
+   as well: left as they were, the strong end sat in the thin tip and the wide
+   base — the part you actually see — faded out to nothing.
+   A highlight nobody can see is a highlight that is not there. */
+.nrow.nbot .npt.can .tri{ background:linear-gradient(0deg, rgba(74,208,125,.78), rgba(74,208,125,.16)); }
+.nrow.nbot .npt.from .tri{ background:linear-gradient(0deg, rgba(242,205,126,.6), rgba(242,205,126,.12)); }
+.nrow.nbot .npt.pick .tri{ background:linear-gradient(0deg, rgba(242,205,126,.22), rgba(242,205,126,.02)); }
+/* The mark that matters goes on the checker you would actually touch — the one
+   on top of the stack. A tint on the triangle alone is hidden underneath them. */
+.npt.pick .chk:last-child{ box-shadow:0 0 0 2px var(--brass-lit), 0 0 7px rgba(242,205,126,.55),
+  0 1px 2px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.35); }
+.npt.from .chk:last-child{ box-shadow:0 0 0 3px var(--brass-lit), 0 0 12px rgba(242,205,126,.8),
+  0 1px 2px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.35); }
 
 .chk{
   position:relative; flex:none;
@@ -92,7 +117,11 @@
      into one plane, and a die turned edge-on becomes a line. The shadow lives
      on the faces instead. */
 }
-.d3.spent{ opacity:.34; }
+/* Dim the FACES, never the cube. `opacity` on the box flattens its 3D
+   subtree exactly the way `filter` does, and a die showing 2, 3, 4 or 5 then
+   turns edge-on and reads as a thin line lying on the felt. Measured: 35x35
+   lit, 0x35 dimmed. */
+.d3.spent .f{ opacity:.3; }
 .d3.gone{ opacity:0; transition:opacity .25s; }
 .d3 .f{
   position:absolute; inset:0; border-radius:18%;

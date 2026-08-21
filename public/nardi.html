@@ -402,7 +402,8 @@
 
   /* what the player may touch right now */
   function highlight() {
-    document.querySelectorAll(".npt.can, .npt.from").forEach((e) => e.classList.remove("can", "from"));
+    document.querySelectorAll(".npt.can, .npt.from, .npt.pick")
+      .forEach((e) => e.classList.remove("can", "from", "pick"));
     document.getElementById("tray").classList.remove("can");
     ["midT", "midB"].forEach((k) => document.getElementById(k).classList.remove("can", "from"));
     if (!g || g.phase !== "move" || g.side !== ME || busy) return;
@@ -411,7 +412,7 @@
       const froms = new Set(Nardi.legalMoves(g).map((m) => m.from));
       froms.forEach((f) => {
         if (f === Nardi.BAR) document.getElementById("midB").classList.add("can");
-        else ptEl(Nardi.pointAt(g, ME, f)).classList.add("can");
+        else ptEl(Nardi.pointAt(g, ME, f)).classList.add("pick");
       });
       return;
     }
@@ -461,6 +462,18 @@
     }
     // picking up: only a stack of your own that has somewhere to go
     if (Nardi.legalMoves(g).some((m) => m.from === i)) { picked = i; highlight(); return; }
+
+    /* Nothing of yours here — but you may have meant "go there". On a board you
+       point at the square you want, and asking a player to lift a checker first
+       when the app already knows which one can reach is a rule of the app, not
+       of the game. Where several could reach it, the one furthest from home
+       goes: that is the convention, and it is the one that needs the help. */
+    const going = Nardi.legalMoves(g).filter((m) => m.from + m.die === i);
+    if (going.length) {
+      going.sort((a, b) => a.from - b.from);
+      play(going[0].from, going[0].die);
+      return;
+    }
     picked = null; highlight();
   }
 
@@ -470,9 +483,16 @@
   }
 
   function tapOff() {
-    if (picked === null) return;
-    const t = Nardi.targetsFrom(g, picked).find((x) => x.to === "off");
-    if (t) play(picked, t.die);
+    if (!g || g.phase !== "move" || g.side !== ME || busy) return;
+    if (picked !== null) {
+      const t = Nardi.targetsFrom(g, picked).find((x) => x.to === "off");
+      if (t) { play(picked, t.die); return; }
+    }
+    const off = Nardi.legalMoves(g).filter((m) => m.from + m.die >= Nardi.POINTS);
+    if (off.length) {
+      off.sort((a, b) => a.from - b.from);
+      play(off[0].from, off[0].die);
+    }
   }
 
   function play(from, die) {
