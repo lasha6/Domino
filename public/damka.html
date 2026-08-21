@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>დამკა — კომპიუტერთან</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0f5230" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/table.css" />
+  <link rel="stylesheet" href="css/board.css" />
+  <script src="js/progress.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/viewport.js"></script>
+  <script src="js/fullscreen.js"></script>
+</head>
+<body>
+  <div class="stage">
+    <div class="top">
+      <button class="back" onclick="location.href='index.html'">←</button>
+      <div class="info">
+        <span class="stat"><span class="k">შენ</span><b id="myCount">12</b></span>
+        <span class="stat"><span class="k">კომპიუტერი</span><b id="cpuCount">12</b></span>
+        <span class="badge">🎓 პრაქტიკა</span>
+      </div>
+      <div class="bStat">
+        <span class="dot" id="turnDot"></span>
+        <span id="turnName">შენი სვლა</span>
+      </div>
+      <div class="msg" id="msg"></div>
+      <div class="spacer" style="flex:1 1 auto"></div>
+      <button class="back sndBtn" id="sndBtn" onclick="toggleSound()" title="ხმა">🔊</button>
+      <button class="newgame" onclick="startGame()">ახალი თამაში</button>
+    </div>
+
+    <div class="boardWrap">
+      <div class="boardFrame" id="frame">
+        <div class="dboard" id="board"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="resultOverlay">
+    <div class="modal">
+      <h2 id="resTitle">—</h2>
+      <p id="resText"></p>
+      <div class="modalActions">
+        <button onclick="startGame()">ახალი თამაში</button>
+        <button class="alt" onclick="location.href='index.html'">გასვლა</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/sound.js"></script>
+  <script src="js/fx.js"></script>
+  <script src="js/damka.js"></script>
+  <script>
+  /* =====================================================================
+     დამკა, against the computer.
+
+     The engine owns the rules — which includes the awkward one, that a jump
+     which can go on has to go on. This screen never has to know about it: it
+     asks the engine what may be played, and if after a jump the turn has not
+     changed hands, the same piece simply stays picked up.
+
+     White is at the bottom and plays up the board, which is the way the player
+     sits in front of it.
+     ===================================================================== */
+  const ME = 0, CPU = 1;
+  const DEPTH = 4;
+  let g = null, picked = null, busy = false;
+
+  function build() {
+    const b = document.getElementById("board");
+    b.innerHTML = "";
+    /* Row 7 at the top, row 0 at the bottom: white plays up the screen, the
+       way the player is sitting. */
+    for (let r = Damka.SIZE - 1; r >= 0; r--)
+      for (let c = 0; c < Damka.SIZE; c++) {
+        const d = document.createElement("div");
+        d.className = "dsq " + (Damka.dark(r, c) ? "dark" : "light");
+        d.dataset.sq = Damka.sq(r, c);
+        if (Damka.dark(r, c)) d.onclick = () => tap(Damka.sq(r, c));
+        b.appendChild(d);
+      }
+  }
+
+  function fit() {
+    const wrap = document.querySelector(".boardWrap");
+    const availW = wrap.clientWidth - 4, availH = wrap.clientHeight - 4;
+    if (availW < 40 || availH < 40) return;
+    const pad = 8;
+    const sq = Math.floor(Math.min(availW - pad * 2, availH - pad * 2) / Damka.SIZE);
+    document.getElementById("frame").style.setProperty("--frameP", pad + "px");
+    document.getElementById("board").style.setProperty("--sqz", sq + "px");
+  }
+
+  function draw() {
+    if (!g) return;
+    document.querySelectorAll(".dsq").forEach((el) => {
+      const s = +el.dataset.sq;
+      const r = Damka.rowOf(s), c = Damka.colOf(s);
+      el.className = "dsq " + (Damka.dark(r, c) ? "dark" : "light");
+      el.innerHTML = "";
+      const v = Damka.at(g, r, c);
+      if (!v) return;
+      const p = document.createElement("div");
+      const side = Damka.sideOf(v);
+      p.className = "pc " + (side === 0 ? "w" : "b")
+        + (g.pending.some((x) => x.sq === s) ? " doomed" : "");
+      if (Damka.kindOf(v) === Damka.QUEEN) p.textContent = "★";
+      el.appendChild(p);
+    });
+
+    document.getElementById("myCount").textContent = Damka.count(g, ME);
+    document.getElementById("cpuCount").textContent = Damka.count(g, CPU);
+    document.getElementById("turnDot").className = "dot " + (g.side === 0 ? "w" : "b");
+    document.getElementById("turnName").textContent =
+      g.phase === "over" ? "თამაში დასრულდა" : g.side === ME ? "შენი სვლა" : "კომპიუტერი";
+    highlight();
+  }
+
+  function highlight() {
+    if (!g || g.phase !== "move" || g.side !== ME || busy) return;
+    /* Mid-jump the piece is already chosen and the player has no say in it,
+       so it is shown picked up without being touched. */
+    const from = g.mustFrom != null ? g.mustFrom : picked;
+    if (from == null) {
+      new Set(Damka.legalMoves(g).map((m) => m.from))
+        .forEach((s) => sqEl(s).classList.add("last"));
+      return;
+    }
+    sqEl(from).classList.add("from");
+    Damka.targetsFrom(g, from).forEach((m) => sqEl(m.to).classList.add("can"));
+  }
+  const sqEl = (s) => document.querySelector('.dsq[data-sq="' + s + '"]');
+
+  function tap(s) {
+    if (!g || g.phase !== "move" || g.side !== ME || busy) return;
+    const from = g.mustFrom != null ? g.mustFrom : picked;
+    if (from != null && Damka.targetsFrom(g, from).some((m) => m.to === s)) { play(from, s); return; }
+    if (g.mustFrom != null) return;                      // the jump must go on
+    if (Damka.legalMoves(g).some((m) => m.from === s)) { picked = s; draw(); return; }
+    picked = null; draw();
+  }
+
+  function play(from, to) {
+    const was = g.side;
+    Damka.move(g, from, to);
+    picked = null;
+    if (Sound) Sound.play("place");
+    draw();
+    if (g.phase === "over") { finish(); return; }
+    if (g.side !== was) setTimeout(cpuTurn, 380);
+  }
+
+  function cpuTurn() {
+    if (!g || g.phase === "over" || g.side !== CPU) return;
+    busy = true; draw();
+    (function step() {
+      if (g.phase === "over") { busy = false; draw(); finish(); return; }
+      if (g.side !== CPU) { busy = false; draw(); return; }
+      const mv = Damka.bestMove(g, DEPTH);
+      if (!mv) { busy = false; draw(); return; }
+      Damka.move(g, mv.from, mv.to);
+      if (Sound) Sound.play("place");
+      draw();
+      setTimeout(step, 400);
+    })();
+  }
+
+  function finish() {
+    if (g.winner === null) { show("ფრე", "დიდხანს არავის არაფერი წაუღია."); return; }
+    const won = g.winner === ME;
+    show(won ? "მოიგე!" : "წააგე", g.log);
+    if (Sound) Sound.play(won ? "win" : "lose");
+    if (won && window.Fx) Fx.confetti();
+  }
+
+  function show(title, text) {
+    document.getElementById("resTitle").textContent = title;
+    document.getElementById("resText").textContent = text || "";
+    document.getElementById("resultOverlay").classList.add("show");
+  }
+  const hide = () => document.getElementById("resultOverlay").classList.remove("show");
+
+  function startGame() {
+    hide();
+    g = Damka.newGame({});
+    picked = null; busy = false;
+    document.getElementById("msg").textContent = "";
+    build(); fit(); draw();
+  }
+
+  function toggleSound() {
+    const on = Sound.toggle();
+    document.getElementById("sndBtn").textContent = on ? "🔊" : "🔇";
+  }
+
+  addEventListener("resize", () => { fit(); draw(); });
+  startGame();
+  </script>
+</body>
+</html>

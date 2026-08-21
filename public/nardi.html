@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>ნარდი — კომპიუტერთან</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0f5230" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/table.css" />
+  <link rel="stylesheet" href="css/board.css" />
+  <script src="js/progress.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/viewport.js"></script>
+  <script src="js/fullscreen.js"></script>
+</head>
+<body>
+  <div class="stage">
+    <div class="top">
+      <button class="back" onclick="location.href='index.html'">←</button>
+      <div class="info">
+        <span class="stat"><span class="k">ანგარიში</span><b id="scoreLbl">0 : 0</b></span>
+        <span class="stat"><span class="k">მიზანი</span><b id="targetLbl">3</b></span>
+        <span class="stat"><span class="k">გზა</span><b id="pipLbl">—</b></span>
+        <span class="badge">🎓 პრაქტიკა</span>
+      </div>
+      <div class="bStat">
+        <span class="dot" id="turnDot"></span>
+        <span id="turnName">შენი სვლა</span>
+        <span class="ndice" id="dice"></span>
+        <button class="rollBtn" id="rollBtn" onclick="doRoll()">გააგორე</button>
+      </div>
+      <div class="msg" id="msg"></div>
+      <div class="spacer" style="flex:1 1 auto"></div>
+      <button class="back sndBtn" id="sndBtn" onclick="toggleSound()" title="ხმა">🔊</button>
+      <button class="newgame" onclick="startMatch()">ახალი თამაში</button>
+    </div>
+
+    <div class="boardWrap">
+      <div class="boardFrame" id="frame">
+        <div class="nboard" id="board"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="resultOverlay">
+    <div class="modal">
+      <h2 id="resTitle">—</h2>
+      <p id="resText"></p>
+      <div class="modalActions">
+        <button onclick="startMatch()">ახალი თამაში</button>
+        <button class="alt" onclick="location.href='index.html'">გასვლა</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/sound.js"></script>
+  <script src="js/fx.js"></script>
+  <script src="js/nardi.js"></script>
+  <script>
+  /* =====================================================================
+     ნარდი, against the computer.
+
+     The engine holds the whole of the rules; this file only draws what it says
+     and hands back the two things a player does — roll, and move a checker
+     from one point to another.
+
+     The board is laid out the way every ნარდი board is: the bottom row runs
+     0..11 from the right, the top row 12..23 from the left, so a player's
+     journey is one lap anticlockwise. Which lap it is depends on the game, and
+     that lives in the engine, not here.
+     ===================================================================== */
+  const P = new URLSearchParams(location.search);
+  const VARIANT = P.get("v") === "short" ? "short" : "long";
+  const TARGET = [1, 3, 5, 7].includes(+P.get("target")) ? +P.get("target") : 3;
+  const ME = 0, CPU = 1;
+
+  let g = null;
+  let picked = null;        // the track index a checker was lifted from
+  let busy = false;         // the computer is thinking; the board is not yours
+
+  document.title = (VARIANT === "short" ? "მოკლე ნარდი" : "გრძელი ნარდი") + " — კომპიუტერთან";
+
+  /* ---------------- drawing ---------------- */
+  function build() {
+    const b = document.getElementById("board");
+    b.innerHTML = "";
+    const top = document.createElement("div"); top.className = "nrow ntop";
+    const bot = document.createElement("div"); bot.className = "nrow nbot";
+    // the middle strip is one element spanning both rows, so the board is
+    // built as three columns rather than two rows; simpler to keep two rows
+    // and give each of them its own half of the strip
+    const mkPoint = (pt) => {
+      const d = document.createElement("div");
+      d.className = "npt" + (pt % 2 ? " odd" : "");
+      d.dataset.pt = pt;
+      d.innerHTML = '<span class="tri"></span>';
+      d.onclick = () => tapPoint(pt);
+      return d;
+    };
+    const mkMid = (which) => {
+      const m = document.createElement("div");
+      m.className = "nmid"; m.id = "mid" + which;
+      m.onclick = () => tapBar();
+      return m;
+    };
+    for (let pt = 12; pt <= 23; pt++) {
+      if (pt === 18) top.appendChild(mkMid("T"));
+      top.appendChild(mkPoint(pt));
+    }
+    for (let pt = 11; pt >= 0; pt--) {
+      if (pt === 5) bot.appendChild(mkMid("B"));
+      bot.appendChild(mkPoint(pt));
+    }
+    const tray = document.createElement("div"); tray.className = "ntray"; tray.id = "tray";
+    tray.innerHTML = '<div class="half" id="offTop"></div><div class="half bottom" id="offBot"></div>';
+    tray.onclick = () => tapOff();
+
+    const wrap = document.createElement("div");
+    wrap.style.display = "flex";
+    const cols = document.createElement("div");
+    cols.style.flex = "1 1 auto"; cols.style.minWidth = "0";
+    cols.appendChild(top); cols.appendChild(bot);
+    wrap.appendChild(cols); wrap.appendChild(tray);
+    b.appendChild(wrap);
+  }
+
+  /* How big everything is. Measured from the space the board is actually
+     given, never assumed: fifteen checkers have to fit on one point in
+     გრძელი ნარდი, so a point is five checkers tall and the rest overlap. */
+  function fit() {
+    const wrap = document.querySelector(".boardWrap");
+    const frame = document.getElementById("frame");
+    const availW = wrap.clientWidth - 4;
+    const availH = wrap.clientHeight - 4;
+    if (availW < 40 || availH < 40) return;
+
+    const pad = 8, trayF = 0.06, barF = 0.055;
+    // a board is about 1.35 times as wide as it is tall, and must fit both ways
+    /* 1.37 is where the two limits meet: twelve points wide at a checker
+       apiece, and five checkers to a row with the rest overlapping. Any wider
+       and the checkers stop filling their points; any taller and they shrink. */
+    const boardH = Math.min(availH - pad * 2, (availW - pad * 2) / 1.37);
+    const boardW = boardH * 1.37;
+    const inner = boardW * (1 - trayF - barF);
+    const cd = Math.min(inner / 12 * 0.92, boardH / 2 / 5.4);
+    const rowH = boardH / 2;
+
+    frame.style.setProperty("--frameP", pad + "px");
+    const b = document.getElementById("board");
+    b.style.width = boardW + "px";
+    b.style.setProperty("--rowH", rowH + "px");
+    b.style.setProperty("--cd", cd + "px");
+    b.style.setProperty("--barW", (boardW * barF) + "px");
+    b.style.setProperty("--trayW", (boardW * trayF) + "px");
+    document.documentElement.style.setProperty("--dieS", Math.max(20, Math.min(30, cd * 0.9)) + "px");
+  }
+
+  function draw() {
+    if (!g) return;
+    const seen = g.pts;
+    document.querySelectorAll(".npt").forEach((el) => {
+      const pt = +el.dataset.pt;
+      el.className = "npt" + (pt % 2 ? " odd" : "");
+      el.querySelectorAll(".chk").forEach((c) => c.remove());
+      const n = Math.abs(seen[pt]);
+      if (!n) return;
+      const side = seen[pt] > 0 ? 0 : 1;
+      const cd = parseFloat(getComputedStyle(document.getElementById("board")).getPropertyValue("--cd"));
+      // five sit clear; anything above that overlaps so the stack stays put
+      const gap = n <= 5 ? 1 : -(cd * (n - 5) + (n - 1)) / (n - 1) + 1;
+      for (let i = 0; i < n; i++) {
+        const c = document.createElement("div");
+        c.className = "chk " + (side === 0 ? "w" : "b");
+        c.style.setProperty("--chkGap", (i === 0 ? 0 : gap) + "px");
+        if (n > 5 && i === n - 1) c.innerHTML = '<span class="more">' + n + "</span>";
+        el.appendChild(c);
+      }
+    });
+
+    // the bar
+    ["T", "B"].forEach((k) => {
+      const m = document.getElementById("mid" + k);
+      m.innerHTML = ""; m.className = "nmid";
+    });
+    for (const side of [0, 1]) {
+      const m = document.getElementById(side === ME ? "midB" : "midT");
+      for (let i = 0; i < g.bar[side]; i++) {
+        const c = document.createElement("div");
+        c.className = "barChk chk " + (side === 0 ? "w" : "b");
+        m.appendChild(c);
+      }
+    }
+    // the tray
+    const trays = { 0: document.getElementById("offBot"), 1: document.getElementById("offTop") };
+    for (const side of [0, 1]) {
+      trays[side].innerHTML = "";
+      for (let i = 0; i < g.off[side]; i++) {
+        const d = document.createElement("div");
+        d.className = "off " + (side === 0 ? "w" : "b");
+        trays[side].appendChild(d);
+      }
+    }
+
+    // the dice
+    const dd = document.getElementById("dice");
+    dd.innerHTML = "";
+    if (g.dice) {
+      const shown = g.dice[0] === g.dice[1] ? [g.dice[0], g.dice[0], g.dice[0], g.dice[0]] : g.dice.slice();
+      const left = g.left.slice();
+      shown.forEach((v) => {
+        const i = left.indexOf(v);
+        if (i >= 0) left.splice(i, 1);
+        const e = document.createElement("span");
+        e.className = "die" + (i < 0 ? " spent" : "");
+        e.textContent = v;
+        dd.appendChild(e);
+      });
+    }
+
+    document.getElementById("scoreLbl").textContent = g.scores[ME] + " : " + g.scores[CPU];
+    document.getElementById("targetLbl").textContent = g.target;
+    document.getElementById("pipLbl").textContent =
+      Nardi.pipCount(g, ME) + " / " + Nardi.pipCount(g, CPU);
+    document.getElementById("turnDot").className = "dot " + (g.side === 0 ? "w" : "b");
+    document.getElementById("turnName").textContent =
+      g.phase === "over" ? "მატჩი დასრულდა"
+      : g.side === ME ? (g.phase === "roll" ? "შენი გაგორებაა" : "შენი სვლა")
+      : "კომპიუტერი";
+    const rb = document.getElementById("rollBtn");
+    rb.style.display = (g.side === ME && g.phase === "roll") ? "" : "none";
+    rb.disabled = busy;
+    highlight();
+  }
+
+  /* what the player may touch right now */
+  function highlight() {
+    document.querySelectorAll(".npt.can, .npt.from").forEach((e) => e.classList.remove("can", "from"));
+    document.getElementById("tray").classList.remove("can");
+    ["midT", "midB"].forEach((k) => document.getElementById(k).classList.remove("can", "from"));
+    if (!g || g.phase !== "move" || g.side !== ME || busy) return;
+
+    if (picked === null) {
+      const froms = new Set(Nardi.legalMoves(g).map((m) => m.from));
+      froms.forEach((f) => {
+        if (f === Nardi.BAR) document.getElementById("midB").classList.add("can");
+        else ptEl(Nardi.pointAt(g, ME, f)).classList.add("can");
+      });
+      return;
+    }
+    if (picked === Nardi.BAR) document.getElementById("midB").classList.add("from");
+    else ptEl(Nardi.pointAt(g, ME, picked)).classList.add("from");
+    for (const t of Nardi.targetsFrom(g, picked)) {
+      if (t.to === "off") document.getElementById("tray").classList.add("can");
+      else ptEl(Nardi.pointAt(g, ME, t.to)).classList.add("can");
+    }
+  }
+  const ptEl = (pt) => document.querySelector('.npt[data-pt="' + pt + '"]');
+
+  /* ---------------- what the player does ---------------- */
+  function doRoll() {
+    if (!g || g.phase !== "roll" || g.side !== ME || busy) return;
+    Nardi.roll(g);
+    if (Sound) Sound.play("tap");
+    say(g.log || "");
+    draw();
+    if (g.side !== ME) setTimeout(cpuTurn, 500);
+  }
+
+  function tapPoint(pt) {
+    if (!g || g.phase !== "move" || g.side !== ME || busy) return;
+    const i = Nardi.indexOf(g, ME, pt);
+    if (picked !== null) {
+      const t = Nardi.targetsFrom(g, picked).find((x) => x.to === i);
+      if (t) { play(picked, t.die); return; }
+    }
+    // picking up: only a stack of your own that has somewhere to go
+    if (Nardi.legalMoves(g).some((m) => m.from === i)) { picked = i; highlight(); return; }
+    picked = null; highlight();
+  }
+
+  function tapBar() {
+    if (!g || g.phase !== "move" || g.side !== ME || busy) return;
+    if (Nardi.legalMoves(g).some((m) => m.from === Nardi.BAR)) { picked = Nardi.BAR; highlight(); }
+  }
+
+  function tapOff() {
+    if (picked === null) return;
+    const t = Nardi.targetsFrom(g, picked).find((x) => x.to === "off");
+    if (t) play(picked, t.die);
+  }
+
+  function play(from, die) {
+    const was = g.side;
+    Nardi.move(g, from, die);
+    picked = null;
+    if (Sound) Sound.play("place");
+    draw();
+    if (g.phase === "roundOver" || g.phase === "over") { finish(); return; }
+    if (g.side !== was) { say(""); setTimeout(cpuTurn, 450); }
+  }
+
+  /* ---------------- the computer ---------------- */
+  function cpuTurn() {
+    if (!g || g.phase === "over" || g.side !== CPU) return;
+    busy = true; draw();
+    if (g.phase === "roll") {
+      Nardi.roll(g);
+      draw();
+      if (g.side === ME) { busy = false; say("კომპიუტერს სვლა არ ჰქონდა"); draw(); return; }
+    }
+    const plan = Nardi.bestTurn(g);
+    let k = 0;
+    (function next() {
+      if (!plan[k] || g.phase !== "move" || g.side !== CPU) {
+        if (g.phase === "move" && g.side === CPU) Nardi.endTurn(g);
+        busy = false;
+        draw();
+        if (g.phase === "roundOver" || g.phase === "over") finish();
+        return;
+      }
+      const m = plan[k++];
+      Nardi.move(g, m.from, m.die);
+      if (Sound) Sound.play("place");
+      draw();
+      if (g.phase === "roundOver" || g.phase === "over") { busy = false; finish(); return; }
+      setTimeout(next, 420);
+    })();
+  }
+
+  /* ---------------- rounds and the match ---------------- */
+  function finish() {
+    const won = g.roundWinner === ME;
+    const what = g.roundWorth >= 3 ? "კოკა" : g.roundWorth === 2 ? "მარსი" : "";
+    if (g.phase === "over") {
+      show(g.matchWinner === ME ? "მოიგე!" : "წააგე",
+        "ანგარიში " + g.scores[ME] + " : " + g.scores[CPU]);
+      if (g.matchWinner === ME && window.Fx) Fx.confetti();
+      return;
+    }
+    show(won ? "პარტია შენია" : "პარტია კომპიუტერს",
+      (what ? what + " — " : "") + "+" + g.roundWorth +
+      " · ანგარიში " + g.scores[ME] + " : " + g.scores[CPU]);
+    setTimeout(() => {
+      hide();
+      Nardi.nextRound(g);
+      draw();
+      if (g.side === CPU) setTimeout(cpuTurn, 500);
+    }, 2200);
+  }
+
+  function show(title, text) {
+    document.getElementById("resTitle").textContent = title;
+    document.getElementById("resText").textContent = text;
+    document.getElementById("resultOverlay").classList.add("show");
+  }
+  const hide = () => document.getElementById("resultOverlay").classList.remove("show");
+  const say = (t) => { document.getElementById("msg").textContent = t; };
+
+  function startMatch() {
+    hide();
+    g = Nardi.newGame({ variant: VARIANT, target: TARGET });
+    picked = null; busy = false;
+    say("");                 // the bar is for what happens, not for the title
+    build(); fit(); draw();
+    if (g.side === CPU) setTimeout(cpuTurn, 600);
+  }
+
+  function toggleSound() {
+    const on = Sound.toggle();
+    document.getElementById("sndBtn").textContent = on ? "🔊" : "🔇";
+  }
+
+  addEventListener("resize", () => { fit(); draw(); });
+  startMatch();
+  </script>
+</body>
+</html>

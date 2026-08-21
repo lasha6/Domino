@@ -96,6 +96,11 @@
             <span class="gName">ჯოკერი</span>
             <span class="gSub">24 ხელი · 4 მოთამაშე</span>
           </button>
+          <button class="game" onclick="chooseGame('nardi')">
+            <span class="gArt gNardi"><i></i><i></i><i></i></span>
+            <span class="gName">ნარდი</span>
+            <span class="gSub">გრძელი, მოკლე · დამკა</span>
+          </button>
         </div>
       </div>
 
@@ -135,6 +140,33 @@
         <div class="modes">
           <button class="mode" onclick="openFriend('joker')">👥 მეგობართან</button>
           <button class="mode" onclick="location.href='joker.html'">🤖 კომპიუტერთან</button>
+        </div>
+      </div>
+
+      <!-- ---- nardi: the board games share one room ---- -->
+      <div class="center gameView" id="viewNardi" style="display:none">
+        <button class="backGame" onclick="chooseGame(null)">← თამაშები</button>
+        <h1 class="logo-title">ნარდი</h1>
+        <p class="logo-sub">კომპიუტერთან — ონლაინი მოგვიანებით</p>
+        <button class="play later" onclick="return false">
+          <span class="arrow">▶</span> ითამაშე
+        </button>
+        <div class="games">
+          <button class="game" onclick="location.href='nardi.html?v=long'">
+            <span class="gArt gNardi"><i></i><i></i><i></i></span>
+            <span class="gName">გრძელი ნარდი</span>
+            <span class="gSub">თავიდან, ჭამის გარეშე</span>
+          </button>
+          <button class="game" onclick="location.href='nardi.html?v=short'">
+            <span class="gArt gNardi short"><i></i><i></i><i></i></span>
+            <span class="gName">მოკლე ნარდი</span>
+            <span class="gSub">ჭამით და ბარიდან შემოსვლით</span>
+          </button>
+          <button class="game" onclick="location.href='damka.html'">
+            <span class="gArt gDamka"><i></i><i></i></span>
+            <span class="gName">დამკა</span>
+            <span class="gSub">8×8 · ჭამა სავალდებულოა</span>
+          </button>
         </div>
       </div>
 
@@ -328,6 +360,8 @@
         <button class="profTab on" id="rulesTabDomino" onclick="showRules('domino')">დომინო</button>
         <button class="profTab" id="rulesTabBura" onclick="showRules('bura')">ბურა</button>
         <button class="profTab" id="rulesTabJoker" onclick="showRules('joker')">ჯოკერი</button>
+        <button class="profTab" id="rulesTabNardi" onclick="showRules('nardi')">ნარდი</button>
+        <button class="profTab" id="rulesTabDamka" onclick="showRules('damka')">დამკა</button>
       </div>
 
       <div class="rulesText" id="rulesDomino">
@@ -416,6 +450,56 @@
            ჯოკერი იღებს.</p>
         <p><b>ჯოკერი პასუხად.</b> მაღლა დადებული ჯოკერი ხელს იღებს — ორიდან
            ის, ვინც ბოლოს დადო; დაბლა დადებული კი უბრალოდ იყრება.</p>
+      </div>
+
+      <div class="rulesText" id="rulesNardi" style="display:none">
+        <p class="rSub">ორი მოთამაშე, თხუთმეტ-თხუთმეტი ქვა და ორი კამათელი.</p>
+        <p><b>ორი ნარდი.</b> გრძელში ქვა არავის ეჭმევა და ერთი მოწინააღმდეგის ქვაც
+           კეტავს პუნქტს; მოკლეში მარტო მდგომი ქვა იჭმევა და ბარზე გადადის.</p>
+        <p><b>საწყისი განლაგება.</b> გრძელში თხუთმეტივე ქვა შენს „თავზე" დგას და
+           ორივე ერთი მიმართულებით დადის. მოკლეში ცნობილი განლაგებაა: 2 · 5 · 3 · 5.</p>
+        <p><b>სვლა.</b> კამათლების რიცხვი ნაბიჯებია. ორივე უნდა ითამაშო, თუ ორივე
+           თამაშდება; თუ მხოლოდ ერთი — მაშინ დიდი. დუბლი ოთხი სვლაა, არა ორი.</p>
+        <p><b>თავის წესი (გრძელი).</b> ერთ სვლაზე თავიდან მხოლოდ ერთი ქვა ჩამოდის.
+           პირველ სვლაზე გამონაკლისია 6-6, 4-4 და 3-3 — მაშინ ორი შეიძლება.</p>
+        <p><b>ექვსი ზედიზედ (გრძელი).</b> ექვსი შენი პუნქტი ზედიზედ კედელია.
+           აკრძალულია, თუ მოწინააღმდეგის ერთი ქვაც არ არის უკვე გასული — თორემ
+           თამაში იქვე მთავრდება.</p>
+        <p><b>ჭამა (მოკლე).</b> მარტო მდგომ ქვას ეჭმევა და ბარზე გადადის.
+           სანამ ბარიდან არ შემოვა, სხვა ქვას ვერ ახმევ.</p>
+        <p><b>გატანა.</b> ქვები მხოლოდ მაშინ გააქვს, როცა თხუთმეტივე სახლშია.
+           ზუსტი რიცხვი ყოველთვის გააქვს; მეტი რიცხვი — მხოლოდ ყველაზე შორს
+           მდგომს, სხვის თავზე გადახტომა არ შეიძლება.</p>
+        <p><b>ქულა.</b> მოგება ერთი ქულაა. თუ წაგებულს ერთი ქვაც არ გაუტანია —
+           მარსი, ორი ქულა. მოკლეში, თუ თანაც ბარზე უდგას ან შენს სახლშია —
+           კოკა, სამი ქულა.</p>
+        <p><b>მატჩი.</b> ვინც ოთახის ქულას პირველი მიაღწევს. შემდეგ პარტიას
+           წაგებული იწყებს.</p>
+      </div>
+
+      <div class="rulesText" id="rulesDamka" style="display:none">
+        <p class="rSub">8×8, თორმეტ-თორმეტი ქვა მუქ უჯრებზე.</p>
+        <p><b>სვლა.</b> ჩვეულებრივი ქვა დიაგონალზე ერთ უჯრას წინ მიდის.</p>
+        <p><b>ჭამა სავალდებულოა.</b> თუ ჭამა შეგიძლია, ჭამა უნდა ითამაშო.
+           რამდენიმე ვარიანტიდან თვითონ ირჩევ — ყველაზე გრძელი აქ სავალდებულო არაა.</p>
+        <p><b>უკან ჭამა.</b> ჩვეულებრივი ქვა ჭამს ყველა მიმართულებით — წინ და უკან
+           ერთნაირად. სიარული კი მხოლოდ წინ შეუძლია.</p>
+        <p><b>ჯაჭვი.</b> თუ ჭამის შემდეგ კიდევ შეგიძლია ჭამო, უნდა გააგრძელო.
+           ეს ერთი სვლაა და არა რამდენიმე.</p>
+        <p><b>ერთი ქვა ერთხელ.</b> ერთსა და იმავე ქვას ერთ სვლაში ორჯერ ვერ
+           გადაახტები. ამიტომ შეჭმული ქვები დაფაზე რჩება სვლის ბოლომდე და
+           გზას კეტავს.</p>
+        <p><b>დამკა.</b> ბოლო ხაზამდე მისული ქვა დამკა ხდება იმავე წამს. თუ
+           ჭამის შუაში გადაიქცა და ჭამა კიდევ შეუძლია — უკვე დამკად აგრძელებს.</p>
+        <p><b>როგორ დადის დამკა.</b> დიაგონალზე რამდენ უჯრასაც უნდა, ორივე
+           მიმართულებით. ვერაფერს გადაუვლის — მხოლოდ ცარიელ უჯრებზე.</p>
+        <p><b>როგორ ჭამს დამკა.</b> შორიდანაც: ერთ მოწინააღმდეგის ქვას გადაახტება,
+           წინ და უკან რამდენიც უნდა ცარიელი უჯრა იყოს, და მის იქით ნებისმიერ
+           ცარიელ უჯრაზე ჩერდება. ორი ქვა ზედიზედ კი მას აჩერებს.</p>
+        <p><b>წაგება.</b> ქვები რომ აღარ დაგრჩა — წააგე. და მაშინაც, თუ ქვები
+           გყავს, მაგრამ სვლა აღარ გაქვს.</p>
+        <p><b>ფრე.</b> თუ დიდხანს არავის არაფერი წაუღია და ჩვეულებრივი ქვა არ
+           დაძრულა, პარტია ფრედ ითვლება.</p>
       </div>
 
       <button class="roomClose" onclick="closeRules()">დახურვა</button>
@@ -869,6 +953,7 @@
       document.getElementById("viewDomino").style.display = name === "domino" ? "" : "none";
       document.getElementById("viewBura").style.display   = name === "bura" ? "" : "none";
       document.getElementById("viewJoker").style.display  = name === "joker" ? "" : "none";
+      document.getElementById("viewNardi").style.display  = name === "nardi" ? "" : "none";
       if (name) { Sound.play("tap"); localStorage.setItem("dominoLastGame", name); }
       else localStorage.removeItem("dominoLastGame");
     }
@@ -961,7 +1046,7 @@
     /* Three games, three sets of rules, one window. The tab that is open is
        remembered for the session only — a player who came to read about ბურა
        is usually about to play it. */
-    const RULE_TABS = ["domino", "bura", "joker"];
+    const RULE_TABS = ["domino", "bura", "joker", "nardi", "damka"];
     function showRules(which){
       RULE_TABS.forEach((g) => {
         const on = g === which;

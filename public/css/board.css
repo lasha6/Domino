@@ -1,0 +1,157 @@
+/* =====================================================================
+   The two board games — ნარდი and დამკა.
+
+   Both are drawn inside a walnut rim on the same felt as the card tables, and
+   both are sized from the box they are given rather than from guesses: the
+   screen measures what is left after the top bar and writes --cd (a checker's
+   diameter) and --sqz (a draughts square) back out. Nothing here assumes a
+   phone size.
+   ===================================================================== */
+
+/* ---------------- shared frame ---------------- */
+.boardWrap{
+  flex:1 1 auto; min-height:0; display:flex; align-items:center; justify-content:center;
+}
+.boardFrame{
+  position:relative; border-radius:14px;
+  padding:var(--frameP, 8px);
+  background:linear-gradient(160deg, var(--wood-hi), var(--wood) 45%, var(--wood-lo));
+  box-shadow:0 6px 20px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.12);
+}
+
+/* =====================================================================
+   ნარდი
+   ===================================================================== */
+.nboard{
+  position:relative; display:flex; flex-direction:column;
+  border-radius:7px; overflow:hidden;
+  background:linear-gradient(180deg, var(--baize-mid), var(--baize) 60%, var(--baize-deep));
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.5), inset 0 4px 16px rgba(0,0,0,.35);
+}
+.nrow{ display:flex; height:var(--rowH); }
+.nrow.nbot{ align-items:flex-end; }
+
+/* the strip down the middle: the bar in backgammon, and the seam in ნარდი */
+.nmid{
+  flex:none; width:var(--barW); align-self:stretch;
+  background:linear-gradient(90deg, var(--wood-lo), var(--wood) 40%, var(--wood-hi) 60%, var(--wood-lo));
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.45);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+}
+
+/* one point: a long triangle with its checkers stacked from the outer edge */
+.npt{
+  position:relative; flex:1 1 0; min-width:0;
+  display:flex; flex-direction:column; align-items:center;
+}
+.nrow.nbot .npt{ flex-direction:column-reverse; }
+.npt .tri{
+  position:absolute; left:8%; right:8%; top:0; bottom:0;
+  clip-path:polygon(0 0, 100% 0, 50% 100%);
+  background:linear-gradient(180deg, rgba(246,239,221,.20), rgba(246,239,221,.03));
+}
+.npt.odd .tri{ background:linear-gradient(180deg, rgba(7,48,28,.75), rgba(7,48,28,.15)); }
+.nrow.nbot .npt .tri{ clip-path:polygon(0 100%, 100% 100%, 50% 0); }
+
+/* a point you may move to */
+.npt.can .tri{ background:linear-gradient(180deg, rgba(74,208,125,.55), rgba(74,208,125,.10)); }
+.npt.from .tri{ background:linear-gradient(180deg, rgba(242,205,126,.6), rgba(242,205,126,.12)); }
+
+.chk{
+  position:relative; flex:none;
+  width:var(--cd); height:var(--cd); border-radius:50%;
+  margin-top:var(--chkGap, 0px);
+  box-shadow:0 1px 2px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.35);
+}
+.nrow.nbot .chk{ margin-top:0; margin-bottom:var(--chkGap, 0px); }
+.chk.w{ background:radial-gradient(circle at 34% 30%, var(--bone-hi), var(--bone) 55%, var(--bone-lo));
+        border:1px solid var(--bone-edge); }
+.chk.b{ background:radial-gradient(circle at 34% 30%, #4a4038, #241d18 55%, #120e0b);
+        border:1px solid #0a0806; }
+.chk .more{
+  position:absolute; inset:0; display:grid; place-items:center;
+  font:700 calc(var(--cd) * .5)/1 var(--font-ui); color:var(--ink);
+}
+.chk.b .more{ color:var(--cream); }
+
+/* dice, and the tray a borne-off checker goes to */
+.ndice{ display:flex; gap:6px; align-items:center; }
+.die{
+  width:var(--dieS, 26px); height:var(--dieS, 26px); border-radius:5px;
+  display:grid; place-items:center;
+  font:700 calc(var(--dieS, 26px) * .58)/1 var(--font-ui); color:var(--ink);
+  background:linear-gradient(180deg, var(--bone-hi), var(--bone-lo));
+  border:1px solid var(--bone-edge); box-shadow:0 2px 5px rgba(0,0,0,.4);
+}
+.die.spent{ opacity:.3; }
+.ntray{
+  flex:none; width:var(--trayW); align-self:stretch;
+  display:flex; flex-direction:column; justify-content:space-between;
+  padding:3px; gap:3px;
+  background:linear-gradient(90deg, var(--wood-lo), var(--wood));
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.45);
+}
+.ntray .half{ flex:1 1 0; display:flex; flex-direction:column; align-items:center;
+  justify-content:flex-start; gap:1px; min-height:0; }
+.ntray .half.bottom{ justify-content:flex-end; }
+.ntray .off{ width:100%; height:calc(var(--cd) * .30); border-radius:2px; flex:none; }
+.ntray .off.w{ background:linear-gradient(180deg, var(--bone), var(--bone-lo)); }
+.ntray .off.b{ background:linear-gradient(180deg, #4a4038, #1a1512); }
+.ntray.can{ box-shadow:inset 0 0 0 2px var(--good); }
+
+/* the bar: hit checkers waiting to come back in */
+.nmid .barChk{ width:calc(var(--cd) * .8); height:calc(var(--cd) * .8); border-radius:50%; }
+.nmid.can{ box-shadow:inset 0 0 0 2px var(--good); }
+.nmid.from{ box-shadow:inset 0 0 0 2px var(--brass-lit); }
+
+/* =====================================================================
+   დამკა
+   ===================================================================== */
+.dboard{
+  display:grid; grid-template-columns:repeat(8, var(--sqz)); grid-template-rows:repeat(8, var(--sqz));
+  border-radius:5px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(0,0,0,.5);
+}
+.dsq{ position:relative; }
+.dsq.light{ background:linear-gradient(160deg, #e6dcc0, #cfc3a2); }
+.dsq.dark{ background:linear-gradient(160deg, #4b7b5e, #2f5741); }
+.dsq.can::after{
+  content:""; position:absolute; left:34%; top:34%; width:32%; height:32%;
+  border-radius:50%; background:rgba(74,208,125,.85);
+}
+.dsq.from{ box-shadow:inset 0 0 0 3px var(--brass-lit); }
+.dsq.last{ box-shadow:inset 0 0 0 2px rgba(242,205,126,.4); }
+.pc{
+  position:absolute; left:9%; top:9%; width:82%; height:82%; border-radius:50%;
+  display:grid; place-items:center;
+  font:700 calc(var(--sqz) * .38)/1 var(--font-ui);
+  box-shadow:0 2px 4px rgba(0,0,0,.5), inset 0 2px 0 rgba(255,255,255,.28);
+}
+.pc.w{ background:radial-gradient(circle at 34% 28%, var(--bone-hi), var(--bone) 55%, var(--bone-lo));
+       border:1px solid var(--bone-edge); color:var(--brass-dim); }
+.pc.b{ background:radial-gradient(circle at 34% 28%, #4a4038, #241d18 55%, #120e0b);
+       border:1px solid #0a0806; color:var(--brass-lit); }
+.pc.doomed{ opacity:.42; }
+
+/* who is on the move, and how many are left */
+.bStat{ display:flex; align-items:center; gap:6px; flex:none; white-space:nowrap;
+  font:600 12px/1 var(--font-ui); color:var(--cream-dim); }
+/* the top bar on these two screens carries a score, a target, a pip count, a
+   turn and a pair of dice; every one of them has to stay on one line or the
+   bar grows a second row and eats the board. */
+.stage .top .stat, .stage .top .stat b, .stage .top .msg{ white-space:nowrap; }
+.stage .top .msg{ flex:0 1 auto; overflow:hidden; text-overflow:ellipsis; }
+.stage .top .newgame{ white-space:nowrap; }
+.bStat .dot{ width:13px; height:13px; border-radius:50%; flex:none;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3); }
+.bStat .dot.w{ background:linear-gradient(180deg, var(--bone-hi), var(--bone-lo)); }
+.bStat .dot.b{ background:linear-gradient(180deg, #4a4038, #17120f); }
+
+.rollBtn{
+  cursor:pointer; border-radius:11px; padding:9px 20px; min-height:38px;
+  font:700 13px/1 var(--font-ui); color:var(--ink);
+  background:linear-gradient(180deg, var(--brass-lit), var(--brass));
+  border:1px solid var(--brass-dim);
+  box-shadow:0 2px 8px rgba(0,0,0,.35);
+}
+.rollBtn:active{ transform:translateY(1px); }
+.rollBtn[disabled]{ opacity:.45; cursor:default; }

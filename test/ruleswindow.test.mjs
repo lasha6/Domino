@@ -16,7 +16,7 @@ import { readFileSync } from "node:fs";
 const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
 const block = html.slice(html.indexOf("<!-- rules -->"), html.indexOf("<!-- promo code -->"));
 
-const GAMES = ["Domino", "Bura", "Joker"];
+const GAMES = ["Domino", "Bura", "Joker", "Nardi", "Damka"];
 const georgian = (s) => /[Ⴀ-ჿ]/.test(s);
 
 // the text a reader actually sees, one node at a time, the way I18N sees it
@@ -57,13 +57,23 @@ function loadI18N(lang) {
   return win.I18N;
 }
 
-test("every game the front page offers has its own rules", () => {
-  /* The front page lists the games it can start. Whatever is there has to be
-     explained here — this is the check that would have caught ბურა and ჯოკერი
-     going in with only domino written up. */
-  const offered = [...html.matchAll(/chooseGame\('(\w+)'\)/g)].map((m) => m[1]);
-  assert.deepEqual([...new Set(offered)].sort(), ["bura", "domino", "joker"],
-    "the front page offers exactly these three");
+test("every game the front page can start has its own rules", () => {
+  /* Whatever the lobby can start has to be explained here. This is the check
+     that would have caught ბურა and ჯოკერი going in with only domino
+     written up, and it caught ნარდი and დამკა doing the same.
+
+     Two ways in are counted: a card on the front page, and a screen the lobby
+     sends you straight to — დამკა has no card of its own, it lives in the
+     ნარდი room, and it still needs its rules. */
+  const cards = [...html.matchAll(/chooseGame\('(\w+)'\)/g)].map((m) => m[1]);
+  const screens = [...html.matchAll(/location\.href='(\w+)\.html/g)].map((m) => m[1]);
+  const startable = new Set([...cards, ...screens]
+    .filter((n) => !["index", "online", "buraonline", "jokeronline", "game"].includes(n)));
+  assert.ok(startable.size >= 5, `the lobby starts ${[...startable].join(", ")}`);
+  for (const g of startable) {
+    const tab = "rules" + g[0].toUpperCase() + g.slice(1);
+    assert.ok(block.includes(`id="${tab}"`), `${g} can be started but has no rules`);
+  }
   for (const g of GAMES) {
     assert.ok(block.includes(`id="rules${g}"`), `${g} has a pane`);
     assert.ok(block.includes(`showRules('${g.toLowerCase()}')`), `${g} has a tab that opens it`);
@@ -92,6 +102,12 @@ test("the rules of one game are not the rules of another", () => {
   assert.ok(b.includes("ყაიმი"), "ბურა explains the draw");
   assert.ok(j.includes("ხიშტი"), "ჯოკერი explains the whist");
   assert.ok(j.includes("ბიდი"), "ჯოკერი explains the bidding");
+  const n = textNodes(paneOf("Nardi")).join(" ");
+  const k = textNodes(paneOf("Damka")).join(" ");
+  assert.ok(n.includes("მარსი"), "ნარდი explains the gammon");
+  assert.ok(n.includes("დუბლი"), "ნარდი explains what a double is worth");
+  assert.ok(k.includes("დამკა"), "დამკა explains the crowning");
+  assert.ok(k.includes("სავალდებულ"), "დამკა says taking is compulsory");
 });
 
 test("the two rules that are easiest to confuse are both written down", () => {
