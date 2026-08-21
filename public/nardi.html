@@ -47,6 +47,17 @@
     </div>
   </div>
 
+  <div class="overlay" id="waitOverlay">
+    <div class="modal">
+      <h2 id="waitTitle">ველოდებით მოწინააღმდეგეს…</h2>
+      <p id="waitText"></p>
+      <p class="codeBox" id="codeBox" style="display:none"><b id="codeVal"></b></p>
+      <div class="modalActions">
+        <button class="alt" onclick="leaveTable()">გასვლა</button>
+      </div>
+    </div>
+  </div>
+
   <div class="overlay" id="resultOverlay">
     <div class="modal">
       <h2 id="resTitle">—</h2>
@@ -61,6 +72,10 @@
   <script src="js/sound.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/nardi.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/socket.io.min.js"></script>
+  <script src="js/leaving.js"></script>
   <script>
   /* =====================================================================
      ნარდი, against the computer.
@@ -77,7 +92,20 @@
   const P = new URLSearchParams(location.search);
   const VARIANT = P.get("v") === "short" ? "short" : "long";
   const TARGET = [1, 3, 5, 7].includes(+P.get("target")) ? +P.get("target") : 3;
-  const ME = 0, CPU = 1;
+  /* One screen, two ways of playing. Against the computer the engine here is
+     the game; online the SERVER is the game and the engine here is only used to
+     work out what may be touched — it is the same file on both sides, so the
+     two always agree about what is legal. */
+  const MODE = ["quick", "friend", "join", "rejoin"].includes(P.get("mode")) ? P.get("mode") : "cpu";
+  const ONLINE = MODE !== "cpu";
+  let ME = 0, CPU = 1;
+  let socket = null, seated = false, lastDice = null;
+  const TOKEN = (function () {
+    let t = localStorage.getItem("dominoToken");
+    if (!t) { t = Math.random().toString(36).slice(2) + Date.now().toString(36);
+              localStorage.setItem("dominoToken", t); }
+    return t;
+  })();
 
   let g = null;
   let picked = null;        // the track index a checker was lifted from
@@ -273,7 +301,15 @@
   function build() {
     const b = document.getElementById("board");
     b.innerHTML = "";
-    const mkPoint = (pt) => {
+    /* Every player sits in front of their own home. The slots on screen never
+       move; which point of the board each slot IS depends on which chair you
+       are in. Seat one sees the board turned about — in გრძელი ნარდი that is a
+       half turn, in მოკლე ნარდი a reflection, because the two games put their
+       home boards in different corners. */
+    const mine = (slot) => ME === 0 ? slot
+      : (VARIANT === "short" ? 23 - slot : (slot + 12) % 24);
+    const mkPoint = (slot) => {
+      const pt = mine(slot);
       const d = document.createElement("div");
       d.className = "npt" + (pt % 2 ? " odd" : "");
       d.dataset.pt = pt;
@@ -406,7 +442,9 @@
       }
     }
     // the tray
-    const trays = { 0: document.getElementById("offBot"), 1: document.getElementById("offTop") };
+    const trays = {};
+    trays[ME] = document.getElementById("offBot");
+    trays[CPU] = document.getElementById("offTop");
     for (const side of [0, 1]) {
       trays[side].innerHTML = "";
       for (let i = 0; i < g.off[side]; i++) {
@@ -466,6 +504,7 @@
      checker with a die that has not landed yet. */
   async function doRoll() {
     if (!g || g.phase !== "roll" || g.side !== ME || busy) return;
+    if (ONLINE) { socket.emit("nRoll"); return; }   // the server throws them
     busy = true;
     const rolled = Nardi.roll(g);
     /* Two dice are thrown, and two land, even on a double — a double is worth
@@ -531,6 +570,7 @@
   }
 
   function play(from, die) {
+    if (ONLINE) { socket.emit("nMove", { from, die }); picked = null; highlight(); return; }
     const was = g.side;
     Nardi.move(g, from, die);
     picked = null;
@@ -630,12 +670,12 @@
     const won = g.roundWinner === ME;
     const what = g.roundWorth >= 3 ? "კოკა" : g.roundWorth === 2 ? "მარსი" : "";
     if (g.phase === "over") {
-      show(g.matchWinner === ME ? "მოიგე!" : "წააგე",
+      showResult(g.matchWinner === ME ? "მოიგე!" : "წააგე",
         "ანგარიში " + g.scores[ME] + " : " + g.scores[CPU]);
       if (g.matchWinner === ME && window.Fx) Fx.confetti();
       return;
     }
-    show(won ? "პარტია შენია" : "პარტია კომპიუტერს",
+    showResult(won ? "პარტია შენია" : "პარტია კომპიუტერს",
       (what ? what + " — " : "") + "+" + g.roundWorth +
       " · ანგარიში " + g.scores[ME] + " : " + g.scores[CPU]);
     setTimeout(async () => {
@@ -649,9 +689,9 @@
     }, 2200);
   }
 
-  function show(title, text) {
+  function showResult(title, text) {
     document.getElementById("resTitle").textContent = title;
-    document.getElementById("resText").textContent = text;
+    document.getElementById("resText").textContent = text || "";
     document.getElementById("resultOverlay").classList.add("show");
   }
   const hide = () => document.getElementById("resultOverlay").classList.remove("show");
@@ -669,6 +709,94 @@
     if (g.side === CPU) setTimeout(cpuTurn, 600);
   }
 
+  /* =====================================================================
+     Playing somebody.
+
+     The server holds the game and checks every move; what arrives here is the
+     whole board, because a board has nothing to hide. It is written into a
+     local engine of the same file the server runs, and from that point on the
+     screen cannot tell the difference: `legalMoves` lights the same points,
+     `targetsFrom` offers the same moves, and a move it would refuse the server
+     would refuse too.
+     ===================================================================== */
+  function applyState(st) {
+    if (st.seat != null && st.seat !== ME) { ME = st.seat; CPU = 1 - ME; build(); fit(); }
+    seated = true;
+    if (!g) g = Nardi.newGame({ variant: st.variant || VARIANT, target: st.target || TARGET });
+    if (st.pts) {
+      g.pts = st.pts.slice(); g.bar = st.bar.slice(); g.off = st.off.slice();
+      g.side = st.side; g.dice = st.dice ? st.dice.slice() : null;
+      g.left = st.left ? st.left.slice() : [];
+      g.phase = st.nphase; g.scores = st.scores ? st.scores.slice() : g.scores;
+      g.round = st.round || g.round; g.target = st.target || g.target;
+    }
+    const playing = st.pts && (st.phase === "play" || st.phase === "roundEnd" || st.phase === "over");
+    show(document.getElementById("waitOverlay"), !playing);
+    busy = !!st.paused || st.phase === "roundEnd";
+    say(st.paused ? "ველოდებით — " + (st.waitingFor || []).join(", ") : (st.log || ""));
+    document.getElementById("turnName").textContent =
+      st.phase === "over" ? "მატჩი დასრულდა"
+      : st.paused ? "შეჩერებულია"
+      : st.side === ME ? (st.nphase === "roll" ? "შენი გაგორებაა" : "შენი სვლა")
+      : (st.oppName || "მოწინააღმდეგე");
+    draw();
+    // the dice are thrown when the server says there are new ones
+    const key = st.dice ? st.dice.join(",") + ":" + st.round + ":" + st.side : null;
+    if (key && key !== lastDice) {
+      lastDice = key;
+      shownValues = st.dice.slice();
+      throwDice(shownValues, st.side === ME);
+    } else if (!st.dice) { lastDice = null; clearDice(true); }
+  }
+  const show = (el, on) => el.classList.toggle("show", !!on);
+
+  function leaveTable() {
+    const go = () => { if (socket) socket.emit("leaveRoom"); location.href = "index.html"; };
+    if (!seated || !g) { go(); return; }
+    Leaving.confirmLeave(go);
+  }
+
+  function startOnline() {
+    socket = io(window.SERVER_URL || undefined, { transports: ["websocket", "polling"] });
+    const who = Auth && Auth.me ? Auth.me() : null;
+    const join = () => {
+      const p = { game: "nardi", variant: VARIANT, target: TARGET, size: 2,
+                  name: (Auth && Auth.name && Auth.name()) || "მოთამაშე",
+                  token: TOKEN, auth: who };
+      if (MODE === "quick") socket.emit("quickJoin", p);
+      else if (MODE === "friend") socket.emit("createTable", p);
+      else if (MODE === "join") socket.emit("joinTable", Object.assign({ code: (P.get("code") || "").toUpperCase() }, p));
+      else socket.emit("resume", { token: TOKEN, game: "nardi" });
+    };
+    socket.on("connect", () => { if (seated) socket.emit("resume", { token: TOKEN, game: "nardi" }); else join(); });
+    socket.on("state", (st) => {
+      if (st.code) {
+        document.getElementById("codeBox").style.display = "";
+        document.getElementById("codeVal").textContent = st.code;
+        document.getElementById("waitText").textContent = "გაუზიარე ეს კოდი მეგობარს";
+      }
+      applyState(st);
+    });
+    socket.on("matchOver", (m) => {
+      busy = true; draw();
+      showResult(m.youWon ? "მოიგე!" : "წააგე",
+        m.scores ? "ანგარიში " + m.scores[ME] + " : " + m.scores[CPU] : "");
+      if (m.youWon && window.Fx) Fx.confetti();
+      if (Sound) Sound.play(m.youWon ? "win" : "lose");
+    });
+    socket.on("opponentLeft", (m) => { say((m && m.name ? m.name : "მოწინააღმდეგე") + " გავიდა"); });
+    socket.on("joinError", (m) => {
+      document.getElementById("waitTitle").textContent = "ვერ შევედი";
+      document.getElementById("waitText").textContent = m || "";
+    });
+    socket.on("resumeFailed", () => { location.replace("index.html"); });
+    socket.on("atTable", (t) => { if (t) location.replace("index.html"); });
+    socket.on("disconnect", () => say("კავშირი გაწყდა…"));
+    // the case still opens, and the board is set out, before the first roll
+    build(); fit();
+    document.getElementById("waitOverlay").classList.add("show");
+  }
+
   function toggleSound() {
     /* A class, not a glyph: the icon is drawn in CSS and there are no emoji on
        these screens. `Sound.toggle` hands back whether it is now MUTED — the
@@ -677,6 +805,10 @@
     document.getElementById("sndBtn").classList.toggle("muted", isMuted);
   }
 
+  /* Leaving a table you are sitting at is a question, not a button — the same
+     one every other screen asks. */
+  document.querySelector(".stage .top .back").onclick = () =>
+    ONLINE ? leaveTable() : (location.href = "index.html");
   document.querySelector(".boardWrap").addEventListener("click", tapBoard);
   document.getElementById("sndBtn").classList.toggle("muted", Sound.muted());
   addEventListener("resize", () => { fit(); draw(); });
@@ -691,7 +823,7 @@
     boardWatch = new ResizeObserver(() => fit());
     boardWatch.observe(document.querySelector(".boardWrap"));
   }
-  startMatch();
+  if (ONLINE) startOnline(); else startMatch();
   </script>
 </body>
 </html>

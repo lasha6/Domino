@@ -22,6 +22,8 @@ const Ozi = require("./public/js/ozi.js");
 const Progress = require("./public/js/progress.js");
 const Bura = require("./public/js/bura.js");
 const Joker = require("./public/js/joker.js");
+const Nardi = require("./public/js/nardi.js");
+const Damka = require("./public/js/damka.js");
 
 
 const store = await openStore();
@@ -142,11 +144,17 @@ function createRoom(target, isPrivate, size, opts) {
   const id = "r" + Math.random().toString(36).slice(2, 9);
   const room = {
     id, target, size: size === 4 ? 4 : 2, private: !!isPrivate,
-    game: ["bura", "joker"].includes(o.game) ? o.game : "domino",
-    variant: o.variant === "3" ? "3" : "5",     // ბურა only
+    game: ["bura", "joker", "nardi", "damka"].includes(o.game) ? o.game : "domino",
+    /* ნარდი comes in two, and they are different games; ბურა in two as well.
+       Whatever the table was asked for is what it stays. */
+    variant: o.game === "nardi" ? (o.variant === "short" ? "short" : "long")
+      : o.game === "damka" ? ""
+      : (o.variant === "3" ? "3" : "5"),
     openMalutka: o.openMalutka !== false,       // ბურა only: the table's agreement
     b: null,                                    // ბურა state, when that is the game
     j: null,                                    // ჯოკერი state, when that is the game
+    n: null,                                    // ნარდი state
+    d: null,                                    // დამკა state
     code: isPrivate ? makeCode() : null,
     players: [],           // [{id, name, seat}]
     g: null, phase: "wait", // wait | play | draw | roundEnd | over
@@ -159,6 +167,8 @@ function createRoom(target, isPrivate, size, opts) {
 const waitKey = (target, size, game, variant, openMalutka) =>
   (game === "bura" ? "bura:" + variant + ":" + (openMalutka ? "open" : "shut")
    : game === "joker" ? "joker"                     // one shape: four players, 24 hands
+   : game === "nardi" ? "nardi:" + variant          // the two ნარდი are not one game
+   : game === "damka" ? "damka"
    : "domino")
   + ":" + target + ":" + size;
 
@@ -195,6 +205,8 @@ function assignSeats(room) {
 function viewFor(room, seat) {
   if (room.game === "bura") return buraView(room, seat);
   if (room.game === "joker") return jokerView(room, seat);
+  if (room.game === "nardi") return nardiView(room, seat);
+  if (room.game === "damka") return damkaView(room, seat);
   const g = room.g;
   const me = room.players.find((p) => p.seat === seat);
   const base = {
@@ -630,6 +642,268 @@ function buraView(room, seat) {
 
 
 /* ==================================================================
+   ნარდი and დამკა online — one against one, on a board both players
+   can see in full.
+
+   These two are simpler than the card games in the one way that matters: there
+   is nothing to hide. A card table's view exists to keep the opponent's hand
+   secret; a board is a board, and both players are looking at the same thing.
+   So the view is the state, and the server's job is only to be the one that
+   decides — every move is checked by the engine before anything changes, and
+   the dice are thrown here, never by a client that could be asked to throw
+   again until it liked the answer.
+   ================================================================== */
+const BOARD_MOVE_TIME = 40000;      // a board move is a slower thought than a card
+const BOARD_BOT_PAUSE = 700;        // how long the computer appears to think
+
+function clearBoardClock(room) {
+  if (room.moveTimer) { clearTimeout(room.moveTimer); room.moveTimer = null; }
+  room.moveDeadline = null;
+}
+function armBoardClock(room, whoseTurn) {
+  clearBoardClock(room);
+  if (room.paused || room.phase === "over" || room.phase === "roundEnd") return;
+  const p = at(room, whoseTurn);
+  if (!p || p.bot) return;
+  room.moveDeadline = Date.now() + BOARD_MOVE_TIME;
+  room.moveTimer = setTimeout(() => {
+    if (!rooms.has(room.id) || room.paused) return;
+    // the clock ran out: the computer plays that turn and the game goes on
+    if (room.game === "nardi") nardiBotTurn(room, true);
+    else damkaBotMove(room, true);
+  }, BOARD_MOVE_TIME);
+}
+
+/* ---------------- ნარდი ---------------- */
+
+function startNardi(room) {
+  room.players.forEach((p, i) => { p.seat = i; p.team = i; p.settled = false; });
+  clearAuto(room);
+  room.n = Nardi.newGame({ variant: room.variant, target: room.target });
+  room.phase = "play";
+  say(room, room.variant === "short" ? "მოკლე ნარდი" : "გრძელი ნარდი");
+  nardiAdvance(room);
+}
+
+function nardiAdvance(room) {
+  refreshPause(room);
+  clearBoardClock(room);
+  if (room.paused) { pushState(room); return; }
+  const n = room.n;
+  if (n.phase === "over") { nardiMatchOver(room); return; }
+  if (n.phase === "roundOver") { nardiRoundOver(room); return; }
+  armBoardClock(room, n.turn === undefined ? n.side : n.side);
+  nardiMaybeBot(room);
+  pushState(room);
+}
+
+/* The computer plays a whole turn for a seat nobody is filling — someone who
+   left, or whose clock ran out. It rolls if it has to, then plays the turn the
+   engine likes best, one move at a time so the other player can watch. */
+function nardiBotTurn(room, force) {
+  if (!rooms.has(room.id) || room.paused || !room.n) return;
+  const n = room.n;
+  if (n.phase === "over" || n.phase === "roundOver") return;
+  const p = at(room, n.side);
+  if (!p || (!p.bot && !force)) return;
+  clearBoardClock(room);
+
+  if (n.phase === "roll") {
+    Nardi.roll(n);
+    pushState(room);
+    if (n.phase !== "move") { setTimeout(() => nardiAdvance(room), BOARD_BOT_PAUSE); return; }
+  }
+  const plan = Nardi.bestTurn(n);
+  const side = n.side;
+  let k = 0;
+  (function next() {
+    if (!rooms.has(room.id) || room.paused) return;
+    if (!plan[k] || n.phase !== "move" || n.side !== side) {
+      if (n.phase === "move" && n.side === side) Nardi.endTurn(n);
+      nardiAdvance(room);
+      return;
+    }
+    const m = plan[k++];
+    Nardi.move(n, m.from, m.die);
+    pushState(room);
+    if (n.phase !== "move") { nardiAdvance(room); return; }
+    setTimeout(next, 420);
+  })();
+}
+function nardiMaybeBot(room) {
+  const p = at(room, room.n.side);
+  if (p && p.bot) setTimeout(() => nardiBotTurn(room), BOARD_BOT_PAUSE);
+}
+
+function nardiRoundOver(room) {
+  clearBoardClock(room);
+  const n = room.n;
+  room.phase = "roundEnd";
+  room.reveal = { winner: n.roundWinner, worth: n.roundWorth, why: n.log || "" };
+  say(room, n.log || "");
+  pushState(room);
+  setTimeout(() => {
+    if (!rooms.has(room.id) || room.phase !== "roundEnd") return;
+    if (room.paused) { room.pendingNextRound = true; return; }
+    Nardi.nextRound(n);
+    room.reveal = null;
+    room.phase = "play";
+    nardiAdvance(room);
+  }, 3200);
+}
+
+function nardiMatchOver(room) {
+  clearBoardClock(room);
+  room.phase = "over";
+  const n = room.n;
+  room.reveal = { winner: n.roundWinner, worth: n.roundWorth, why: n.log || "" };
+  room.players.forEach((p) => {
+    const won = p.seat === n.matchWinner;
+    awardMatch(room, p, won);
+    const s = io.sockets.sockets.get(p.id);
+    if (s) s.emit("matchOver", {
+      youWon: won, scores: n.scores, myTeam: p.seat, target: n.target, size: room.size,
+      progress: p.profile ? summarise(p.profile) : null,
+      settled: p.lastSettle || null, earned: p.lastEarned || [],
+    });
+    p.lastEarned = [];
+  });
+  pushState(room);
+}
+
+/* Both players see the whole board — there is nothing on it to hide. What the
+   view adds is who you are, whose turn it is and how long they have. */
+function nardiView(room, seat) {
+  const n = room.n;
+  const me = room.players.find((p) => p.seat === seat);
+  const base = {
+    game: "nardi", variant: room.variant,
+    roomId: room.id, code: room.code, target: room.target, size: room.size,
+    phase: room.phase, seat, log: room.log,
+    paused: !!room.paused,
+    waitingFor: room.paused ? room.players.filter((p) => p.online === false).map((p) => p.name) : [],
+    resumeIn: room.resumeBy ? Math.max(0, Math.round((room.resumeBy - Date.now()) / 1000)) : null,
+  };
+  if (!n) {
+    base.lobby = room.players.map((p) => ({
+      idx: p.idx, name: p.name, me: !!me && p.idx === me.idx, verified: !!p.verified,
+    }));
+    return base;
+  }
+  const other = room.players.find((p) => p.seat !== seat) || {};
+  return Object.assign({}, base, {
+    pts: n.pts.slice(), bar: n.bar.slice(), off: n.off.slice(),
+    side: n.side, dice: n.dice ? n.dice.slice() : null, left: n.left.slice(),
+    nphase: n.phase,
+    myTurn: n.side === seat && (n.phase === "roll" || n.phase === "move") && !room.paused,
+    scores: n.scores.slice(), round: n.round,
+    oppName: other.name || "მოწინააღმდეგე",
+    oppBot: !!other.bot, oppVerified: !!other.verified,
+    reveal: room.reveal || null,
+    moveLeft: room.moveDeadline ? Math.max(0, Math.ceil((room.moveDeadline - Date.now()) / 1000)) : null,
+    moveTime: Math.round(BOARD_MOVE_TIME / 1000),
+  });
+}
+
+/* ---------------- დამკა ---------------- */
+
+function startDamka(room) {
+  room.players.forEach((p, i) => { p.seat = i; p.team = i; p.settled = false; });
+  clearAuto(room);
+  room.d = Damka.newGame({});
+  room.phase = "play";
+  say(room, "დაიწყო");
+  damkaAdvance(room);
+}
+
+function damkaAdvance(room) {
+  refreshPause(room);
+  clearBoardClock(room);
+  if (room.paused) { pushState(room); return; }
+  if (room.d.phase === "over") { damkaOver(room); return; }
+  armBoardClock(room, room.d.side);
+  damkaMaybeBot(room);
+  pushState(room);
+}
+
+function damkaBotMove(room, force) {
+  if (!rooms.has(room.id) || room.paused || !room.d || room.d.phase === "over") return;
+  const d = room.d;
+  const p = at(room, d.side);
+  if (!p || (!p.bot && !force)) return;
+  clearBoardClock(room);
+  const side = d.side;
+  (function step() {
+    if (!rooms.has(room.id) || room.paused) return;
+    if (d.phase === "over") { damkaAdvance(room); return; }
+    if (d.side !== side) { damkaAdvance(room); return; }
+    const mv = Damka.bestMove(d, 3);
+    if (!mv) { damkaAdvance(room); return; }
+    Damka.move(d, mv.from, mv.to);
+    pushState(room);
+    if (d.phase === "over" || d.side !== side) { damkaAdvance(room); return; }
+    setTimeout(step, 420);         // a jump that goes on is still the same turn
+  })();
+}
+function damkaMaybeBot(room) {
+  const p = at(room, room.d.side);
+  if (p && p.bot) setTimeout(() => damkaBotMove(room), BOARD_BOT_PAUSE);
+}
+
+function damkaOver(room) {
+  clearBoardClock(room);
+  room.phase = "over";
+  const d = room.d;
+  room.players.forEach((p) => {
+    const won = d.winner === p.seat;
+    // a draw is written down as a match played and not won by either
+    awardMatch(room, p, won);
+    const s = io.sockets.sockets.get(p.id);
+    if (s) s.emit("matchOver", {
+      youWon: won, scores: null, myTeam: p.seat, target: 0, size: room.size,
+      draw: d.winner === null,
+      progress: p.profile ? summarise(p.profile) : null,
+      settled: p.lastSettle || null, earned: p.lastEarned || [],
+    });
+    p.lastEarned = [];
+  });
+  pushState(room);
+}
+
+function damkaView(room, seat) {
+  const d = room.d;
+  const me = room.players.find((p) => p.seat === seat);
+  const base = {
+    game: "damka",
+    roomId: room.id, code: room.code, size: room.size,
+    phase: room.phase, seat, log: room.log,
+    paused: !!room.paused,
+    waitingFor: room.paused ? room.players.filter((p) => p.online === false).map((p) => p.name) : [],
+    resumeIn: room.resumeBy ? Math.max(0, Math.round((room.resumeBy - Date.now()) / 1000)) : null,
+  };
+  if (!d) {
+    base.lobby = room.players.map((p) => ({
+      idx: p.idx, name: p.name, me: !!me && p.idx === me.idx, verified: !!p.verified,
+    }));
+    return base;
+  }
+  const other = room.players.find((p) => p.seat !== seat) || {};
+  return Object.assign({}, base, {
+    cells: d.cells.slice(),
+    side: d.side, mustFrom: d.mustFrom,
+    pending: d.pending.map((x) => x.sq),
+    dphase: d.phase, winner: d.winner,
+    myTurn: d.side === seat && d.phase === "move" && !room.paused,
+    counts: [Damka.count(d, 0), Damka.count(d, 1)],
+    oppName: other.name || "მოწინააღმდეგე",
+    oppBot: !!other.bot, oppVerified: !!other.verified,
+    moveLeft: room.moveDeadline ? Math.max(0, Math.ceil((room.moveDeadline - Date.now()) / 1000)) : null,
+    moveTime: Math.round(BOARD_MOVE_TIME / 1000),
+  });
+}
+
+
+/* ==================================================================
    ჯოკერი online — four players, nobody paired, everyone for themselves.
 
    Same shape as the ბურა table: the server holds the game and checks every
@@ -804,6 +1078,8 @@ function maybeStart(room) {
   if (room.players.length < room.size) { clearAuto(room); return false; }
   if (room.game === "bura") { startBura(room); return true; }
   if (room.game === "joker") { startJoker(room); return true; }   // no pairs to settle
+  if (room.game === "nardi") { startNardi(room); return true; }
+  if (room.game === "damka") { startDamka(room); return true; }
   if (room.size === 2) { startMatch(room); return true; }
   const c0 = room.players.filter((p) => p.team === 0).length;
   const c1 = room.players.filter((p) => p.team === 1).length;
@@ -1131,12 +1407,18 @@ io.on("connection", (socket) => {
      variants; domino counts to one of its four targets. Anything unrecognised
      falls back rather than being refused, so an older client still gets a game. */
   const tableWanted = (p) => {
-    const game = ["bura", "joker"].includes(p.game) ? p.game : "domino";
+    const game = ["bura", "joker", "nardi", "damka"].includes(p.game) ? p.game : "domino";
     // ჯოკერი is four players and twenty-four hands, always; pairs at ბურა are
     // ხუთკარტა only, because the short deck cannot feed four hands
-    const size = game === "joker" ? 4 : (p.size === 4 ? 4 : 2);
-    const variant = (game === "bura" && size === 4) ? "5" : (p.variant === "3" ? "3" : "5");
+    const size = game === "joker" ? 4
+      : (game === "nardi" || game === "damka") ? 2         // both are one against one
+      : (p.size === 4 ? 4 : 2);
+    const variant = game === "nardi" ? (p.variant === "short" ? "short" : "long")
+      : game === "damka" ? ""
+      : (game === "bura" && size === 4) ? "5" : (p.variant === "3" ? "3" : "5");
     const target = game === "joker" ? 0
+      : game === "damka" ? 0
+      : game === "nardi" ? ([1, 3, 5, 7].includes(p.target) ? p.target : 3)
       : game === "bura" ? ([6, 11, 21].includes(p.target) ? p.target : 11)
       : (TARGETS.includes(p.target) ? p.target : 175);
     // the agreement is part of the table: a quick match must not seat two
@@ -1290,6 +1572,58 @@ io.on("connection", (socket) => {
     if (!t) return;
     say(room, `${at(room, s).name} აიღო ბაზრიდან`);
     advance(room);   // may need to draw again, or can now play
+  });
+
+  /* ---------------- ნარდი and დამკა: the moves ----------------
+     The engine checks every one of these before anything changes, so a client
+     cannot roll twice, move a checker it does not own, play a die it was not
+     given, or move at all when it is not its turn. The dice are thrown HERE:
+     a client that threw its own could throw again until it liked the answer. */
+  const boardRoom = (game, held) => {
+    const room = roomOf(socket);
+    return room && room.game === game && room[held] && !room.paused ? room : null;
+  };
+  const mySeat = (room) => {
+    const p = room.players.find((x) => x.id === socket.id);
+    return p ? p.seat : -1;
+  };
+
+  on("nRoll", () => {
+    const room = boardRoom("nardi", "n");
+    if (!room || room.phase !== "play") return;
+    const n = room.n;
+    if (n.side !== mySeat(room) || n.phase !== "roll") return;
+    Nardi.roll(n);
+    nardiAdvance(room);
+  });
+
+  on("nMove", (msg) => {
+    const room = boardRoom("nardi", "n");
+    if (!room || room.phase !== "play") return;
+    const n = room.n;
+    if (n.side !== mySeat(room) || n.phase !== "move") return;
+    const from = msg && msg.from, die = msg && msg.die;
+    if (!Number.isInteger(from) || !Number.isInteger(die)) return;
+    const was = n.side;
+    if (!Nardi.move(n, from, die)) return;
+    // still the same turn: send the board and leave the clock where it is
+    if (n.phase === "move" && n.side === was) { armBoardClock(room, was); pushState(room); return; }
+    nardiAdvance(room);
+  });
+
+  on("dMove", (msg) => {
+    const room = boardRoom("damka", "d");
+    if (!room || room.phase !== "play") return;
+    const d = room.d;
+    if (d.side !== mySeat(room) || d.phase !== "move") return;
+    const from = msg && msg.from, to = msg && msg.to;
+    if (!Number.isInteger(from) || !Number.isInteger(to)) return;
+    const was = d.side;
+    if (!Damka.move(d, from, to)) return;
+    /* A jump that can go on has not ended the turn, and the engine says so by
+       not handing it over. The clock stays with the same player. */
+    if (d.phase === "move" && d.side === was) { armBoardClock(room, was); pushState(room); return; }
+    damkaAdvance(room);
   });
 
   /* ---------------- ბურა: the moves ----------------
@@ -1555,6 +1889,8 @@ io.on("connection", (socket) => {
   function carryOn(room) {
     if (room.game === "bura") { buraAdvance(room); return; }
     if (room.game === "joker") { jokerAdvance(room); return; }
+    if (room.game === "nardi") { nardiAdvance(room); return; }
+    if (room.game === "damka") { damkaAdvance(room); return; }
     advance(room);
   }
   function resumeRound(room) {
