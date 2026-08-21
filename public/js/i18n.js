@@ -130,6 +130,7 @@
     "ხელი დასრულდა": "The hand is over",
     "გადააბრუნე მოწყობილობა": "Turn your device",
     "თამაში თარაზულ (landscape) რეჟიმში ითამაშება.": "This game is played in landscape.",
+    "პრაქტიკა": "Practice",
     "🎓 პრაქტიკა": "🎓 Practice",
     "ხმა": "Sound", "ხმა — ჩართული": "Sound — on", "ხმა — გამორთული": "Sound — off",
     "თამაშის წესები": "How to play",

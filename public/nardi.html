@@ -26,7 +26,7 @@
         <span class="stat"><span class="k">ანგარიში</span><b id="scoreLbl">0 : 0</b></span>
         <span class="stat"><span class="dot w"></span><b id="myPip">—</b></span>
         <span class="stat"><span class="dot b"></span><b id="cpuPip">—</b></span>
-        <span class="badge">🎓 პრაქტიკა</span>
+        <span class="badge">პრაქტიკა</span>
       </div>
       <div class="bStat">
         <span class="dot" id="turnDot"></span>
@@ -35,7 +35,7 @@
       </div>
       <div class="msg" id="msg"></div>
       <div class="spacer" style="flex:1 1 auto"></div>
-      <button class="back sndBtn" id="sndBtn" onclick="toggleSound()" title="ხმა">🔊</button>
+      <button class="back sndBtn" id="sndBtn" onclick="toggleSound()" title="ხმა"></button>
       <button class="newgame" onclick="startMatch()">ახალი თამაში</button>
     </div>
 
@@ -288,10 +288,27 @@
       for (let pt = from; step > 0 ? pt <= to : pt >= to; pt += step) r.appendChild(mkPoint(pt));
       return r;
     };
+    /* A half has two faces. The board is on the inside; the outside is the
+       carved case you see before it is opened — which is the whole point of
+       opening it. Both hide their own backs, so turning the half over shows
+       the other one without anything being switched on or off. */
     const half = (which, top, bot) => {
       const h = document.createElement("div");
       h.className = "nhalf " + which;
-      h.appendChild(top); h.appendChild(bot);
+      const inside = document.createElement("div");
+      inside.className = "face inside";
+      inside.appendChild(top); inside.appendChild(bot);
+      const outside = document.createElement("div");
+      outside.className = "face outside";
+      outside.innerHTML =
+        '<div class="lid">' +
+        '  <span class="lidBorder"></span>' +
+        '  <span class="lidVine"></span>' +
+        '  <span class="lidCross"></span>' +
+        '  <b class="lidTitle">საქართველო</b>' +
+        '  <span class="lidMap"></span>' +
+        "</div>";
+      h.appendChild(inside); h.appendChild(outside);
       return h;
     };
 
@@ -566,7 +583,7 @@
      a background tab, a system asking for less movement — the board is simply
      there, already open, with the checkers on it.
      ===================================================================== */
-  const INTRO_FOLD = 820, INTRO_STEP = 34;
+  const INTRO_FOLD = 1500, INTRO_STEP = 34;
 
   function layOut() {
     const chks = [...document.querySelectorAll("#board .chk")];
@@ -604,7 +621,7 @@
         /* The case is flat well before its animation ends — the last of it is
            the settle. So the checkers start coming out then, and the two run
            into each other instead of waiting politely in turn. */
-      }, withCase ? INTRO_FOLD - 340 : 0);
+      }, withCase ? INTRO_FOLD - 260 : 0);
     });
   }
 
@@ -653,11 +670,15 @@
   }
 
   function toggleSound() {
-    const on = Sound.toggle();
-    document.getElementById("sndBtn").textContent = on ? "🔊" : "🔇";
+    /* A class, not a glyph: the icon is drawn in CSS and there are no emoji on
+       these screens. `Sound.toggle` hands back whether it is now MUTED — the
+       old line read it as the opposite and drew the icon the wrong way round. */
+    const isMuted = Sound.toggle();
+    document.getElementById("sndBtn").classList.toggle("muted", isMuted);
   }
 
   document.querySelector(".boardWrap").addEventListener("click", tapBoard);
+  document.getElementById("sndBtn").classList.toggle("muted", Sound.muted());
   addEventListener("resize", () => { fit(); draw(); });
   /* The first measurement is taken before the fonts have landed and before the
      browser has decided how much of the screen it is keeping for itself, so it

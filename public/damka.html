@@ -25,7 +25,7 @@
       <div class="info">
         <span class="stat"><span class="dot w"></span><b id="myCount">12</b></span>
         <span class="stat"><span class="dot b"></span><b id="cpuCount">12</b></span>
-        <span class="badge">🎓 პრაქტიკა</span>
+        <span class="badge">პრაქტიკა</span>
       </div>
       <div class="bStat">
         <span class="dot" id="turnDot"></span>
@@ -33,7 +33,7 @@
       </div>
       <div class="msg" id="msg"></div>
       <div class="spacer" style="flex:1 1 auto"></div>
-      <button class="back sndBtn" id="sndBtn" onclick="toggleSound()" title="ხმა">🔊</button>
+      <button class="back sndBtn" id="sndBtn" onclick="toggleSound()" title="ხმა"></button>
       <button class="newgame" onclick="startGame()">ახალი თამაში</button>
     </div>
 
@@ -112,7 +112,7 @@
       const side = Damka.sideOf(v);
       p.className = "pc " + (side === 0 ? "w" : "b")
         + (g.pending.some((x) => x.sq === s) ? " doomed" : "");
-      if (Damka.kindOf(v) === Damka.QUEEN) p.textContent = "★";
+      if (Damka.kindOf(v) === Damka.QUEEN) p.classList.add("queen");
       el.appendChild(p);
     });
 
@@ -229,10 +229,14 @@
   }
 
   function toggleSound() {
-    const on = Sound.toggle();
-    document.getElementById("sndBtn").textContent = on ? "🔊" : "🔇";
+    /* A class, not a glyph: the icon is drawn in CSS and there are no emoji on
+       these screens. `Sound.toggle` hands back whether it is now MUTED — the
+       old line read it as the opposite and drew the icon the wrong way round. */
+    const isMuted = Sound.toggle();
+    document.getElementById("sndBtn").classList.toggle("muted", isMuted);
   }
 
+  document.getElementById("sndBtn").classList.toggle("muted", Sound.muted());
   addEventListener("resize", () => { fit(); draw(); });
   startGame();
   </script>
