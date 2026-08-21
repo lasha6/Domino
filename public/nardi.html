@@ -734,12 +734,14 @@
     show(document.getElementById("waitOverlay"), !playing);
     busy = !!st.paused || st.phase === "roundEnd";
     say(st.paused ? "ველოდებით — " + (st.waitingFor || []).join(", ") : (st.log || ""));
+    draw();
+    /* after draw, not before: the offline half of `draw` writes this line too,
+       and online it is the other PLAYER whose name belongs there */
     document.getElementById("turnName").textContent =
       st.phase === "over" ? "მატჩი დასრულდა"
       : st.paused ? "შეჩერებულია"
       : st.side === ME ? (st.nphase === "roll" ? "შენი გაგორებაა" : "შენი სვლა")
       : (st.oppName || "მოწინააღმდეგე");
-    draw();
     // the dice are thrown when the server says there are new ones
     const key = st.dice ? st.dice.join(",") + ":" + st.round + ":" + st.side : null;
     if (key && key !== lastDice) {

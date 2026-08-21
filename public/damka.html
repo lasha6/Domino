@@ -44,6 +44,17 @@
     </div>
   </div>
 
+  <div class="overlay" id="waitOverlay">
+    <div class="modal">
+      <h2 id="waitTitle">ველოდებით მოწინააღმდეგეს…</h2>
+      <p id="waitText"></p>
+      <p class="codeBox" id="codeBox" style="display:none"><b id="codeVal"></b></p>
+      <div class="modalActions">
+        <button class="alt" onclick="leaveTable()">გასვლა</button>
+      </div>
+    </div>
+  </div>
+
   <div class="overlay" id="resultOverlay">
     <div class="modal">
       <h2 id="resTitle">—</h2>
@@ -58,6 +69,10 @@
   <script src="js/sound.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/damka.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/socket.io.min.js"></script>
+  <script src="js/leaving.js"></script>
   <script>
   /* =====================================================================
      დამკა, against the computer.
@@ -70,21 +85,40 @@
      White is at the bottom and plays up the board, which is the way the player
      sits in front of it.
      ===================================================================== */
-  const ME = 0, CPU = 1;
+  /* One screen, two ways of playing. Against the computer the engine here is
+     the game; online the SERVER is the game and the engine here only works out
+     what may be touched. It is the same file on both sides, so the two never
+     disagree about what is legal. */
+  const P = new URLSearchParams(location.search);
+  const MODE = ["quick", "friend", "join", "rejoin"].includes(P.get("mode")) ? P.get("mode") : "cpu";
+  const ONLINE = MODE !== "cpu";
   const DEPTH = 4;
+  let ME = 0, CPU = 1;
   let g = null, picked = null, busy = false;
+  let socket = null, seated = false;
+  const TOKEN = (function () {
+    let t = localStorage.getItem("dominoToken");
+    if (!t) { t = Math.random().toString(36).slice(2) + Date.now().toString(36);
+              localStorage.setItem("dominoToken", t); }
+    return t;
+  })();
 
   function build() {
     const b = document.getElementById("board");
     b.innerHTML = "";
-    /* Row 7 at the top, row 0 at the bottom: white plays up the screen, the
-       way the player is sitting. */
+    /* Row 7 at the top, row 0 at the bottom, so white plays up the screen —
+       and if you are black, the board is turned round, because a player looks
+       at their own pieces from their own side. A half turn is square s → 63−s,
+       which keeps the dark squares dark. */
+    const mine = (sq) => ME === 0 ? sq : 63 - sq;
     for (let r = Damka.SIZE - 1; r >= 0; r--)
       for (let c = 0; c < Damka.SIZE; c++) {
+        const slot = Damka.sq(r, c);
+        const sq = mine(slot);
         const d = document.createElement("div");
         d.className = "dsq " + (Damka.dark(r, c) ? "dark" : "light");
-        d.dataset.sq = Damka.sq(r, c);
-        if (Damka.dark(r, c)) d.onclick = () => tap(Damka.sq(r, c));
+        d.dataset.sq = sq;
+        if (Damka.dark(r, c)) d.onclick = () => tap(sq);
         b.appendChild(d);
       }
   }
@@ -149,6 +183,7 @@
   }
 
   function play(from, to) {
+    if (ONLINE) { socket.emit("dMove", { from, to }); picked = null; draw(); return; }
     const was = g.side;
     Damka.move(g, from, to);
     picked = null;
@@ -176,7 +211,7 @@
   function finish() {
     if (g.winner === null) { show("ფრე", "დიდხანს არავის არაფერი წაუღია."); return; }
     const won = g.winner === ME;
-    show(won ? "მოიგე!" : "წააგე", g.log);
+    showResult(won ? "მოიგე!" : "წააგე", g.log);
     if (Sound) Sound.play(won ? "win" : "lose");
     if (won && window.Fx) Fx.confetti();
   }
@@ -210,10 +245,94 @@
     });
   }
 
-  function show(title, text) {
+  function showResult(title, text) {
     document.getElementById("resTitle").textContent = title;
     document.getElementById("resText").textContent = text || "";
     document.getElementById("resultOverlay").classList.add("show");
+  }
+
+  /* =====================================================================
+     Playing somebody.
+
+     The server holds the board and checks every move. What arrives is the
+     whole position — a board has nothing to hide — and it is written into a
+     local engine of the same file, so everything that lights up here is
+     something the server would accept.
+     ===================================================================== */
+  function applyState(st) {
+    if (st.seat != null && st.seat !== ME) { ME = st.seat; CPU = 1 - ME; build(); fit(); }
+    seated = true;
+    if (!g) g = Damka.newGame({});
+    if (st.cells) {
+      g.cells = st.cells.slice();
+      g.side = st.side;
+      g.mustFrom = st.mustFrom;
+      g.pending = (st.pending || []).map((sq) => ({ sq, was: 0 }));
+      g.phase = st.dphase;
+      g.winner = st.winner;
+    }
+    const playing = st.cells && (st.phase === "play" || st.phase === "over");
+    document.getElementById("waitOverlay").classList.toggle("show", !playing);
+    busy = !!st.paused;
+    document.getElementById("msg").textContent =
+      st.paused ? "ველოდებით — " + (st.waitingFor || []).join(", ") : (st.log || "");
+    draw();
+    if (st.counts) {
+      document.getElementById("myCount").textContent = st.counts[ME];
+      document.getElementById("cpuCount").textContent = st.counts[CPU];
+    }
+    document.getElementById("turnName").textContent =
+      st.phase === "over" ? "თამაში დასრულდა"
+      : st.paused ? "შეჩერებულია"
+      : st.side === ME ? "შენი სვლა" : (st.oppName || "მოწინააღმდეგე");
+  }
+
+  function leaveTable() {
+    const go = () => { if (socket) socket.emit("leaveRoom"); location.href = "index.html"; };
+    if (!seated || !g) { go(); return; }
+    Leaving.confirmLeave(go);
+  }
+
+  function startOnline() {
+    socket = io(window.SERVER_URL || undefined, { transports: ["websocket", "polling"] });
+    const who = Auth && Auth.me ? Auth.me() : null;
+    const join = () => {
+      const p = { game: "damka", size: 2,
+                  name: (Auth && Auth.name && Auth.name()) || "მოთამაშე",
+                  token: TOKEN, auth: who };
+      if (MODE === "quick") socket.emit("quickJoin", p);
+      else if (MODE === "friend") socket.emit("createTable", p);
+      else if (MODE === "join") socket.emit("joinTable", Object.assign({ code: (P.get("code") || "").toUpperCase() }, p));
+      else socket.emit("resume", { token: TOKEN, game: "damka" });
+    };
+    socket.on("connect", () => { if (seated) socket.emit("resume", { token: TOKEN, game: "damka" }); else join(); });
+    socket.on("state", (st) => {
+      if (st.code) {
+        document.getElementById("codeBox").style.display = "";
+        document.getElementById("codeVal").textContent = st.code;
+        document.getElementById("waitText").textContent = "გაუზიარე ეს კოდი მეგობარს";
+      }
+      applyState(st);
+    });
+    socket.on("matchOver", (m) => {
+      busy = true; draw();
+      showResult(m.draw ? "ფრე" : m.youWon ? "მოიგე!" : "წააგე", "");
+      if (m.youWon && window.Fx) Fx.confetti();
+      if (Sound) Sound.play(m.youWon ? "win" : "lose");
+    });
+    socket.on("opponentLeft", (m) => {
+      document.getElementById("msg").textContent =
+        (m && m.name ? m.name : "მოწინააღმდეგე") + " გავიდა";
+    });
+    socket.on("joinError", (m) => {
+      document.getElementById("waitTitle").textContent = "ვერ შევედი";
+      document.getElementById("waitText").textContent = m || "";
+    });
+    socket.on("resumeFailed", () => { location.replace("index.html"); });
+    socket.on("atTable", (t) => { if (t) location.replace("index.html"); });
+    socket.on("disconnect", () => { document.getElementById("msg").textContent = "კავშირი გაწყდა…"; });
+    build(); fit();
+    document.getElementById("waitOverlay").classList.add("show");
   }
   const hide = () => document.getElementById("resultOverlay").classList.remove("show");
 
@@ -237,8 +356,10 @@
   }
 
   document.getElementById("sndBtn").classList.toggle("muted", Sound.muted());
+  document.querySelector(".stage .top .back").onclick = () =>
+    ONLINE ? leaveTable() : (location.href = "index.html");
   addEventListener("resize", () => { fit(); draw(); });
-  startGame();
+  if (ONLINE) startOnline(); else startGame();
   </script>
 </body>
 </html>

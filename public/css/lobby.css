@@ -237,6 +237,9 @@
 .game:hover{ transform:translateY(-3px); border-color:var(--brass); }
 .game:active{ transform:translateY(0); }
 .game.locked{ opacity:.55; }
+/* the board that is chosen in the ნარდი room */
+.game.on{ border-color:var(--brass); background:rgba(242,205,126,.13);
+  box-shadow:0 0 0 1px rgba(242,205,126,.35); }
 .game.locked:hover{ transform:none; border-color:rgba(242,205,126,.22); }
 .gName{ font-size:17px; font-weight:700; font-family:var(--font-display); }
 .gSub{ font-size:11px; color:var(--cream-dim); }
