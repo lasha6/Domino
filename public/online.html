@@ -606,6 +606,26 @@
         mh.appendChild(d);
       });
     }
+
+  /* The board is laid out against the box it is given, and that box changes:
+     the phone turns, the address bar slides away, a window is dragged. Nothing
+     here was listening, so a board measured a moment too early stayed that size
+     and spilled off the bottom of the screen — which is how a hand came to be
+     half cut off.
+
+     The observer is kept in a variable on purpose: one that nobody holds a
+     reference to can be collected, and then the board silently stops following
+     its box. */
+  let boardWatch = null;
+  const refit = () => { try { render(); } catch (e) { /* nothing drawn yet */ } };
+  addEventListener("resize", refit);
+  addEventListener("orientationchange", refit);
+  if (window.ResizeObserver) {
+    boardWatch = new ResizeObserver(() => refit());
+    const box = document.getElementById("board");
+    if (box && box.parentElement) boardWatch.observe(box.parentElement);
+  }
+
   </script>
 </body>
 </html>

@@ -66,7 +66,10 @@ test("every game the front page can start has its own rules", () => {
      sends you straight to — დამკა has no card of its own, it lives in the
      ნარდი room, and it still needs its rules. */
   const cards = [...html.matchAll(/chooseGame\('(\w+)'\)/g)].map((m) => m[1]);
-  const screens = [...html.matchAll(/location\.href='(\w+)\.html/g)].map((m) => m[1]);
+  /* Every screen the lobby names, however it gets there — a card, a direct
+     link, or a name held in one of its maps. Scraping only `location.href=`
+     missed დამკა the moment its button went through a function. */
+  const screens = [...html.matchAll(/["'](\w+)\.html/g)].map((m) => m[1]);
   const startable = new Set([...cards, ...screens]
     .filter((n) => !["index", "online", "buraonline", "jokeronline", "game"].includes(n)));
   assert.ok(startable.size >= 5, `the lobby starts ${[...startable].join(", ")}`);

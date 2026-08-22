@@ -313,10 +313,14 @@
 .btable.jk .stock{ left:8px; top:7px; right:auto; bottom:auto; transform:none; }
 .btable.jk .stock .card, .btable.jk .stock .bezCard{
   width:calc(var(--jkW, 40px) * .86); height:calc(var(--jkH, 60px) * .86);
-  font-size:calc(var(--jkW, 40px) / 3.6);
+  /* The trump is the one card on the table a player has to be able to read,
+     and this box shrinks with the window: on a short screen its rank came out
+     at nine pixels and its suit at under nine. The card still shrinks; the
+     type on it stops. */
+  font-size:max(12px, calc(var(--jkW, 40px) / 3.6));
 }
 .btable.jk .stock .card .rank{ font-size:1em; left:.16em; top:.12em; }
-.btable.jk .stock .card .pip { font-size:.8em; right:.18em; top:.16em; }
+.btable.jk .stock .card .pip { font-size:max(10px, .8em); right:.18em; top:.16em; }
 .btable.jk .stock .card .big { font-size:1.9em; }
 .btable.jk .trumpBox{ width:auto; height:auto; }
 .btable.jk .trumpBox .card{ position:static; }
