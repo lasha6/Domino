@@ -369,7 +369,11 @@
     divider.className = "ndiv";
 
     const tray = document.createElement("div"); tray.className = "ntray"; tray.id = "tray";
-    tray.innerHTML = '<div class="half" id="offTop"></div><div class="half bottom" id="offBot"></div>';
+    /* and the cross-piece inside it: one player's checkers above, the other's
+       below, so a full tray is two players' worth and not one heap */
+    tray.innerHTML = '<div class="half" id="offTop"></div>' +
+      '<div class="tdiv"></div>' +
+      '<div class="half bottom" id="offBot"></div>';
     tray.onclick = () => tapOff();
 
     const wrap = document.createElement("div");

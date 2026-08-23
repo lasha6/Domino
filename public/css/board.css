@@ -579,6 +579,19 @@ body{
 }
 .ntray .half{ flex:1 1 0; display:flex; flex-direction:column; align-items:center;
   justify-content:flex-start; gap:1px; min-height:0; }
+/* the cross-piece: one player's borne-off checkers above it, the other's below */
+.tdiv{
+  flex:none; height:var(--dvW, 14px); align-self:stretch; position:relative; z-index:2;
+  border-radius:1px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.14) 0 14%, rgba(0,0,0,0) 40%,
+                    rgba(0,0,0,0) 62%, rgba(0,0,0,.44) 100%),
+    linear-gradient(180deg, var(--wal-lo), var(--wal-hi) 40%, var(--wal) 66%, var(--wal-lo));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.22),
+    0 -5px 9px rgba(0,0,0,.50),                 /* what it throws up the tray */
+    0 5px 9px rgba(0,0,0,.50);                  /* and down it */
+}
 .ntray .half.bottom{ justify-content:flex-end; }
 .ntray .off{ width:100%; height:calc(var(--cd) * .28); border-radius:2px; flex:none;
   box-shadow:0 0 0 1px rgba(0,0,0,.45), 0 1px 0 rgba(0,0,0,.5),

@@ -222,4 +222,16 @@ test("the tray is a compartment, behind a wall", () => {
   assert.match(dv, /width\s*:\s*var\(--dvW/);
   assert.match(dv, /-\d+px 0 \d+px/,
     "a wall throws a shadow back onto the field, which is what makes it a wall");
+
+  /* And the cross-piece inside the tray: one player's borne-off checkers above
+     it, the other's below. Without it a full tray is one heap and you cannot
+     see at a glance who has taken off how many. */
+  const trayHalves = /id="offTop"[^]*?id="offBot"/.exec(nardi);
+  assert.ok(trayHalves && trayHalves[0].includes('class="tdiv"'),
+    "the cross-piece sits between the two halves of the tray");
+  const td = css.indexOf("\n.tdiv{");
+  assert.notEqual(td, -1, "and it has a rule of its own");
+  const cross = css.slice(td, css.indexOf("}", td));
+  assert.match(cross, /height\s*:\s*var\(--dvW/, "as thick as the wall beside it");
+  assert.match(cross, /0 -\d+px \d+px/, "throwing its shadow up the tray");
 });
