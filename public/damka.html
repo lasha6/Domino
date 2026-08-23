@@ -66,6 +66,7 @@
     </div>
   </div>
 
+  <script src="js/woodgrain.js"></script>
   <script src="js/sound.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/damka.js"></script>
@@ -104,6 +105,8 @@
   })();
 
   function build() {
+    const fr = document.getElementById("frame");
+    if (window.Wood && fr && !fr.querySelector("svg.grain")) Wood.fill(fr, "wgCase");
     const b = document.getElementById("board");
     b.innerHTML = "";
     /* Row 7 at the top, row 0 at the bottom, so white plays up the screen —

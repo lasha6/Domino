@@ -106,6 +106,7 @@
     </div>
   </div>
 
+  <script src="js/woodgrain.js"></script>
   <script src="js/sound.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/nardi.js"></script>
@@ -156,7 +157,7 @@
   let mayDouble = false;    // the cube is mine to offer and it is the moment to
   let stakeMul = 1;         // what the match is worth, in stakes
 
-  document.title = (VARIANT === "short" ? "მოკლე ნარდი" : "გრძელი ნარდი") + " — კომპიუტერთან";
+  document.title = (VARIANT === "short" ? "მოკლე ნარდი" : "კლასიკური ნარდი") + " — კომპიუტერთან";
 
   /* =====================================================================
      Throwing the dice.
@@ -378,6 +379,8 @@
       h.className = "nhalf " + which;
       const inside = document.createElement("div");
       inside.className = "face inside";
+      // the field is a piece of timber, and the points are cut into it
+      if (window.Wood) Wood.fill(inside, "wgField");
       inside.appendChild(top); inside.appendChild(bot);
       const outside = document.createElement("div");
       outside.className = "face outside";
@@ -401,6 +404,7 @@
        have to know the board was rebuilt. */
     const mid = document.createElement("div");
     mid.className = "nmid";
+    if (window.Wood) Wood.fill(mid, "wgSpine");
     mid.innerHTML = '<span class="hinge"></span>' +
       '<div class="barHalf" id="midT"></div><div class="barHalf" id="midB"></div>' +
       '<span class="hinge"></span>';
@@ -429,6 +433,10 @@
     cols.appendChild(left); cols.appendChild(mid); cols.appendChild(right);
     wrap.appendChild(cols); wrap.appendChild(divider); wrap.appendChild(tray);
     b.appendChild(wrap);
+    /* The case is built once and rebuilt whenever the seat changes, so the
+       timber goes in only if it is not there already. */
+    const fr = document.getElementById("frame");
+    if (window.Wood && fr && !fr.querySelector("svg.grain")) Wood.fill(fr, "wgCase");
   }
 
   /* How big everything is. Measured from the space the board is actually

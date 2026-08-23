@@ -683,7 +683,7 @@
 
     function playMine(card, opts){
       if (!Joker.play(g, ME, card, opts)) { toast("ასე არ შეიძლება"); render(); return; }
-      Sound.play("play");
+      Sound.play("card");
       render();
       step();
     }
@@ -720,7 +720,7 @@
           const before = g.trick.length;
           const m = Joker.aiPlay(g, seat);
           Joker.play(g, seat, m.card, m.opts);
-          Sound.play("play");
+          Sound.play("card");
           if (before === 3) trickCleared = false;     // that closed the trick
         }
         render();

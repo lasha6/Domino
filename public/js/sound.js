@@ -75,6 +75,11 @@
     place() { noise(0.09, 2100, 1.1, 0.5, 7); tone(190, 0.1, 0.28, "triangle", 0, 120); },
     // taking from the boneyard — softer, duller
     draw()  { noise(0.07, 1200, 1.4, 0.3, 9); tone(150, 0.08, 0.16, "sine", 0, 110); },
+    /* a card thrown onto the table: paper, not bone. A short breath of noise
+       high up for the flick, then a soft body under it — no clack, because a
+       card has no edge to give one. */
+    card()  { noise(0.055, 3400, 0.9, 0.30, 16); noise(0.09, 900, 1.6, 0.16, 7);
+              tone(240, 0.06, 0.09, "sine", 0.01, 170); },
     // points scored: two bright notes, like the brass pin ringing
     score() { tone(784, 0.16, 0.22, "triangle"); tone(1175, 0.22, 0.18, "triangle", 0.08); },
     // your move

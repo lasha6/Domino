@@ -33,9 +33,23 @@
   --ivory-lo:#c7b795;
   --ivory-ink:#7d6844;
 
-  --wine-hi:#8d2f3f;
-  --wine:#6b2130;
-  --wine-lo:#45131e;
+  /* Ebony and boxwood: the older pairing, and the one that shows gold best.
+     The wine names are kept pointing at it so nothing has to be renamed in
+     three files to change one colour. */
+  --ebony-hi:#2c2c31;
+  --ebony:#17171a;
+  --ebony-lo:#08080a;
+  --wine-hi:var(--ebony-hi);
+  --wine:var(--ebony);
+  --wine-lo:var(--ebony-lo);
+
+  /* The pieces are made of whatever the player bought. The shop writes
+     --bone-* and --pip on the root; with nothing bought these are the bone the
+     dominoes have always been. */
+  --piece-hi:var(--bone-hi, #fffdf6);
+  --piece:var(--bone, #f4eeda);
+  --piece-lo:var(--bone-lo, #ddd2b4);
+  --piece-ink:var(--pip, #15150f);
 
   --br-hi:#eccf90;
   --br:#c9a45a;
@@ -293,8 +307,14 @@ body{
    not one flat brown. Four layers do it: two fine repeats at slightly different
    angles for the grain itself, one broad sweep for the figure, and a vignette
    so the middle of a board is not as bright as its edge. */
+/* A piece of timber laid inside a box. The element keeps its gradient as the
+   fallback, for anything that will not run an SVG filter. */
+svg.grain{
+  position:absolute; inset:0; width:100%; height:100%;
+  pointer-events:none; z-index:0;
+}
 .boardFrame{
-  position:relative; border-radius:7px;
+  position:relative; border-radius:7px; overflow:hidden;
   padding:var(--frameP, 9px) var(--frameS, 22px);
   background:
     /* the grain: fine, low contrast, and never a hard edge */
@@ -316,6 +336,11 @@ body{
 }
 /* the playing field is sunk into the wood: a brass line round it, and a shadow
    falling from the rail onto the felt */
+/* The timber is the bottom layer inside the case. Only the board itself
+   needs lifting off it — the dice and the controls are already positioned,
+   and giving THEM position:relative would take the controls off the felt and
+   put them back in the flow, which makes the case taller than the screen. */
+.boardFrame > .nboard, .boardFrame > .dboard{ position:relative; z-index:1; }
 .boardFrame::before{
   content:""; position:absolute;
   top:calc(var(--frameP, 9px) - 4px); bottom:calc(var(--frameP, 9px) - 4px);
@@ -392,9 +417,10 @@ body{
                     rgba(0,0,0,0) 89%, rgba(0,0,0,.07));
 }
 .nhalf{
-  flex:1 1 0; min-width:0; position:relative;
+  flex:1 1 0; min-width:0; position:relative; overflow:hidden;
   transform-style:preserve-3d;
 }
+.nhalf .face.inside > svg.grain{ z-index:0; }
 .nhalf .face{ backface-visibility:hidden; }
 .nhalf .face.inside{ display:flex; flex-direction:column; }
 .nhalf .face.outside{
@@ -402,17 +428,27 @@ body{
   transform:rotateY(180deg) translateZ(1px);
 }
 
-/* one vine sprig in the middle of each half, cut shallow into the wood */
+/* Cut shallow into the middle of each half, and never the same twice: the
+   vine on one, the country on the other. A board that says the same thing
+   twice is a pattern, not a piece of work. */
 .nhalf::after{
   content:""; position:absolute; z-index:0; pointer-events:none;
   left:50%; top:50%; transform:translate(-50%, -50%);
-  width:56%; height:22%;
-  background:var(--br);
-  opacity:.17;
-  -webkit-mask:var(--ornVine) no-repeat center / contain;
-  mask:var(--ornVine) no-repeat center / contain;
+  width:64%; height:32%;
+  background:linear-gradient(160deg, var(--br-hi), var(--br) 45%, var(--br-lo));
+  opacity:.42;
+  -webkit-mask:var(--ornMap) no-repeat center / contain;
+  mask:var(--ornMap) no-repeat center / contain;
+  filter:drop-shadow(0 1px 0 rgba(0,0,0,.5));
 }
-.nhalf.right::after{ transform:translate(-50%, -50%) scaleX(-1); }
+/* The country goes in the far half and the vine in the near one, because the
+   controls stand in the middle of the near half: better they cover a leaf than
+   a border. */
+.nhalf.right::after{
+  width:46%; height:30%; opacity:.40;
+  -webkit-mask-image:var(--ornVine);
+  mask-image:var(--ornVine);
+}
 .nhalf .nrow{ position:relative; z-index:1; }
 
 /* ---------------- opening the case ----------------
@@ -566,7 +602,7 @@ body{
    the inner one sits a pixel and a half inside it. */
 .npt .tri{
   position:absolute; left:3%; right:3%; top:1.5%; bottom:12%;
-  background:var(--ptEdge, rgba(214,178,102,.85));
+  background:var(--ptEdge, linear-gradient(180deg, rgba(214,178,102,.92), rgba(138,106,38,.5)));
   clip-path:polygon(0 0, 100% 0, 50% 100%);
   filter:drop-shadow(0 1px 1px rgba(0,0,0,.5));
 }
@@ -577,7 +613,7 @@ body{
   /* the shoulder of the cut: the wood stands a hair proud of the inlay */
   box-shadow:inset 0 2px 2px rgba(0,0,0,.30);
 }
-.npt.odd .tri::after{ --ptFill:linear-gradient(180deg, var(--wine-hi), var(--wine-lo)); }
+.npt.odd .tri::after{ --ptFill:linear-gradient(178deg, var(--ebony-hi), var(--ebony) 52%, var(--ebony-lo)); }
 /* the far half is the near half turned over: base to the outside, tip inward */
 .nrow.nbot .npt .tri{ top:12%; bottom:1.5%; transform:scaleY(-1); }
 
@@ -627,11 +663,13 @@ body{
     inset 0 2px 2px rgba(255,255,255,.42),        /* the bevel, lit from above */
     inset 0 -3px 4px rgba(0,0,0,.34);
 }
-/* the groove turned into the face, just inside the rim */
+/* the band of brass let into the rim, and the groove just inside it */
 .chk::before{
-  content:""; position:absolute; inset:11%;
+  content:""; position:absolute; inset:8%;
   border-radius:50%;
-  box-shadow:inset 0 1px 1px rgba(0,0,0,.34), 0 1px 0 rgba(255,255,255,.22);
+  box-shadow:
+    0 0 0 max(1px, calc(var(--cd) * .045)) rgba(201,164,90,.85),
+    inset 0 1px 1px rgba(0,0,0,.34), 0 1px 0 rgba(255,255,255,.24);
 }
 .nrow.nbot .chk{ margin-top:0; margin-bottom:var(--chkGap, 0px); }
 /* the one in your hand: it follows the finger and takes no taps of its own */
@@ -640,11 +678,13 @@ body{
   transform:translate(-50%, -50%) scale(1.14);
   filter:drop-shadow(0 10px 12px rgba(0,0,0,.6));
 }
+/* The light piece is made of whatever the player bought; the dark one is
+   ebony, which nothing in the shop changes. */
 .chk.w{
   background:
     radial-gradient(circle at 50% 50%, rgba(125,104,68,0) 63%, rgba(125,104,68,.30) 67%, rgba(125,104,68,0) 74%),
-    radial-gradient(circle at 36% 30%, var(--ivory-hi), var(--ivory) 58%, var(--ivory-lo));
-  --mark:var(--ivory-ink);
+    radial-gradient(circle at 36% 30%, var(--piece-hi), var(--piece) 58%, var(--piece-lo));
+  --mark:var(--piece-ink);
 }
 .chk.b{
   background:
@@ -652,11 +692,16 @@ body{
     radial-gradient(circle at 36% 30%, var(--wine-hi), var(--wine) 58%, var(--wine-lo));
   --mark:var(--br-hi);
 }
+/* A small bunch struck into the face — a mark on a playing piece, not a
+   picture of a fruit: a quarter of the disc, and brass on both colours so the
+   two pieces are a pair rather than two different objects. */
 .chk::after{
-  content:""; position:absolute; inset:32%;
-  background:var(--mark); opacity:.5;
-  -webkit-mask:var(--ornMark) no-repeat center / contain;
-  mask:var(--ornMark) no-repeat center / contain;
+  content:""; position:absolute; inset:29%;
+  background:linear-gradient(160deg, var(--br-hi), var(--br) 50%, var(--br-lo));
+  opacity:.9;
+  -webkit-mask:var(--ornBunch) no-repeat center / contain;
+  mask:var(--ornBunch) no-repeat center / contain;
+  filter:drop-shadow(0 1px 0 rgba(0,0,0,.4));
 }
 .chk .more{
   position:absolute; inset:0; z-index:2; display:grid; place-items:center;
@@ -686,7 +731,7 @@ body{
 .d3.gone{ opacity:0; transition:opacity .25s; }
 .d3 .f{
   position:absolute; inset:0; border-radius:16%;
-  background:linear-gradient(150deg, var(--ivory-hi), var(--ivory) 55%, var(--ivory-lo));
+  background:linear-gradient(150deg, var(--piece-hi), var(--piece) 55%, var(--piece-lo));
   border:1px solid var(--br-lo);
   box-shadow:inset 0 0 calc(var(--ds) * .10) rgba(90,70,40,.22),
              0 calc(var(--ds) * .07) calc(var(--ds) * .13) rgba(0,0,0,.55);
@@ -702,8 +747,8 @@ body{
 .d3 i{
   display:block; border-radius:50%; align-self:center; justify-self:center;
   width:74%; height:74%;
-  background:radial-gradient(circle at 36% 32%, #5e4a2a, #2a1d0e 66%);
-  box-shadow:inset 0 1px 1px rgba(255,255,255,.14);
+  background:var(--piece-ink);
+  box-shadow:inset 0 -1px 1px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.2);
 }
 .d3 i.a{ grid-area:1/1; } .d3 i.b{ grid-area:1/3; }
 .d3 i.c{ grid-area:2/1; } .d3 i.d{ grid-area:2/2; } .d3 i.e{ grid-area:2/3; }
@@ -755,7 +800,7 @@ body{
 .ntray .off{ width:100%; height:calc(var(--cd) * .28); border-radius:2px; flex:none;
   box-shadow:0 0 0 1px rgba(0,0,0,.45), 0 1px 0 rgba(0,0,0,.5),
              0 2px 4px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.35); }
-.ntray .off.w{ background:linear-gradient(180deg, var(--ivory), var(--ivory-lo)); }
+.ntray .off.w{ background:linear-gradient(180deg, var(--piece), var(--piece-lo)); }
 .ntray .off.b{ background:linear-gradient(180deg, var(--wine-hi), var(--wine-lo)); }
 .ntray.can{ box-shadow:inset 0 0 0 1px var(--br-hi); }
 
@@ -781,15 +826,29 @@ body{
 }
 .dsq.from{ box-shadow:inset 0 0 0 2px var(--br-hi); }
 .dsq.last{ box-shadow:inset 0 0 0 1px rgba(201,164,90,.5); }
+/* The same piece as a ნარდი checker, at a draughts size: a turned disc with a
+   real edge, a band of brass round the rim, and the light coming from the same
+   corner. One game should not be made of different stuff from the next. */
 .pc{
   position:absolute; left:10%; top:10%; width:80%; height:80%; border-radius:50%;
   display:grid; place-items:center;
   font:700 calc(var(--sqz) * .34)/1 var(--font-ui);
-  box-shadow:0 0 0 1px var(--br-lo), 0 2px 4px rgba(0,0,0,.55),
-             inset 0 2px 0 rgba(255,255,255,.2);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.5),
+    0 1px 0 rgba(0,0,0,.40), 0 2px 0 rgba(0,0,0,.32),
+    0 3px 0 rgba(0,0,0,.22),
+    0 5px 8px rgba(0,0,0,.55), 0 9px 14px rgba(0,0,0,.35),
+    inset 0 2px 2px rgba(255,255,255,.42),
+    inset 0 -3px 4px rgba(0,0,0,.34);
 }
-.pc.w{ background:radial-gradient(circle at 36% 28%, var(--ivory-hi), var(--ivory) 58%, var(--ivory-lo));
-       --mark:var(--ivory-ink); }
+/* the band of brass let into the rim */
+.pc::before{
+  content:""; position:absolute; inset:8%; border-radius:50%;
+  box-shadow:0 0 0 max(1px, calc(var(--sqz) * .028)) rgba(201,164,90,.85),
+             inset 0 1px 1px rgba(0,0,0,.3);
+}
+.pc.w{ background:radial-gradient(circle at 36% 28%, var(--piece-hi), var(--piece) 58%, var(--piece-lo));
+       --mark:var(--piece-ink); }
 .pc.b{ background:radial-gradient(circle at 36% 28%, var(--wine-hi), var(--wine) 58%, var(--wine-lo));
        --mark:var(--br-hi); }
 /* A crowned piece wears a crown, drawn — not a star out of the font, which is

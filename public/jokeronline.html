@@ -591,14 +591,14 @@
         return;
       }
       socket.emit("jPlay", { card });
-      Sound.play("play");
+      Sound.play("card");
     }
     function askSuit(high){ pending = { card: pending.card, need: "suit", high }; Sound.play("tap"); render(); }
     function sendJoker(opts){
       const card = pending.card;
       pending = null;
       socket.emit("jPlay", Object.assign({ card }, opts));
-      Sound.play("play");
+      Sound.play("card");
       render();
     }
     function cancelJoker(){ pending = null; render(); }

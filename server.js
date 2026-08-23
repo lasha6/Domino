@@ -687,7 +687,7 @@ function startNardi(room) {
      than a player can have. */
   room.stakeMul = 1; room.cubeOwner = null; room.offer = null;
   room.phase = "play";
-  say(room, room.variant === "short" ? "მოკლე ნარდი" : "გრძელი ნარდი");
+  say(room, room.variant === "short" ? "მოკლე ნარდი" : "კლასიკური ნარდი");
   nardiAdvance(room);
 }
 

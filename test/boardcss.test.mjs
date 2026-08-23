@@ -120,6 +120,34 @@ test("the case has an outside, and it covers what it covers", () => {
 
 /* ---------------- the look ---------------- */
 
+test("the drawings held in the script travel with the app too", () => {
+  /* The vine, the map and the bunch moved out of the stylesheet and into
+     woodgrain.js, where one drawing can be built out of another. The rule they
+     have to keep is the same one: the APK works with no network, so a mask may
+     never point at a host. */
+  const js = readFileSync(new URL("../public/js/woodgrain.js", import.meta.url), "utf8");
+  for (const name of ["--ornVine", "--ornMap", "--ornBunch"])
+    assert.ok(js.includes(name), "woodgrain.js still paints " + name);
+  const urls = (js.match(/url\((["']?)[^)]*/g) || [])
+    .filter((u) => !u.startsWith("url(#"));      // a filter names itself this way
+  for (const u of urls)
+    assert.match(u, /^url\((\\?["'])?data:image\/svg\+xml/,
+      "a drawing must not be fetched: " + u.slice(0, 50));
+  assert.doesNotMatch(js, /https?:\/\/(?!www\.w3\.org)/,
+    "and nothing in it points at a host");
+});
+
+test("the timber is painted in sRGB, or it comes out looking like pine", () => {
+  /* An SVG filter works in linearRGB unless it is told otherwise and the
+     result is lifted on the way out. Every table value in here was pushed down
+     twice over before anybody worked out why the walnut stayed pale. */
+  const js = readFileSync(new URL("../public/js/woodgrain.js", import.meta.url), "utf8");
+  const filters = js.match(/<filter[^>]*>/g) || [];
+  assert.ok(filters.length >= 3, "there are three pieces of timber in here");
+  for (const f of filters)
+    assert.match(f, /color-interpolation-filters="sRGB"/, f.slice(0, 40));
+});
+
 test("every drawing travels with the app", () => {
   /* The APK has to work with no network at all. Every ornament is an inline
      SVG in a data URI, and nothing may point at a host. */
@@ -158,15 +186,20 @@ test("the palette is the one that was asked for", () => {
       sel + " is wood, not green felt");
 });
 
-test("the checker's engraving is small and quiet", () => {
-  /* "Do not put grape icons on every checker." It is a mark on a playing
-     piece — a third of the disc, half-transparent — not a picture of a fruit. */
+test("the checker's engraving is small, and struck rather than printed", () => {
+  /* The rule used to be "no grape icons on every checker". The player later
+     brought a photograph of a made board where every checker carries exactly
+     that, and asked for it — so the mark stays. What is guarded now is what
+     still matters: it is a MARK on a playing piece, well under half the disc,
+     and it is metal struck into the face rather than a picture laid on one. */
   const mark = ruleFor(".chk::after");
   const inset = /inset\s*:\s*(\d+)%/.exec(mark);
   assert.ok(inset && +inset[1] >= 28,
     "the engraving takes up less than half the checker");
-  const op = /opacity\s*:\s*([\d.]+)/.exec(mark);
-  assert.ok(op && +op[1] <= 0.6, "and it is cut shallow");
+  assert.match(mark, /mask\s*:\s*var\(--ornBunch/,
+    "it is a mask, so the metal is a CSS colour and nothing is fetched");
+  assert.match(mark, /linear-gradient/,
+    "and it catches the light across it, the way struck metal does");
 });
 
 test("the carving does not depend on a unit a WebView may not have", () => {
