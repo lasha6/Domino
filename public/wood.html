@@ -153,7 +153,7 @@ svg.grain{ position:absolute; inset:0; width:100%; height:100%; pointer-events:n
   filter:drop-shadow(0 1px 0 rgba(0,0,0,.5));
 }
 .half.r .sprig{
-  width:196px; height:97px; opacity:.58;
+  width:214px; height:109px; opacity:.60;
   -webkit-mask-image:var(--map);
   mask-image:var(--map);
 }
@@ -397,12 +397,38 @@ const GE =
   /* Georgia's border, simplified from coordinates rather than sketched: the
      coast running down the west, the southern frontier stepping east, the
      point at Lagodekhi, and the Caucasus back along the north. */
-  'M0 8 L7.4 12 L23.7 22 L38.5 40 L49.5 58 L47.4 72 L45.9 83.2 L62.2 86 L77 96 L91.9 100 L102.2 94 L118.5 96 L133.3 90 L148.1 96 L165.9 92 L189.6 100 L199.1 96 L189.6 80 L177.8 64 L165.9 48 L148.1 40 L133.3 36 L118.5 40 L103.7 34 L88.9 24 L74.1 16 L59.3 12 L29.6 8Z';
+  'M0 8 L7.4 12 L23.7 22 L38.5 40 L49.5 58 L47.4 72 L45.9 83.2 L62.2 86 L77 96' +
+  ' L91.9 100 L102.2 94 L118.5 96 L133.3 90 L148.1 96 L165.9 92 L189.6 100' +
+  ' L199.1 96 L189.6 80 L177.8 64 L165.9 48 L148.1 40 L133.3 36 L118.5 40' +
+  ' L103.7 34 L88.9 24 L74.1 16 L59.3 12 L29.6 8Z';
+
+/* The regions, cut in as lighter lines inside the heavier border — which is
+   what a laser leaves in a board and what a single silhouette can never look
+   like. Eleven of them, west to east: აფხაზეთი, სამეგრელო-ზემო სვანეთი,
+   რაჭა-ლეჩხუმი, გურია, იმერეთი, აჭარა, სამცხე-ჯავახეთი, შიდა ქართლი,
+   მცხეთა-მთიანეთი, ქვემო ქართლი, კახეთი. */
+const MKHARE = [
+  'M38 39 L46 25 L59.3 12',               // Abkhazia
+  'M48.6 61 L60 54 L72 46 L83 39 L92 27', // Samegrelo, up to the Caucasus
+  'M83 39 L93 47 L104 49',                // Racha-Lechkhumi, its southern edge
+  'M104 49 L104.5 34.5',                  // and its eastern one
+  'M48.6 61 L58 66 L69 71',               // Guria, north
+  'M46.6 79 L57 75 L69 71',               // Guria, south — Adjara begins
+  'M69 71 L73 82 L77 96',                 // Adjara, east
+  'M69 71 L80 70 L90 73',                 // Imereti, south
+  'M104 49 L100 58 L95 66 L90 73',        // Imereti, east
+  'M90 73 L100 84 L102.2 94',             // Samtskhe-Javakheti, east
+  'M104 49 L117 47 L129 53',              // Shida Kartli, north
+  'M90 73 L106 75 L121 73',               // Shida Kartli, south
+  'M129 53 L140 58 L147 71 L148.1 96',    // Kakheti, west
+  'M121 73 L134 79 L145 90',              // Kvemo Kartli, east
+].join('');
+
 const map = svg("0 0 200 102",
-  '<path d="' + GE + '" fill="#000" fill-opacity="0.14"/>' +
-  '<path d="' + GE + '" ' + S + ' stroke-width="3.4" stroke-linejoin="round"/>' +
-  /* a mark where the capital stands */
-  '<g fill="#000"><circle cx="130" cy="55" r="5"/></g>');
+  '<path d="' + GE + '" fill="#000" fill-opacity="0.10"/>' +
+  /* the regions first, so the coastline is drawn over them */
+  '<path d="' + MKHARE + '" ' + S + ' stroke-width="1.5" stroke-linejoin="round"/>' +
+  '<path d="' + GE + '" ' + S + ' stroke-width="3.2" stroke-linejoin="round"/>');
 
 /* a small bunch for the face of a checker */
 const bunch = svg("0 0 44 44",
