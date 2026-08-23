@@ -393,14 +393,16 @@
     const side = Math.max(15, Math.min(availH * 0.115, availW * 0.06));
     const pad = Math.max(9, side * 0.6);
     const trayF = 0.062, barF = 0.075;
-    // a board is about 1.35 times as wide as it is tall, and must fit both ways
-    /* 1.37 is where the two limits meet: twelve points wide at a checker
-       apiece, and five checkers to a row with the rest overlapping. Any wider
-       and the checkers stop filling their points; any taller and they shrink. */
-    const boardH = Math.min(availH - pad * 2, (availW - side * 2) / 1.37);
-    const boardW = boardH * 1.37;
+    /* A checker has to sit INSIDE its point, not straddle it. The point is very
+       nearly the full width of its column and the checker is four fifths of
+       that, so a stroke of the inlay shows either side of every piece. Five of
+       them fill the point exactly, which is what a real board looks like.
+       1.5 is where those two hold at once: any narrower and the checkers are
+       pinched by the width, any wider and they are pinched by the height. */
+    const boardH = Math.min(availH - pad * 2, (availW - side * 2) / 1.5);
+    const boardW = boardH * 1.5;
     const inner = boardW * (1 - trayF - barF);
-    const cd = Math.min(inner / 12 * 0.92, boardH / 2 / 5.4);
+    const cd = Math.min(inner / 12 * 0.80, boardH / 2 / 5.8);
     const rowH = boardH / 2;
 
     frame.style.setProperty("--frameP", pad + "px");

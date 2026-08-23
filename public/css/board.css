@@ -388,7 +388,7 @@ body{
    with a line of brass round the edge of it. The outer shape IS that line —
    the inner one sits a pixel and a half inside it. */
 .npt .tri{
-  position:absolute; left:13%; right:13%; top:2%; bottom:4%;
+  position:absolute; left:3%; right:3%; top:1.5%; bottom:12%;
   background:var(--ptEdge, rgba(214,178,102,.85));
   clip-path:polygon(0 0, 100% 0, 50% 100%);
   filter:drop-shadow(0 1px 1px rgba(0,0,0,.5));
@@ -399,7 +399,8 @@ body{
   clip-path:polygon(0 0, 100% 0, 50% 100%);
 }
 .npt.odd .tri::after{ --ptFill:linear-gradient(180deg, var(--wine-hi), var(--wine-lo)); }
-.nrow.nbot .npt .tri{ transform:scaleY(-1); }
+/* the far half is the near half turned over: base to the outside, tip inward */
+.nrow.nbot .npt .tri{ top:12%; bottom:1.5%; transform:scaleY(-1); }
 
 /* Three different things, three different marks.
      · pick — one of yours that has somewhere to go: brass on the checker itself

@@ -170,3 +170,34 @@ test("the carving does not depend on a unit a WebView may not have", () => {
      declaration, and the text falls back to whatever it inherited. */
   assert.doesNotMatch(css, /cqw|cqi|cqh/, "no container units in here");
 });
+
+test("a checker sits inside its point, never across it", () => {
+  /* The checker was 92% of its column and the point only 74% of it, so every
+     piece straddled the inlay it was supposed to be standing on and the board
+     read as a toy. The two numbers live in different files — the width of the
+     point is CSS, the size of the checker is arithmetic in fit() — which is
+     exactly why nothing noticed. */
+  const nardi = readFileSync(new URL("../public/nardi.html", import.meta.url), "utf8");
+  const chk = /inner\s*\/\s*12\s*\*\s*([\d.]+)/.exec(nardi);
+  assert.ok(chk, "fit() sizes the checker from the width of a column");
+  const tri = ruleFor(".npt .tri");
+  const side = /left\s*:\s*([\d.]+)%/.exec(tri);
+  assert.ok(side, "the point is inset from the sides of its column");
+  const ptW = 1 - 2 * (+side[1] / 100);
+  assert.ok(+chk[1] < ptW - 0.05,
+    `a checker of ${+chk[1]} of the column cannot stand on a point of ${ptW.toFixed(2)}`);
+});
+
+test("five checkers fill a point, which is what a real board looks like", () => {
+  const nardi = readFileSync(new URL("../public/nardi.html", import.meta.url), "utf8");
+  const tall = /boardH\s*\/\s*2\s*\/\s*([\d.]+)/.exec(nardi);
+  assert.ok(tall, "fit() also sizes the checker from the height of a row");
+  const tri = ruleFor(".npt .tri");
+  const top = +/top\s*:\s*([\d.]+)%/.exec(tri)[1] / 100;
+  const bot = +/bottom\s*:\s*([\d.]+)%/.exec(tri)[1] / 100;
+  const pointLen = 1 - top - bot;          // as a fraction of half the board
+  const five = 5 / +tall[1];
+  assert.ok(Math.abs(five - pointLen) < 0.06,
+    `five checkers come to ${five.toFixed(3)} of a row and the point is ${pointLen.toFixed(3)}`);
+  assert.ok(bot > 0.06, "and the tips stop short of each other, leaving the field open");
+});
