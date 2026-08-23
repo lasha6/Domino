@@ -299,15 +299,26 @@
       .map((m) => ({ die: m.die, to: from + m.die >= POINTS ? "off" : from + m.die }));
   }
 
-  function move(g, from, die) {
+  /* `hold` keeps the turn open after the last die is spent, so the player can
+     look at what they have done and take it back before it counts. Whoever
+     passes it is then the one who says when the turn is over — that is the
+     Done button. Without it the turn ends inside the engine and there is
+     nothing left to undo. */
+  function move(g, from, die, hold) {
     if (g.phase !== "move") return false;
     const side = g.side;
     if (!legalMoves(g).some((m) => m.from === from && m.die === die)) return false;
     step(g, side, from, die);
     g.moved.push({ from, die });
     if (g.off[side] === CHECKERS) { finishRound(g, side); return true; }
-    if (!g.left.length || !legalMoves(g).length) endTurn(g);
+    if (!hold && turnOver(g)) endTurn(g);
     return true;
+  }
+
+  /* Nothing more can be played: the dice are spent, or what is left of them
+     has nowhere to go. */
+  function turnOver(g) {
+    return g.phase === "move" && (!g.left.length || !legalMoves(g).length);
   }
 
   function endTurn(g) {
@@ -424,7 +435,7 @@
 
   return {
     POINTS, CHECKERS, HOME_FROM, BAR, HEAD,
-    newGame, setUp, roll, move, legalMoves, targetsFrom, canStep,
+    newGame, setUp, roll, move, turnOver, legalMoves, targetsFrom, canStep,
     endTurn, nextRound, finishRound, roundWorth,
     pointAt, indexOf, atIndex, countAt, homeReady, canBearOff,
     wallsThemIn, pipCount, view,

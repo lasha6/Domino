@@ -137,6 +137,49 @@ body{
    ===================================================================== */
 .boardWrap{
   flex:1 1 auto; min-height:0; display:flex; align-items:center; justify-content:center;
+  gap:var(--sideGap, 10px);
+}
+
+/* ---------------- the controls, beside the board ----------------
+   Big enough to hit with a thumb without looking, and stacked so the one you
+   press most often is the lower of the two. */
+.sidePanel{
+  flex:none; width:var(--sideW, 92px);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:calc(var(--sideW, 92px) * .16);
+}
+.sideBtn{
+  cursor:pointer; width:100%; aspect-ratio:1 / 1; border-radius:50%;
+  display:grid; place-items:center; padding:0;
+  font:800 calc(var(--sideW, 92px) * .21)/1 var(--font-ui); letter-spacing:.02em;
+  border:1px solid rgba(0,0,0,.5);
+  transition:opacity .15s, transform .08s;
+}
+.sideBtn b{ pointer-events:none; }
+.sideBtn:active{ transform:translateY(2px); }
+.sideBtn[disabled]{ opacity:.28; cursor:default; }
+.sideBtn.main{
+  color:#f6efdd;
+  background:radial-gradient(120% 120% at 34% 26%, #2f7d4e, #1c5c37 52%, #113a23);
+  box-shadow:0 0 0 2px var(--br-lo), inset 0 3px 0 rgba(255,255,255,.22),
+             inset 0 -5px 8px rgba(0,0,0,.45), 0 7px 14px rgba(0,0,0,.55);
+}
+/* the one button on the screen that has to catch the eye without being read */
+.sideBtn.main.ready{
+  background:radial-gradient(120% 120% at 34% 26%, #3f9c62, #26743f 52%, #164b2a);
+  animation:sideWake 1.5s ease-in-out infinite;
+}
+.sideBtn.alt{
+  color:#2a1c07;
+  background:radial-gradient(120% 120% at 34% 26%, var(--br-hi), var(--br) 55%, var(--br-lo));
+  box-shadow:0 0 0 2px rgba(0,0,0,.35), inset 0 3px 0 rgba(255,255,255,.3),
+             inset 0 -5px 8px rgba(0,0,0,.35), 0 7px 14px rgba(0,0,0,.5);
+}
+@keyframes sideWake{
+  0%, 100%{ box-shadow:0 0 0 2px var(--br-lo), inset 0 3px 0 rgba(255,255,255,.22),
+                       inset 0 -5px 8px rgba(0,0,0,.45), 0 7px 14px rgba(0,0,0,.55); }
+  50%     { box-shadow:0 0 0 2px var(--br-hi), inset 0 3px 0 rgba(255,255,255,.28),
+                       inset 0 -5px 8px rgba(0,0,0,.45), 0 7px 20px rgba(236,207,144,.35); }
 }
 /* Walnut has figure in it — bands of light and dark running along the grain,
    not one flat brown. Four layers do it: two fine repeats at slightly different
@@ -205,6 +248,8 @@ body{
    ===================================================================== */
 .nboard{
   position:relative; display:flex; flex-direction:column;
+  /* a drag across the felt must move a checker, not scroll the page */
+  touch-action:none;
   border-radius:2px; overflow:hidden;
   background:
     repeating-linear-gradient(90deg, rgba(0,0,0,.06) 0 1px, rgba(0,0,0,0) 1px 5px,
@@ -481,6 +526,12 @@ body{
   box-shadow:inset 0 1px 1px rgba(0,0,0,.34), 0 1px 0 rgba(255,255,255,.22);
 }
 .nrow.nbot .chk{ margin-top:0; margin-bottom:var(--chkGap, 0px); }
+/* the one in your hand: it follows the finger and takes no taps of its own */
+.chk.dragGhost{
+  position:fixed; z-index:60; margin:0; pointer-events:none;
+  transform:translate(-50%, -50%) scale(1.14);
+  filter:drop-shadow(0 10px 12px rgba(0,0,0,.6));
+}
 .chk.w{
   background:
     radial-gradient(circle at 50% 50%, rgba(125,104,68,0) 63%, rgba(125,104,68,.30) 67%, rgba(125,104,68,0) 74%),

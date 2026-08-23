@@ -31,7 +31,6 @@
       <div class="bStat">
         <span class="dot" id="turnDot"></span>
         <span id="turnName">შენი სვლა</span>
-        <button class="rollBtn" id="rollBtn" onclick="doRoll()">გააგორე</button>
       </div>
       <div class="msg" id="msg"></div>
       <div class="spacer" style="flex:1 1 auto"></div>
@@ -43,6 +42,15 @@
       <div class="boardFrame" id="frame">
         <div class="nboard" id="board"></div>
         <div class="diceLayer" id="diceLayer"></div>
+      </div>
+      <!-- The controls live beside the board, on the hand that plays. They are
+           two buttons that change what they are: გააგორე becomes მზადაა once
+           the dice are down, and ×2 becomes უკან, because you cannot double a
+           stake in the middle of your own turn and you cannot take a move back
+           before you have made one. -->
+      <div class="sidePanel">
+        <button class="sideBtn alt" id="btnAlt"><b id="btnAltText">×2</b></button>
+        <button class="sideBtn main" id="btnMain"><b id="btnMainText">გააგორე</b></button>
       </div>
     </div>
   </div>
@@ -108,8 +116,13 @@
   })();
 
   let g = null;
-  let picked = null;        // the track index a checker was lifted from
+  let picked = null;        // the track index a checker is being dragged from
   let busy = false;         // the computer is thinking; the board is not yours
+  /* Every move of your own turn, as the board looked before it. A turn is not
+     over until you say it is, so until then every one of them can be taken
+     back. Online the server keeps the same pile and this only counts it. */
+  let hist = [];
+  let undoLeft = 0;
 
   document.title = (VARIANT === "short" ? "მოკლე ნარდი" : "გრძელი ნარდი") + " — კომპიუტერთან";
 
@@ -314,7 +327,7 @@
       d.className = "npt" + (pt % 2 ? " odd" : "");
       d.dataset.pt = pt;
       d.innerHTML = '<span class="tri"></span>';
-      d.onclick = () => tapPoint(pt);
+      d.onclick = () => { if (swallowClick) { swallowClick = false; return; } tapPoint(pt); };
       return d;
     };
     const row = (kind, from, to) => {
@@ -359,7 +372,7 @@
     mid.innerHTML = '<span class="hinge"></span>' +
       '<div class="barHalf" id="midT"></div><div class="barHalf" id="midB"></div>' +
       '<span class="hinge"></span>';
-    mid.onclick = () => tapBar();
+    mid.onclick = () => { if (swallowClick) { swallowClick = false; return; } tapBar(); };
 
     /* The wall between the field and the tray. A real case has one: the borne
        off checkers sit in their own compartment behind a raised rail. Without
@@ -374,7 +387,7 @@
     tray.innerHTML = '<div class="half" id="offTop"></div>' +
       '<div class="tdiv"></div>' +
       '<div class="half bottom" id="offBot"></div>';
-    tray.onclick = () => tapOff();
+    tray.onclick = () => { if (swallowClick) { swallowClick = false; return; } tapOff(); };
 
     const wrap = document.createElement("div");
     wrap.style.display = "flex";
@@ -392,9 +405,18 @@
   function fit() {
     const wrap = document.querySelector(".boardWrap");
     const frame = document.getElementById("frame");
-    const availW = wrap.clientWidth - 4;
+    let availW = wrap.clientWidth - 4;
     const availH = wrap.clientHeight - 4;
     if (availW < 40 || availH < 40) return;
+
+    /* The controls take their share first — they are part of the table, not
+       something laid on top of it, and a board sized as if they were not there
+       would slide underneath them. */
+    const sideW = Math.max(48, Math.min(availH * 0.27, availW * 0.13, 124));
+    const sideGap = Math.round(sideW * 0.14);
+    wrap.style.setProperty("--sideW", sideW + "px");
+    wrap.style.setProperty("--sideGap", sideGap + "px");
+    availW -= sideW + sideGap;
 
     /* The rail is part of the board, not a border round it. A real case has a
        wide walnut edge with the ornament cut into it — at eight pixels there was
@@ -489,9 +511,7 @@
       g.phase === "over" ? "მატჩი დასრულდა"
       : g.side === ME ? (g.phase === "roll" ? "შენი გაგორებაა" : "შენი სვლა")
       : "კომპიუტერი";
-    const rb = document.getElementById("rollBtn");
-    rb.style.display = (g.side === ME && g.phase === "roll") ? "" : "none";
-    rb.disabled = busy;
+    controls();
     highlight();
   }
 
@@ -503,6 +523,8 @@
     ["midT", "midB"].forEach((k) => document.getElementById(k).classList.remove("can", "from"));
     if (!g || g.phase !== "move" || g.side !== ME || busy) return;
 
+    /* Nothing is in the air: show every checker that has somewhere to go.
+       Tapping one plays it; dragging one asks where. */
     if (picked === null) {
       const froms = new Set(Nardi.legalMoves(g).map((m) => m.from));
       froms.forEach((f) => {
@@ -511,6 +533,7 @@
       });
       return;
     }
+    // one is being dragged: light everywhere it could come down
     if (picked === Nardi.BAR) document.getElementById("midB").classList.add("from");
     else ptEl(Nardi.pointAt(g, ME, picked)).classList.add("from");
     for (const t of Nardi.targetsFrom(g, picked)) {
@@ -518,9 +541,62 @@
       else ptEl(Nardi.pointAt(g, ME, t.to)).classList.add("can");
     }
   }
+
+  /* ---------------- the two buttons ----------------
+     One is a roll and then a full stop; the other is a stake and then a
+     rubber. What each of them is depends only on the state of the board, so it
+     is decided here and nowhere else. */
+  function controls() {
+    const main = document.getElementById("btnMain");
+    const alt = document.getElementById("btnAlt");
+    const mText = document.getElementById("btnMainText");
+    const aText = document.getElementById("btnAltText");
+    const mine = g && g.side === ME && !busy;
+    const rolling = mine && g.phase === "roll";
+    const moving = mine && g.phase === "move";
+
+    mText.textContent = moving ? "მზადაა" : "გააგორე";
+    aText.textContent = moving ? "უკან" : "×2";
+    main.disabled = !(rolling || (moving && Nardi.turnOver(g)));
+    alt.disabled = moving ? !undoCount() : !canDouble();
+    main.classList.toggle("ready", moving && !main.disabled);
+  }
+  const undoCount = () => (ONLINE ? undoLeft : hist.length);
+  // the doubling cube is a stake, and there is no stake against the computer
+  const canDouble = () => false;
   const ptEl = (pt) => document.querySelector('.npt[data-pt="' + pt + '"]');
 
   /* ---------------- what the player does ---------------- */
+  function mainAction() {
+    if (!g || g.side !== ME || busy) return;
+    if (g.phase === "roll") doRoll();
+    else if (g.phase === "move" && Nardi.turnOver(g)) doneTurn();
+  }
+  function altAction() {
+    if (!g || g.side !== ME || busy) return;
+    if (g.phase === "move") undoMove();
+  }
+
+  /* The turn is over when the player says so, not when the last die is spent.
+     Everything between the roll and this is provisional. */
+  function doneTurn() {
+    if (ONLINE) { socket.emit("nDone"); return; }
+    if (!g || g.phase !== "move" || g.side !== ME || !Nardi.turnOver(g)) return;
+    hist = [];
+    Nardi.endTurn(g);
+    say(""); clearDice(true); draw();
+    setTimeout(cpuTurn, 620);
+  }
+
+  function undoMove() {
+    if (ONLINE) { socket.emit("nUndo"); return; }
+    if (!hist.length) return;
+    g = JSON.parse(hist.pop());
+    picked = null;
+    if (Sound) Sound.play("place");
+    draw();
+  }
+
   /* A throw is not instant, so the turn waits for it. `busy` holds the board
      shut while the dice are in the air — otherwise a fast tap could move a
      checker with a die that has not landed yet. */
@@ -545,61 +621,128 @@
      roll onto the board, and reaching for a button in the corner is not how
      anybody plays. */
   function tapBoard(e) {
+    if (e && e.target && e.target.closest(".sidePanel")) return;
     if (!g || g.phase !== "roll" || g.side !== ME || busy) return;
     doRoll();
   }
 
-  function tapPoint(pt) {
-    if (!g || g.phase !== "move" || g.side !== ME || busy) return;
-    const i = Nardi.indexOf(g, ME, pt);
-    if (picked !== null) {
-      const t = Nardi.targetsFrom(g, picked).find((x) => x.to === i);
-      if (t) { play(picked, t.die); return; }
-    }
-    // picking up: only a stack of your own that has somewhere to go
-    if (Nardi.legalMoves(g).some((m) => m.from === i)) { picked = i; highlight(); return; }
+  const myTurn = () => !!g && g.phase === "move" && g.side === ME && !busy;
 
-    /* Nothing of yours here — but you may have meant "go there". On a board you
-       point at the square you want, and asking a player to lift a checker first
-       when the app already knows which one can reach is a rule of the app, not
-       of the game. Where several could reach it, the one furthest from home
-       goes: that is the convention, and it is the one that needs the help. */
+  /* ---------------- dragging a checker ----------------
+     A tap plays the bigger die. When that is not the one you wanted, you pick
+     the checker up and put it where you mean, and the die is whichever one
+     reaches that point. The two share a single pointer handler, because a tap
+     is only a drag that did not go anywhere: below the threshold the click
+     falls through to tapPoint, above it the click is swallowed. */
+  const DRAG_SLOP = 8;
+  let dragFrom = null, dragGhost = null, dragAt = null, dragging = false;
+  let swallowClick = false;
+
+  function whereIs(e) {
+    if (dragGhost) dragGhost.style.visibility = "hidden";
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    if (dragGhost) dragGhost.style.visibility = "";
+    if (!el) return null;
+    if (el.closest("#tray")) return "off";
+    if (el.closest(".nmid")) return Nardi.BAR;
+    const p = el.closest(".npt");
+    return p ? Nardi.indexOf(g, ME, +p.dataset.pt) : null;
+  }
+
+  function ghostFor(i) {
+    const src = i === Nardi.BAR ? null
+      : ptEl(Nardi.pointAt(g, ME, i)).querySelector(".chk:last-child");
+    const d = document.createElement("div");
+    d.className = "chk dragGhost " + (ME === 0 ? "w" : "b");
+    if (src) d.className = src.className + " dragGhost";
+    document.body.appendChild(d);
+    return d;
+  }
+
+  function onDown(e) {
+    swallowClick = false;
+    if (!myTurn() || e.button > 0) return;
+    const i = whereIs(e);
+    if (i === null || i === "off") return;
+    if (!Nardi.legalMoves(g).some((m) => m.from === i)) return;
+    dragFrom = i; dragAt = { x: e.clientX, y: e.clientY }; dragging = false;
+  }
+
+  function onMove(e) {
+    if (dragFrom === null) return;
+    const far = Math.abs(e.clientX - dragAt.x) + Math.abs(e.clientY - dragAt.y);
+    if (!dragging) {
+      if (far < DRAG_SLOP) return;
+      dragging = true;
+      picked = dragFrom;
+      highlight();
+      dragGhost = ghostFor(dragFrom);
+    }
+    dragGhost.style.left = e.clientX + "px";
+    dragGhost.style.top = e.clientY + "px";
+  }
+
+  function onUp(e) {
+    const from = dragFrom, moved = dragging;
+    dragFrom = null; dragging = false;
+    if (dragGhost) { dragGhost.remove(); dragGhost = null; }
+    if (from === null || !moved) { picked = null; highlight(); return; }
+    swallowClick = true;                 // the click that follows is not a tap
+    const to = whereIs(e);
+    picked = null;
+    const t = to === null ? null : Nardi.targetsFrom(g, from).find((x) => x.to === to);
+    if (t) play(from, t.die); else highlight();
+  }
+
+  /* Touching one of your own checkers plays it, with the BIGGEST die that can
+     go. Touch it again where it lands and the next one goes. Six then three,
+     not whichever the app felt like — which makes an ordinary turn two taps
+     and no aiming at all. When you want the other die, you drag instead. */
+  function tapPoint(pt) {
+    if (!myTurn()) return;
+    const i = Nardi.indexOf(g, ME, pt);
+    const from = Nardi.legalMoves(g).filter((m) => m.from === i);
+    if (from.length) {
+      from.sort((a, b) => b.die - a.die);
+      play(i, from[0].die);
+      return;
+    }
+    /* Nothing of yours here — but you may have meant "go there". Where several
+       could reach it, the one furthest from home goes: that is the convention,
+       and it is the one that needs the help. */
     const going = Nardi.legalMoves(g).filter((m) => m.from + m.die === i);
     if (going.length) {
       going.sort((a, b) => a.from - b.from);
       play(going[0].from, going[0].die);
-      return;
     }
-    picked = null; highlight();
   }
 
   function tapBar() {
-    if (!g || g.phase !== "move" || g.side !== ME || busy) return;
-    if (Nardi.legalMoves(g).some((m) => m.from === Nardi.BAR)) { picked = Nardi.BAR; highlight(); }
+    if (!myTurn()) return;
+    const from = Nardi.legalMoves(g).filter((m) => m.from === Nardi.BAR);
+    if (!from.length) return;
+    from.sort((a, b) => b.die - a.die);
+    play(Nardi.BAR, from[0].die);
   }
 
   function tapOff() {
-    if (!g || g.phase !== "move" || g.side !== ME || busy) return;
-    if (picked !== null) {
-      const t = Nardi.targetsFrom(g, picked).find((x) => x.to === "off");
-      if (t) { play(picked, t.die); return; }
-    }
+    if (!myTurn()) return;
     const off = Nardi.legalMoves(g).filter((m) => m.from + m.die >= Nardi.POINTS);
-    if (off.length) {
-      off.sort((a, b) => a.from - b.from);
-      play(off[0].from, off[0].die);
-    }
+    if (!off.length) return;
+    off.sort((a, b) => (a.from - b.from) || (b.die - a.die));
+    play(off[0].from, off[0].die);
   }
 
   function play(from, die) {
     if (ONLINE) { socket.emit("nMove", { from, die }); picked = null; highlight(); return; }
-    const was = g.side;
-    Nardi.move(g, from, die);
+    hist.push(JSON.stringify(g));
+    Nardi.move(g, from, die, true);      // held open: the turn ends on მზადაა
     picked = null;
     if (Sound) Sound.play("place");
     draw();
-    if (g.phase === "roundOver" || g.phase === "over") { finish(); return; }
-    if (g.side !== was) { say(""); clearDice(true); setTimeout(cpuTurn, 620); }
+    if (g.phase === "roundOver" || g.phase === "over") { hist = []; finish(); return; }
+    // a roll with nothing playable ends the turn inside the engine
+    if (g.side !== ME) { hist = []; say(""); clearDice(true); setTimeout(cpuTurn, 620); }
   }
 
   /* ---------------- the computer ---------------- */
@@ -752,6 +895,7 @@
       g.phase = st.nphase; g.scores = st.scores ? st.scores.slice() : g.scores;
       g.round = st.round || g.round; g.target = st.target || g.target;
     }
+    undoLeft = st.undo || 0;
     const playing = st.pts && (st.phase === "play" || st.phase === "roundEnd" || st.phase === "over");
     show(document.getElementById("waitOverlay"), !playing);
     busy = !!st.paused || st.phase === "roundEnd";
@@ -834,6 +978,15 @@
   document.querySelector(".stage .top .back").onclick = () =>
     ONLINE ? leaveTable() : (location.href = "index.html");
   document.querySelector(".boardWrap").addEventListener("click", tapBoard);
+  document.getElementById("btnMain").onclick = mainAction;
+  document.getElementById("btnAlt").onclick = altAction;
+  {
+    const b = document.getElementById("board");
+    b.addEventListener("pointerdown", onDown);
+    b.addEventListener("pointermove", onMove);
+    b.addEventListener("pointerup", onUp);
+    b.addEventListener("pointercancel", onUp);
+  }
   document.getElementById("sndBtn").classList.toggle("muted", Sound.muted());
   addEventListener("resize", () => { fit(); draw(); });
   /* The first measurement is taken before the fonts have landed and before the

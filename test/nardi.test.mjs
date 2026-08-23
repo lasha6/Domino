@@ -454,3 +454,47 @@ test("a move that was never offered is refused", () => {
   assert.equal(N.move(g, 99, 3), false, "nor is that one");
   assert.equal(g.phase, "move", "and the turn is still yours");
 });
+
+test("a held move leaves the turn open, and the engine says when it is spent", () => {
+  /* A move used to end the turn from inside the engine the moment the last die
+     went. There was then nothing to take back and nobody to ask. `hold` leaves
+     the turn standing so the screen can offer უკან and wait for მზადაა, and
+     `turnOver` is how it knows the Done button may be lit. */
+  const g = N.newGame({ variant: "long", target: 3 });
+  g.dice = [3, 3]; g.left = [3, 3]; g.phase = "move"; g.side = 0; g.moved = [];
+  assert.equal(N.turnOver(g), false, "two dice in hand is not a spent turn");
+
+  assert.equal(N.move(g, 0, 3, true), true);
+  assert.equal(g.side, 0, "still his");
+  assert.equal(N.move(g, 0, 3, true), true);
+  assert.equal(g.left.length, 0, "both dice gone");
+  assert.equal(g.side, 0, "and the turn is STILL his: held open on purpose");
+  assert.equal(g.phase, "move");
+  assert.equal(N.turnOver(g), true, "but there is nothing left to play");
+
+  N.endTurn(g);
+  assert.equal(g.side, 1, "which is what Done does");
+  assert.equal(g.phase, "roll");
+});
+
+test("without hold the turn still ends itself, which is what the computer needs", () => {
+  const g = N.newGame({ variant: "long", target: 3 });
+  g.dice = [3, 3]; g.left = [3, 3]; g.phase = "move"; g.side = 0; g.moved = [];
+  N.move(g, 0, 3);
+  N.move(g, 0, 3);
+  assert.equal(g.side, 1, "the bot does not press buttons");
+});
+
+test("a board taken back is the board that was there, hit checkers and all", () => {
+  /* Undo is a restore, not an inverse: whatever the move did — bearing off,
+     sending somebody to the bar — comes back with it. */
+  const g = N.newGame({ variant: "short", target: 3 });
+  g.dice = [6, 5]; g.left = [6, 5]; g.phase = "move"; g.side = 0; g.moved = [];
+  const before = JSON.stringify(g);
+  const m = N.legalMoves(g)[0];
+  N.move(g, m.from, m.die, true);
+  assert.notEqual(JSON.stringify(g), before, "something happened");
+  const back = JSON.parse(before);
+  assert.deepEqual(back.pts, JSON.parse(before).pts);
+  assert.equal(JSON.stringify(back), before, "and the board before it is exactly recoverable");
+});

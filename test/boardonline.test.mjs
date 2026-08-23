@@ -129,7 +129,10 @@ test("a move out of turn, or with a die nobody rolled, changes nothing", async (
   assert.equal(srv.exited, null, `still up: ${srv.log.slice(-300)}`);
 });
 
-test("a legal move moves the board for both of them, and the turn passes", async () => {
+test("a legal move moves the board for both of them, and the turn ends when the player says", async () => {
+  /* Nothing passes by itself any more. Spending the last die leaves the turn
+     open so the player can look at it and take it back; the turn crosses the
+     table on მზადაა and not before. */
   const cs = await boardTable("nardi", { variant: "long", target: 3 });
   const me = cs.find((c) => c.last.side === c.last.seat);
   const you = cs.find((c) => c !== me);
@@ -138,18 +141,76 @@ test("a legal move moves the board for both of them, and the turn passes", async
 
   // play the turn out, whatever it is: the head is the only place to start from
   let guard = 0;
-  while (me.last.side === me.last.seat && me.last.nphase === "move" && guard++ < 6) {
+  while (me.last.left.length && me.last.nphase === "move" && guard++ < 6) {
     const die = me.last.left[0];
     const before = JSON.stringify(me.last.pts);
     me.emit("nMove", { from: 0, die });
-    const moved = await until(() => JSON.stringify(me.last.pts) !== before ||
-                                    me.last.side !== me.last.seat, 3000);
+    const moved = await until(() => JSON.stringify(me.last.pts) !== before, 3000);
     if (!moved) break;
   }
   assert.ok(guard > 0, "something was played");
   assert.deepEqual(you.last.pts, me.last.pts, "the other player sees it too");
+
+  await wait(600);
+  assert.equal(me.last.side, me.last.seat,
+    "the dice are spent and the turn is STILL his: it does not pass by itself");
+
+  me.emit("nDone");
   assert.ok(await until(() => me.last.side !== me.last.seat, 4000),
-    "and when the dice are gone the turn goes across the table");
+    "and on Done it goes across the table");
+});
+
+test("a move can be taken back, right up until the turn is finished", async () => {
+  const cs = await boardTable("nardi", { variant: "long", target: 3 });
+  const me = cs.find((c) => c.last.side === c.last.seat);
+  const you = cs.find((c) => c !== me);
+  me.emit("nRoll");
+  assert.ok(await until(() => me.last.dice));
+  assert.equal(me.last.undo, 0, "nothing to take back before anything is done");
+
+  const opening = JSON.stringify(me.last.pts);
+  me.emit("nMove", { from: 0, die: me.last.left[0] });
+  assert.ok(await until(() => JSON.stringify(me.last.pts) !== opening), "a checker moved");
+  assert.equal(me.last.undo, 1, "and the board before it is kept");
+
+  // the other player cannot reach into somebody else's turn
+  you.emit("nUndo");
+  await wait(400);
+  assert.notEqual(JSON.stringify(me.last.pts), opening, "not his to undo");
+
+  me.emit("nUndo");
+  assert.ok(await until(() => JSON.stringify(me.last.pts) === opening),
+    "his own comes back");
+  assert.equal(me.last.undo, 0, "with nothing left behind it");
+  assert.deepEqual(you.last.pts, me.last.pts, "and the other player sees that too");
+  assert.equal(srv.exited, null, `still up: ${srv.log.slice(-300)}`);
+});
+
+test("a finished turn cannot be reached back into", async () => {
+  /* Undo is a rubber, not a time machine. Once Done has been pressed the pile
+     of boards is thrown away, or a player could rub out the move that let the
+     other one hit him. */
+  const cs = await boardTable("nardi", { variant: "long", target: 3 });
+  const me = cs.find((c) => c.last.side === c.last.seat);
+  me.emit("nRoll");
+  assert.ok(await until(() => me.last.dice));
+  me.emit("nMove", { from: 0, die: me.last.left[0] });
+  assert.ok(await until(() => me.last.undo === 1));
+
+  let guard = 0;
+  while (me.last.left.length && me.last.nphase === "move" && guard++ < 6) {
+    const before = JSON.stringify(me.last.pts);
+    me.emit("nMove", { from: 0, die: me.last.left[0] });
+    if (!(await until(() => JSON.stringify(me.last.pts) !== before, 2000))) break;
+  }
+  me.emit("nDone");
+  assert.ok(await until(() => me.last.side !== me.last.seat, 4000), "the turn went across");
+  const settled = JSON.stringify(me.last.pts);
+  assert.equal(me.last.undo, 0, "and the pile went with it");
+
+  me.emit("nUndo");
+  await wait(400);
+  assert.equal(JSON.stringify(me.last.pts), settled, "nothing came back");
 });
 
 test("a ნარდი table can be made with a code and joined with it", async () => {

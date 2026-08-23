@@ -680,6 +680,7 @@ function startNardi(room) {
   room.players.forEach((p, i) => { p.seat = i; p.team = i; p.settled = false; });
   clearAuto(room);
   room.n = Nardi.newGame({ variant: room.variant, target: room.target });
+  room.nHist = [];
   room.phase = "play";
   say(room, room.variant === "short" ? "მოკლე ნარდი" : "გრძელი ნარდი");
   nardiAdvance(room);
@@ -688,6 +689,9 @@ function startNardi(room) {
 function nardiAdvance(room) {
   refreshPause(room);
   clearBoardClock(room);
+  /* Whatever brought us here ended a turn, so there is nothing left to take
+     back. A player must never be able to undo into the turn before their own. */
+  room.nHist = [];
   if (room.paused) { pushState(room); return; }
   const n = room.n;
   if (n.phase === "over") { nardiMatchOver(room); return; }
@@ -793,6 +797,7 @@ function nardiView(room, seat) {
   const other = room.players.find((p) => p.seat !== seat) || {};
   return Object.assign({}, base, {
     pts: n.pts.slice(), bar: n.bar.slice(), off: n.off.slice(),
+    undo: (room.nHist || []).length,
     side: n.side, dice: n.dice ? n.dice.slice() : null, left: n.left.slice(),
     nphase: n.phase,
     myTurn: n.side === seat && (n.phase === "roll" || n.phase === "move") && !room.paused,
@@ -1597,6 +1602,10 @@ io.on("connection", (socket) => {
     nardiAdvance(room);
   });
 
+  /* A move is provisional until the player says the turn is over. The server
+     keeps the board as it was before each one, so `nUndo` is a restore rather
+     than an inverse — there is no arithmetic to get wrong, and a hit checker
+     comes back off the bar by itself. */
   on("nMove", (msg) => {
     const room = boardRoom("nardi", "n");
     if (!room || room.phase !== "play") return;
@@ -1605,9 +1614,32 @@ io.on("connection", (socket) => {
     const from = msg && msg.from, die = msg && msg.die;
     if (!Number.isInteger(from) || !Number.isInteger(die)) return;
     const was = n.side;
-    if (!Nardi.move(n, from, die)) return;
+    const before = JSON.stringify(n);
+    if (!Nardi.move(n, from, die, true)) return;
+    if (!room.nHist) room.nHist = [];
+    room.nHist.push(before);
     // still the same turn: send the board and leave the clock where it is
     if (n.phase === "move" && n.side === was) { armBoardClock(room, was); pushState(room); return; }
+    nardiAdvance(room);
+  });
+
+  on("nUndo", () => {
+    const room = boardRoom("nardi", "n");
+    if (!room || room.phase !== "play" || room.paused) return;
+    const n = room.n;
+    if (n.side !== mySeat(room) || n.phase !== "move") return;
+    if (!room.nHist || !room.nHist.length) return;
+    room.n = JSON.parse(room.nHist.pop());
+    armBoardClock(room, room.n.side);
+    pushState(room);
+  });
+
+  on("nDone", () => {
+    const room = boardRoom("nardi", "n");
+    if (!room || room.phase !== "play" || room.paused) return;
+    const n = room.n;
+    if (n.side !== mySeat(room) || !Nardi.turnOver(n)) return;
+    Nardi.endTurn(n);
     nardiAdvance(room);
   });
 
