@@ -26,14 +26,14 @@
            face each other. Mine carries the purse; the other one does not,
            because another player's money is not mine to look at. -->
       <div class="seatPlate me" id="seatMe">
-        <span class="face" id="meFace"></span>
+        <span class="avatar"><span class="face" id="meFace"></span>
+          <span class="rank" id="meLevel">1</span></span>
         <span class="who"><b id="meName">—</b><i id="meCoins" class="purse"></i></span>
-        <span class="rank" id="meLevel">1</span>
       </div>
       <div class="info">
         <span class="stat"><span class="k">ანგარიში</span><b id="scoreLbl">0 : 0</b></span>
-        <span class="stat"><span class="dot w"></span><b id="myPip">—</b></span>
-        <span class="stat"><span class="dot b"></span><b id="cpuPip">—</b></span>
+        <span class="stat pipStat"><span class="dot w"></span><b id="myPip">—</b></span>
+        <span class="stat pipStat"><span class="dot b"></span><b id="cpuPip">—</b></span>
         <span class="badge">პრაქტიკა</span>
       <span class="stat cubeStat" id="cubeStat" style="display:none"><b id="cubeVal">×2</b></span>
       </div>
@@ -45,8 +45,8 @@
       <div class="spacer" style="flex:1 1 auto"></div>
       <div class="seatPlate them" id="seatThem">
         <span class="who"><b id="themName">—</b><i id="themNote"></i></span>
-        <span class="face" id="themFace"></span>
-        <span class="rank" id="themLevel"></span>
+        <span class="avatar"><span class="face" id="themFace"></span>
+          <span class="rank" id="themLevel"></span></span>
       </div>
       <button class="back sndBtn" id="sndBtn" onclick="toggleSound()" title="ხმა"></button>
       <button class="newgame" onclick="startMatch()">ახალი თამაში</button>
@@ -56,15 +56,16 @@
       <div class="boardFrame" id="frame">
         <div class="nboard" id="board"></div>
         <div class="diceLayer" id="diceLayer"></div>
-      </div>
-      <!-- The controls live beside the board, on the hand that plays. They are
-           two buttons that change what they are: გააგორე becomes მზადაა once
-           the dice are down, and ×2 becomes უკან, because you cannot double a
-           stake in the middle of your own turn and you cannot take a move back
-           before you have made one. -->
-      <div class="sidePanel">
-        <button class="sideBtn alt" id="btnAlt"><b id="btnAltText">×2</b></button>
-        <button class="sideBtn main" id="btnMain"><b id="btnMainText">გააგორე</b></button>
+        <!-- The controls sit ON the board, in the empty band between the point
+             tips, where no checker ever stands. A column down the side would
+             cost the board width a phone has none of. They are two buttons
+             that change what they are, and each one is there only when it can
+             be used: ×2 goes the moment the dice are thrown, უკან arrives with
+             the first move, and მზადაა waits for the last one. -->
+        <div class="sidePanel">
+          <button class="sideBtn alt" id="btnAlt"><b id="btnAltText">×2</b></button>
+          <button class="sideBtn main" id="btnMain"><b id="btnMainText">გააგორე</b></button>
+        </div>
       </div>
     </div>
   </div>
@@ -440,14 +441,7 @@
     const availH = wrap.clientHeight - 4;
     if (availW < 40 || availH < 40) return;
 
-    /* The controls take their share first — they are part of the table, not
-       something laid on top of it, and a board sized as if they were not there
-       would slide underneath them. */
-    const sideW = Math.max(48, Math.min(availH * 0.27, availW * 0.13, 124));
-    const sideGap = Math.round(sideW * 0.14);
-    wrap.style.setProperty("--sideW", sideW + "px");
-    wrap.style.setProperty("--sideGap", sideGap + "px");
-    availW -= sideW + sideGap;
+
 
     /* The rail is part of the board, not a border round it. A real case has a
        wide walnut edge with the ornament cut into it — at eight pixels there was
@@ -478,6 +472,14 @@
     b.style.setProperty("--barW", (boardW * barF) + "px");
     b.style.setProperty("--trayW", (boardW * trayF) + "px");
     b.style.setProperty("--dvW", (boardW * dvF) + "px");
+
+    /* Where the buttons stand: the middle of the right half, halfway up. That
+       band is empty on every board — a point holds five checkers and stops
+       short of it — so nothing is ever hidden behind them. */
+    const rightMid = inner * 0.75 + boardW * barF;
+    frame.style.setProperty("--ctlX", (side + rightMid) + "px");
+    frame.style.setProperty("--ctlY", (pad + boardH / 2) + "px");
+    frame.style.setProperty("--ctlH", Math.max(20, Math.min(boardH * 0.125, 44)) + "px");
     placeDice();                 // the dice lie on the board, so they move with it
   }
 
@@ -594,6 +596,12 @@
     aText.textContent = moving ? "უკან" : "×2";
     main.disabled = !(rolling || (moving && Nardi.turnOver(g)));
     alt.disabled = moving ? !undoCount() : !canDouble();
+    /* A button nobody can press is a button in the way. On the felt there is
+       no room for either, so they come and go instead of greying out — except
+       მზადაა, which stays and dims, because it is the one thing a player is
+       waiting to be allowed to do. */
+    alt.style.display = alt.disabled ? "none" : "";
+    main.style.display = (rolling || moving) ? "" : "none";
     main.classList.toggle("ready", moving && !main.disabled);
   }
   /* The two plates. Mine is filled from what this device already knows, so it

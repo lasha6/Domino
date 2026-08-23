@@ -151,7 +151,11 @@ test("the palette is the one that was asked for", () => {
   const root = css.slice(css.indexOf(":root{"), css.indexOf("}", css.indexOf(":root{")));
   for (const token of ["--wal", "--wine", "--ivory", "--br", "--nv-bg"])
     assert.ok(root.includes(token + ":"), "the palette names " + token);
-  assert.doesNotMatch(css, /var\(--baize/, "no green felt on a wooden board");
+  /* The board itself is wood and never felt. The page BEHIND it is whatever
+     table the player bought, which is the one place --baize belongs. */
+  for (const sel of [".boardFrame", ".nboard", ".npt .tri", ".chk", ".ntray", ".nmid"])
+    assert.doesNotMatch(ruleFor(sel), /var\(--baize/,
+      sel + " is wood, not green felt");
 });
 
 test("the checker's engraving is small and quiet", () => {
@@ -234,4 +238,48 @@ test("the tray is a compartment, behind a wall", () => {
   const cross = css.slice(td, css.indexOf("}", td));
   assert.match(cross, /height\s*:\s*var\(--dvW/, "as thick as the wall beside it");
   assert.match(cross, /0 -\d+px \d+px/, "throwing its shadow up the tray");
+});
+
+test("the controls stand on the board, not in a column beside it", () => {
+  /* A column down the side cost the board width, and on a phone the board has
+     none to give. They sit in the band between the point tips instead, where
+     no checker ever stands — which only works if fit() measures that band and
+     tells the stylesheet where it is. */
+  const nardi = readFileSync(new URL("../public/nardi.html", import.meta.url), "utf8");
+  const panel = (/[\r\n]\.sidePanel\{([^}]*)\}/.exec(css) || [])[1];
+  assert.ok(panel, "the controls have a rule of their own");
+  assert.match(panel, /position\s*:\s*absolute/, "laid on the board, not laid out beside it");
+  assert.match(panel, /var\(--ctlX/, "at a place the screen worked out");
+  assert.match(panel, /var\(--ctlY/);
+  for (const v of ["--ctlX", "--ctlY", "--ctlH"])
+    assert.ok(nardi.includes('setProperty("' + v + '"'),
+      "fit() measures " + v + " from the board it just sized");
+  assert.doesNotMatch(nardi, /--sideW/, "the old side column is gone, not just hidden");
+});
+
+test("a button that cannot be pressed gets out of the way", () => {
+  /* On the felt there is no room for a dead button: ×2 goes the moment the
+     dice are thrown and უკან only arrives with the first move. მზადაა is the
+     exception — it stays and dims, because it is the one thing the player is
+     waiting to be allowed to do. */
+  const nardi = readFileSync(new URL("../public/nardi.html", import.meta.url), "utf8");
+  assert.match(nardi, /alt\.style\.display\s*=\s*alt\.disabled\s*\?\s*"none"/,
+    "the second button is there only when it can be used");
+});
+
+test("the button on the felt keeps a readable word in it", () => {
+  /* The band between the tips is all the height there is, and on a small phone
+     a share of it came to eight pixels. */
+  const btn = ruleFor(".sideBtn");
+  assert.match(btn, /font-size\s*:\s*max\(\s*1\d px|font-size\s*:\s*max\(\s*1\dpx/,
+    "the type size has a floor under it");
+});
+
+test("the table a player bought follows them to the board", () => {
+  /* The shop writes --baize-* on the root. The board screens used a navy of
+     their own and ignored it, so a green or a blue table stopped at the door. */
+  const body = ruleFor("body");
+  assert.match(body, /var\(--baize-deep/, "the felt behind the board is the one that was bought");
+  assert.match(body, /var\(--baize-deep,\s*var\(--nv-bg\)\)/,
+    "and the navy is still what it falls back to");
 });
