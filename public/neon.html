@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="ka">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>ნარდი — NEON</title>
+<style>
+:root{
+  --void:#04060c;
+  --ink:#080c16;
+  --glass:rgba(16,24,42,.55);
+  --cy:#2ce8ff;
+  --cy-deep:#0a7f99;
+  --mg:#ff2fa6;
+  --mg-deep:#8a0d54;
+  --wire:rgba(44,232,255,.40);
+  --txt:#cfe9f5;
+  --font:"Segoe UI",system-ui,"Noto Sans Georgian",sans-serif;
+
+  --cd:34px;          /* checker */
+  --rowH:196px;       /* half the field */
+  --barW:44px;
+  --railW:26px;
+  --trayW:40px;
+}
+*{ box-sizing:border-box; }
+html,body{ height:100%; margin:0; }
+body{
+  background:
+    radial-gradient(70% 50% at 50% -10%, rgba(44,232,255,.16), rgba(0,0,0,0) 60%),
+    radial-gradient(60% 45% at 100% 110%, rgba(255,47,166,.14), rgba(0,0,0,0) 60%),
+    var(--void);
+  color:var(--txt); font-family:var(--font);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+/* the floor: a perspective grid running away under the table */
+body::after{
+  content:""; position:fixed; z-index:0; left:-40%; right:-40%; bottom:0; height:46%;
+  background:
+    repeating-linear-gradient(90deg, var(--wire) 0 1px, rgba(0,0,0,0) 1px 62px),
+    repeating-linear-gradient(0deg, var(--wire) 0 1px, rgba(0,0,0,0) 1px 62px);
+  transform:perspective(300px) rotateX(64deg);
+  transform-origin:50% 100%;
+  mask:linear-gradient(180deg, rgba(0,0,0,0), #000 55%);
+  -webkit-mask:linear-gradient(180deg, rgba(0,0,0,0), #000 55%);
+  opacity:.85; pointer-events:none;
+}
+
+/* ---------------- HUD ---------------- */
+.hud{
+  position:relative; z-index:3;
+  display:flex; align-items:center; gap:14px; padding:12px 18px;
+}
+.plate{
+  display:flex; align-items:center; gap:11px;
+  padding:7px 16px 7px 7px;
+  background:var(--glass);
+  border:1px solid rgba(44,232,255,.30);
+  clip-path:polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  backdrop-filter:blur(6px);
+}
+.plate.foe{
+  margin-left:auto; padding:7px 7px 7px 16px; flex-direction:row-reverse;
+  border-color:rgba(255,47,166,.30);
+  clip-path:polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+}
+.ava{
+  position:relative; width:40px; height:40px; flex:none;
+  display:grid; place-items:center;
+  font:700 17px/1 var(--font); color:var(--void);
+  background:linear-gradient(150deg, var(--cy), #0bb7d6);
+  clip-path:polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+  box-shadow:0 0 16px rgba(44,232,255,.55);
+}
+.foe .ava{ background:linear-gradient(150deg, var(--mg), #c11077); box-shadow:0 0 16px rgba(255,47,166,.5); }
+.ava .lv{
+  position:absolute; bottom:-7px; left:50%; transform:translateX(-50%);
+  min-width:20px; padding:1px 5px; border-radius:2px;
+  font:800 10px/1.5 var(--font); color:var(--void);
+  background:#e8fbff; box-shadow:0 0 10px rgba(44,232,255,.8);
+}
+.who{ display:flex; flex-direction:column; gap:3px; }
+.who b{ font:600 13px/1 var(--font); letter-spacing:.04em; color:#eaf8ff; }
+.who i{ font:400 11px/1 var(--font); font-style:normal; color:var(--cy); letter-spacing:.10em; }
+.foe .who{ align-items:flex-end; }
+.foe .who i{ color:var(--mg); }
+
+.gauge{ flex:1 1 auto; display:flex; align-items:center; gap:10px; max-width:420px; }
+.gauge .bar{ flex:1 1 auto; height:5px; background:rgba(255,255,255,.08); overflow:hidden; }
+.gauge .bar span{ display:block; height:100%; background:linear-gradient(90deg, var(--cy-deep), var(--cy)); box-shadow:0 0 12px var(--cy); }
+.gauge .bar.foe span{ background:linear-gradient(90deg, var(--mg), var(--mg-deep)); box-shadow:0 0 12px var(--mg); float:right; }
+.pip{ font:700 13px/1 var(--font); letter-spacing:.08em; }
+.pip.me{ color:var(--cy); } .pip.you{ color:var(--mg); }
+
+/* ---------------- the table ---------------- */
+.tableWrap{ flex:1 1 auto; display:grid; place-items:center; position:relative; z-index:2; }
+.tableWrap::before{
+  content:""; position:absolute; left:50%; top:50%; width:72%; height:64%;
+  transform:translate(-50%,-42%);
+  background:radial-gradient(60% 60% at 50% 50%, rgba(44,232,255,.18), rgba(0,0,0,0) 70%);
+  filter:blur(24px); pointer-events:none;
+}
+.frame{
+  position:relative;
+  padding:16px var(--railW);
+  background:
+    linear-gradient(180deg, rgba(44,232,255,.06), rgba(0,0,0,0) 30%),
+    linear-gradient(160deg, #101827, #070b13 60%, #04060c);
+  border:1px solid rgba(44,232,255,.35);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.9),
+    0 0 34px rgba(44,232,255,.20),
+    0 0 90px rgba(44,232,255,.10),
+    inset 0 0 60px rgba(0,0,0,.9);
+}
+/* HUD brackets at the corners */
+.frame::before, .frame::after{
+  content:""; position:absolute; width:34px; height:34px; pointer-events:none;
+  border:2px solid var(--cy); opacity:.85;
+}
+.frame::before{ left:-1px; top:-1px; border-right:0; border-bottom:0; box-shadow:-2px -2px 12px rgba(44,232,255,.5); }
+.frame::after{ right:-1px; bottom:-1px; border-left:0; border-top:0; box-shadow:2px 2px 12px rgba(44,232,255,.5); }
+
+.field{ display:flex; position:relative; background:#03050a; box-shadow:inset 0 0 40px rgba(0,0,0,.95); }
+/* a slow scan across the surface */
+.field::after{
+  content:""; position:absolute; inset:0; pointer-events:none; z-index:6;
+  background:repeating-linear-gradient(0deg, rgba(255,255,255,.028) 0 1px, rgba(0,0,0,0) 1px 3px);
+}
+.half{ display:flex; flex-direction:column; }
+.row{ display:flex; height:var(--rowH); align-items:stretch; }
+.pt{ position:relative; width:calc(var(--cd) * 1.24); display:flex; flex-direction:column; align-items:center; }
+.row.bot .pt{ flex-direction:column-reverse; }
+
+/* A point is a shaft of light: solid at the base, gone by the tip. */
+.pt .tri{
+  position:absolute; left:6%; right:6%; top:2%; bottom:13%;
+  clip-path:polygon(0 0, 100% 0, 50% 100%);
+  background:linear-gradient(180deg, var(--cy) 0%, rgba(44,232,255,.42) 34%, rgba(44,232,255,.04) 100%);
+  filter:drop-shadow(0 0 7px rgba(44,232,255,.55));
+}
+.pt.odd .tri{
+  background:linear-gradient(180deg, var(--mg) 0%, rgba(255,47,166,.40) 34%, rgba(255,47,166,.04) 100%);
+  filter:drop-shadow(0 0 7px rgba(255,47,166,.5));
+}
+.row.bot .pt .tri{ top:13%; bottom:2%; transform:scaleY(-1); }
+/* a hard line where the shaft leaves the surface */
+.pt::before{
+  content:""; position:absolute; left:6%; right:6%; top:2%; height:2px;
+  background:#dffaff; box-shadow:0 0 10px var(--cy); z-index:2;
+}
+.pt.odd::before{ background:#ffe3f3; box-shadow:0 0 10px var(--mg); }
+.row.bot .pt::before{ top:auto; bottom:2%; }
+
+/* ---------------- checkers ---------------- */
+.chk{
+  position:relative; flex:none; z-index:3;
+  width:var(--cd); height:var(--cd); border-radius:50%;
+  margin-top:var(--gap, 3px);
+  background:radial-gradient(circle at 50% 50%, #071019 0 52%, rgba(7,16,25,.2) 72%, rgba(0,0,0,0) 73%);
+  box-shadow:
+    0 0 0 2px var(--ring),
+    0 0 12px var(--halo),
+    0 0 26px var(--halo),
+    inset 0 0 14px var(--halo);
+}
+.row.bot .chk{ margin-top:0; margin-bottom:var(--gap, 3px); }
+.chk::after{
+  content:""; position:absolute; inset:31%; border-radius:50%;
+  background:var(--ring); box-shadow:0 0 10px var(--ring);
+  opacity:.9;
+}
+.chk.a{ --ring:var(--cy); --halo:rgba(44,232,255,.55); }
+.chk.b{ --ring:var(--mg); --halo:rgba(255,47,166,.5); }
+
+/* ---------------- bar, rail, tray ---------------- */
+.barCol{
+  width:var(--barW); flex:none; position:relative;
+  background:linear-gradient(180deg, #060a12, #0b1220 50%, #060a12);
+  box-shadow:inset 1px 0 0 rgba(44,232,255,.3), inset -1px 0 0 rgba(44,232,255,.3);
+}
+.barCol::before{
+  content:""; position:absolute; left:50%; top:6%; bottom:6%; width:4px; margin-left:-2px;
+  background:linear-gradient(180deg, rgba(44,232,255,0), var(--cy) 30%, var(--cy) 70%, rgba(44,232,255,0));
+  box-shadow:0 0 22px var(--cy), 0 0 44px rgba(44,232,255,.5);
+}
+.railCol{
+  width:12px; flex:none;
+  background:linear-gradient(90deg, rgba(44,232,255,.28), rgba(0,0,0,.6));
+  box-shadow:0 0 14px rgba(44,232,255,.3);
+}
+.trayCol{
+  width:var(--trayW); flex:none; position:relative;
+  background:linear-gradient(90deg, #04070d, #080d18);
+  box-shadow:inset 0 0 22px rgba(0,0,0,.9);
+  display:flex; flex-direction:column; justify-content:space-between; padding:6px 5px; gap:6px;
+}
+.trayCol .half2{ display:flex; flex-direction:column; gap:3px; }
+.trayCol .half2.low{ justify-content:flex-end; }
+.off{ height:6px; border-radius:2px; }
+.off.a{ background:var(--cy); box-shadow:0 0 8px var(--cy); }
+.off.b{ background:var(--mg); box-shadow:0 0 8px var(--mg); }
+.trayCol .cross{
+  height:3px; background:linear-gradient(90deg, rgba(44,232,255,0), var(--cy), rgba(44,232,255,0));
+  box-shadow:0 0 10px var(--cy);
+}
+
+/* ---------------- the controls, on the felt ---------------- */
+.ctl{
+  position:absolute; z-index:8; left:69.5%; top:50%; transform:translate(-50%,-50%);
+  display:flex; align-items:center; gap:10px;
+}
+.btn{
+  height:40px; padding:0 20px; cursor:pointer;
+  font:800 13px/1 var(--font); letter-spacing:.12em; color:#eafcff;
+  background:linear-gradient(180deg, rgba(44,232,255,.24), rgba(10,30,45,.85));
+  border:1px solid var(--cy);
+  clip-path:polygon(11px 0, 100% 0, 100% calc(100% - 11px), calc(100% - 11px) 100%, 0 100%, 0 11px);
+  box-shadow:0 0 18px rgba(44,232,255,.45), inset 0 0 18px rgba(44,232,255,.18);
+  animation:pulse 1.8s ease-in-out infinite;
+}
+.btn.small{
+  height:40px; width:40px; padding:0; color:#ffe6f4;
+  border-color:var(--mg); animation:none;
+  background:linear-gradient(180deg, rgba(255,47,166,.22), rgba(40,8,26,.85));
+  box-shadow:0 0 16px rgba(255,47,166,.42), inset 0 0 16px rgba(255,47,166,.16);
+}
+@keyframes pulse{
+  0%,100%{ box-shadow:0 0 16px rgba(44,232,255,.35), inset 0 0 16px rgba(44,232,255,.16); }
+  50%    { box-shadow:0 0 30px rgba(44,232,255,.75), inset 0 0 22px rgba(44,232,255,.28); }
+}
+
+/* ---------------- dice ---------------- */
+.dice{ position:absolute; z-index:8; left:24%; top:50%; transform:translate(-50%,-50%); display:flex; gap:16px; }
+.die{
+  width:46px; height:46px; position:relative;
+  background:linear-gradient(155deg, rgba(20,34,52,.9), rgba(6,10,18,.95));
+  border:1px solid var(--cy);
+  box-shadow:0 0 20px rgba(44,232,255,.45), inset 0 0 18px rgba(44,232,255,.14);
+  display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr);
+  padding:7px; transform:rotate(-8deg);
+}
+.die:last-child{ transform:rotate(6deg); }
+.die i{ display:block; align-self:center; justify-self:center; width:7px; height:7px; border-radius:50%;
+  background:#e9feff; box-shadow:0 0 8px var(--cy); }
+
+.foot{
+  position:relative; z-index:3; text-align:center; padding:6px 0 12px;
+  font:400 11px/1 var(--font); letter-spacing:.34em; color:rgba(207,233,245,.45);
+}
+</style>
+</head>
+<body>
+
+<div class="hud">
+  <div class="plate">
+    <span class="ava">ლ<span class="lv">39</span></span>
+    <span class="who"><b>Lasha</b><i>13 400</i></span>
+  </div>
+
+  <div class="gauge">
+    <span class="pip me">86</span>
+    <span class="bar"><span style="width:62%"></span></span>
+    <span class="bar foe"><span style="width:74%"></span></span>
+    <span class="pip you">102</span>
+  </div>
+
+  <div class="plate foe">
+    <span class="ava">N<span class="lv">53</span></span>
+    <span class="who"><b>NOVA_51</b><i>7 500</i></span>
+  </div>
+</div>
+
+<div class="tableWrap">
+  <div class="frame">
+    <div class="field" id="field"></div>
+    <div class="dice"><div class="die" data-n="6"></div><div class="die" data-n="3"></div></div>
+    <div class="ctl">
+      <button class="btn small">×2</button>
+      <button class="btn">გააგორე</button>
+    </div>
+  </div>
+</div>
+
+<div class="foot">ნ ა რ დ ი · N E O N</div>
+
+<script>
+/* The standard backgammon opening, laid out on the same geometry the real
+   screen uses: two rows of six a side, a bar down the middle, a tray at the
+   end. Nothing here is a picture of a board — it is a board. */
+const START = {          // point index (0..23 from the near right) -> checkers
+  0:[2,'b'], 5:[5,'a'], 7:[3,'a'], 11:[5,'b'],
+  12:[5,'a'], 16:[3,'b'], 18:[5,'b'], 23:[2,'a'],
+};
+const CD = 34;
+
+function point(i){
+  const d = document.createElement('div');
+  d.className = 'pt' + (i % 2 ? ' odd' : '');
+  d.innerHTML = '<span class="tri"></span>';
+  const s = START[i];
+  if (s) {
+    const [n, side] = s;
+    const gap = n <= 5 ? 3 : -(CD * (n - 5) + (n - 1)) / (n - 1) + 3;
+    for (let k = 0; k < n; k++) {
+      const c = document.createElement('div');
+      c.className = 'chk ' + side;
+      c.style.setProperty('--gap', (k === 0 ? 0 : gap) + 'px');
+      d.appendChild(c);
+    }
+  }
+  return d;
+}
+function row(cls, from, to){
+  const r = document.createElement('div');
+  r.className = 'row ' + cls;
+  const step = from <= to ? 1 : -1;
+  for (let i = from; step > 0 ? i <= to : i >= to; i += step) r.appendChild(point(i));
+  return r;
+}
+function half(a, b){
+  const h = document.createElement('div');
+  h.className = 'half';
+  h.appendChild(a); h.appendChild(b);
+  return h;
+}
+const f = document.getElementById('field');
+f.appendChild(half(row('top', 12, 17), row('bot', 11, 6)));
+const bar = document.createElement('div'); bar.className = 'barCol'; f.appendChild(bar);
+f.appendChild(half(row('top', 18, 23), row('bot', 5, 0)));
+const rail = document.createElement('div'); rail.className = 'railCol'; f.appendChild(rail);
+const tray = document.createElement('div'); tray.className = 'trayCol';
+tray.innerHTML = '<div class="half2"><i class="off b"></i><i class="off b"></i></div>' +
+                 '<div class="cross"></div>' +
+                 '<div class="half2 low"><i class="off a"></i><i class="off a"></i><i class="off a"></i></div>';
+f.appendChild(tray);
+
+/* the pips of a die, in the cells they actually occupy */
+const CELLS = { 1:[4], 2:[0,8], 3:[0,4,8], 4:[0,2,6,8], 5:[0,2,4,6,8], 6:[0,2,3,5,6,8] };
+document.querySelectorAll('.die').forEach((d) => {
+  const on = CELLS[+d.dataset.n];
+  for (let c = 0; c < 9; c++) {
+    const s = document.createElement('span');
+    if (on.includes(c)) { const i = document.createElement('i'); s.appendChild(i); }
+    s.style.display = 'grid'; s.style.placeItems = 'center';
+    d.appendChild(s);
+  }
+});
+</script>
+</body>
+</html>
