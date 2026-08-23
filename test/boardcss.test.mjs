@@ -201,3 +201,25 @@ test("five checkers fill a point, which is what a real board looks like", () => 
     `five checkers come to ${five.toFixed(3)} of a row and the point is ${pointLen.toFixed(3)}`);
   assert.ok(bot > 0.06, "and the tips stop short of each other, leaving the field open");
 });
+
+test("the tray is a compartment, behind a wall", () => {
+  /* Borne-off checkers lay on a strip of wood with nothing between them and
+     the field, so they read as pieces dropped at the edge rather than put
+     away. A real case has a raised divider there. The wall has to exist in the
+     markup as well as the stylesheet, and it has to come between the field and
+     the tray — an order flex will honour and nothing else here would notice. */
+  const nardi = readFileSync(new URL("../public/nardi.html", import.meta.url), "utf8");
+  const order = /wrap\.appendChild\(cols\);\s*wrap\.appendChild\((\w+)\);\s*wrap\.appendChild\(tray\)/
+    .exec(nardi);
+  assert.ok(order, "the field, then the wall, then the tray");
+  assert.ok(nardi.includes(order[1] + '.className = "ndiv"'),
+    "and the thing between them is the wall");
+  assert.match(nardi, /--dvW/, "which fit() gives a width in pixels");
+
+  const at = css.indexOf("\n.ndiv{");
+  assert.notEqual(at, -1, "the wall has a rule of its own");
+  const dv = css.slice(at, css.indexOf("}", at));
+  assert.match(dv, /width\s*:\s*var\(--dvW/);
+  assert.match(dv, /-\d+px 0 \d+px/,
+    "a wall throws a shadow back onto the field, which is what makes it a wall");
+});

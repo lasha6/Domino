@@ -361,6 +361,13 @@
       '<span class="hinge"></span>';
     mid.onclick = () => tapBar();
 
+    /* The wall between the field and the tray. A real case has one: the borne
+       off checkers sit in their own compartment behind a raised rail. Without
+       it that strip reads as more board, and a checker put there looks dropped
+       rather than put away. */
+    const divider = document.createElement("div");
+    divider.className = "ndiv";
+
     const tray = document.createElement("div"); tray.className = "ntray"; tray.id = "tray";
     tray.innerHTML = '<div class="half" id="offTop"></div><div class="half bottom" id="offBot"></div>';
     tray.onclick = () => tapOff();
@@ -371,7 +378,7 @@
     cols.className = "nrows";
     cols.style.flex = "1 1 auto"; cols.style.minWidth = "0";
     cols.appendChild(left); cols.appendChild(mid); cols.appendChild(right);
-    wrap.appendChild(cols); wrap.appendChild(tray);
+    wrap.appendChild(cols); wrap.appendChild(divider); wrap.appendChild(tray);
     b.appendChild(wrap);
   }
 
@@ -392,16 +399,16 @@
        that is where a hand rests and where the carving goes. */
     const side = Math.max(15, Math.min(availH * 0.115, availW * 0.06));
     const pad = Math.max(9, side * 0.6);
-    const trayF = 0.062, barF = 0.075;
+    const trayF = 0.062, barF = 0.075, dvF = 0.03;
     /* A checker has to sit INSIDE its point, not straddle it. The point is very
        nearly the full width of its column and the checker is four fifths of
        that, so a stroke of the inlay shows either side of every piece. Five of
        them fill the point exactly, which is what a real board looks like.
        1.5 is where those two hold at once: any narrower and the checkers are
        pinched by the width, any wider and they are pinched by the height. */
-    const boardH = Math.min(availH - pad * 2, (availW - side * 2) / 1.5);
-    const boardW = boardH * 1.5;
-    const inner = boardW * (1 - trayF - barF);
+    const boardH = Math.min(availH - pad * 2, (availW - side * 2) / 1.55);
+    const boardW = boardH * 1.55;
+    const inner = boardW * (1 - trayF - barF - dvF);
     const cd = Math.min(inner / 12 * 0.80, boardH / 2 / 5.8);
     const rowH = boardH / 2;
 
@@ -413,6 +420,7 @@
     b.style.setProperty("--cd", cd + "px");
     b.style.setProperty("--barW", (boardW * barF) + "px");
     b.style.setProperty("--trayW", (boardW * trayF) + "px");
+    b.style.setProperty("--dvW", (boardW * dvF) + "px");
     placeDice();                 // the dice lie on the board, so they move with it
   }
 

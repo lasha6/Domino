@@ -217,7 +217,27 @@ body{
 }
 .nrow{ display:flex; height:var(--rowH); align-items:stretch; }
 
-.nrows{ display:flex; perspective:1500px; perspective-origin:50% 50%; }
+/* The field is sunk into the wood. Two things say so: the rail throws a
+   shadow inward on all four sides, and the light falls off towards the corners
+   the way it does inside any box with walls. The second one goes OVER the
+   checkers — a piece in the corner of a real board is in shade too, and
+   leaving it lit is most of what makes a board look printed. */
+.nrows{
+  display:flex; position:relative;
+  perspective:1500px; perspective-origin:50% 50%;
+  box-shadow:
+    inset 0 10px 16px -5px rgba(0,0,0,.66),
+    inset 0 -9px 15px -5px rgba(0,0,0,.48),
+    inset 11px 0 18px -8px rgba(0,0,0,.55),
+    inset -11px 0 18px -8px rgba(0,0,0,.55);
+}
+.nrows::after{
+  content:""; position:absolute; inset:0; z-index:5; pointer-events:none;
+  background:
+    radial-gradient(125% 100% at 50% 42%, rgba(0,0,0,0) 62%, rgba(0,0,0,.15) 100%),
+    linear-gradient(180deg, rgba(0,0,0,.10), rgba(0,0,0,0) 13%,
+                    rgba(0,0,0,0) 89%, rgba(0,0,0,.07));
+}
 .nhalf{
   flex:1 1 0; min-width:0; position:relative;
   transform-style:preserve-3d;
@@ -262,7 +282,8 @@ body{
   animation:openCover 1.5s cubic-bezier(.36,.02,.2,1) backwards;
 }
 .nboard.opening .nhalf.right{ z-index:1; }
-.nboard.opening .ntray{ animation:trayIn .5s ease-out 1.15s backwards; }
+.nboard.opening .ntray,
+.nboard.opening .ndiv{ animation:trayIn .5s ease-out 1.15s backwards; }
 /* nothing is on the board while the case is shut — the checkers are set out
    after it opens, which is the point of watching it open */
 .nboard.opening .chk{ opacity:0; }
@@ -350,8 +371,11 @@ body{
   background:
     linear-gradient(90deg, rgba(0,0,0,.5), rgba(0,0,0,0) 22%, rgba(0,0,0,0) 78%, rgba(0,0,0,.5)),
     linear-gradient(90deg, var(--wal-lo), var(--wal) 40%, var(--wal-hi) 52%, var(--wal) 62%, var(--wal-lo));
-  box-shadow:inset 1px 0 0 rgba(0,0,0,.6), inset -1px 0 0 rgba(0,0,0,.6),
-             inset 2px 0 0 rgba(201,164,90,.18), inset -2px 0 0 rgba(201,164,90,.18);
+  z-index:2;
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.16),
+             inset 2px 0 0 rgba(201,164,90,.16), inset -2px 0 0 rgba(201,164,90,.16),
+             -5px 0 10px rgba(0,0,0,.5),        /* what the wall throws left */
+             5px 0 10px rgba(0,0,0,.5);         /* and right, onto the field */
   display:flex; flex-direction:column; align-items:center; justify-content:space-between;
   padding:2% 0;
 }
@@ -397,6 +421,8 @@ body{
   content:""; position:absolute; inset:1.5px;
   background:var(--ptFill, linear-gradient(180deg, var(--ivory-hi), var(--ivory-lo)));
   clip-path:polygon(0 0, 100% 0, 50% 100%);
+  /* the shoulder of the cut: the wood stands a hair proud of the inlay */
+  box-shadow:inset 0 2px 2px rgba(0,0,0,.30);
 }
 .npt.odd .tri::after{ --ptFill:linear-gradient(180deg, var(--wine-hi), var(--wine-lo)); }
 /* the far half is the near half turned over: base to the outside, tip inward */
@@ -444,6 +470,7 @@ body{
     0 3px 0 rgba(0,0,0,.28),
     0 4px 0 rgba(0,0,0,.20),
     0 6px 8px rgba(0,0,0,.55),                    /* what it casts on the felt */
+    0 11px 16px rgba(0,0,0,.38),                  /* and the soft edge of that */
     inset 0 2px 2px rgba(255,255,255,.42),        /* the bevel, lit from above */
     inset 0 -3px 4px rgba(0,0,0,.34);
 }
@@ -524,18 +551,38 @@ body{
 .d3 i.f_{ grid-area:3/1; } .d3 i.g{ grid-area:3/3; }
 
 /* ---------------- the tray ---------------- */
+/* the wall that keeps the borne-off checkers in their own compartment */
+.ndiv{
+  flex:none; width:var(--dvW, 14px); align-self:stretch;
+  position:relative; z-index:4;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.13) 0 10%, rgba(0,0,0,0) 34%,
+                    rgba(0,0,0,0) 66%, rgba(0,0,0,.40) 100%),
+    linear-gradient(90deg, var(--wal-lo), var(--wal-hi) 42%, var(--wal) 68%, var(--wal-lo));
+  box-shadow:
+    inset 0 2px 0 rgba(255,255,255,.18),
+    inset 0 -2px 3px rgba(0,0,0,.45),
+    -6px 0 11px rgba(0,0,0,.55),                /* back onto the field */
+    4px 0 8px rgba(0,0,0,.45);                  /* and down into the tray */
+}
 .ntray{
   flex:none; width:var(--trayW); align-self:stretch;
   display:flex; flex-direction:column; justify-content:space-between;
   padding:3px; gap:3px;
-  background:linear-gradient(90deg, var(--wal-lo), var(--wal) 60%, var(--wal-lo));
-  box-shadow:inset 1px 0 0 rgba(0,0,0,.6), inset 0 0 0 1px rgba(201,164,90,.10);
+  position:relative;
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(0,0,0,.35), rgba(0,0,0,0) 55%),
+    linear-gradient(90deg, var(--wal-edge), var(--wal-lo) 55%, var(--wal-edge));
+  box-shadow:inset 5px 0 9px -2px rgba(0,0,0,.6), inset -3px 0 7px -2px rgba(0,0,0,.5),
+             inset 0 7px 12px -4px rgba(0,0,0,.55), inset 0 -7px 12px -4px rgba(0,0,0,.45),
+             inset 0 0 0 1px rgba(201,164,90,.10);
 }
 .ntray .half{ flex:1 1 0; display:flex; flex-direction:column; align-items:center;
   justify-content:flex-start; gap:1px; min-height:0; }
 .ntray .half.bottom{ justify-content:flex-end; }
-.ntray .off{ width:100%; height:calc(var(--cd) * .28); border-radius:1px; flex:none;
-  box-shadow:0 1px 0 rgba(0,0,0,.4); }
+.ntray .off{ width:100%; height:calc(var(--cd) * .28); border-radius:2px; flex:none;
+  box-shadow:0 0 0 1px rgba(0,0,0,.45), 0 1px 0 rgba(0,0,0,.5),
+             0 2px 4px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.35); }
 .ntray .off.w{ background:linear-gradient(180deg, var(--ivory), var(--ivory-lo)); }
 .ntray .off.b{ background:linear-gradient(180deg, var(--wine-hi), var(--wine-lo)); }
 .ntray.can{ box-shadow:inset 0 0 0 1px var(--br-hi); }
