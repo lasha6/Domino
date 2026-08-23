@@ -945,6 +945,11 @@ function damkaView(room, seat) {
     counts: [Damka.count(d, 0), Damka.count(d, 1)],
     oppName: other.name || "მოწინააღმდეგე",
     oppBot: !!other.bot, oppVerified: !!other.verified,
+    myPic: me && me.profile ? (me.profile.picture || null) : null,
+    myLevel: me && me.profile ? Progress.levelFromXp(me.profile.xp).level : null,
+    myCoins: me && me.profile ? me.profile.coins : null,
+    oppPic: other.profile ? (other.profile.picture || null) : null,
+    oppLevel: other.profile ? Progress.levelFromXp(other.profile.xp).level : null,
     moveLeft: room.moveDeadline ? Math.max(0, Math.ceil((room.moveDeadline - Date.now()) / 1000)) : null,
     moveTime: Math.round(BOARD_MOVE_TIME / 1000),
   });
