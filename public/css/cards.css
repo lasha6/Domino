@@ -208,7 +208,7 @@
 /* the joker: no suit to print, so its corner word is smaller than a rank */
 .card.jokerCard{ color:#1f3f8f; }
 .card.jokerCard .rank{ font-size:10px; letter-spacing:0; }
-.card.small.jokerCard .rank{ font-size:8px; }
+.card.small.jokerCard .rank{ font-size:10px; }
 
 /* ბეზი — no trump at all. There is no card for it, so it says so. */
 .bezCard{
@@ -286,10 +286,10 @@
   width:var(--jkW, 40px); height:var(--jkH, 60px);
   font-size:calc(var(--jkW, 40px) / 3.1);
 }
-.trick.cross .trickRow .card .rank{ font-size:1em; left:.16em; top:.12em; }
-.trick.cross .trickRow .card .pip { font-size:.8em; right:.18em; top:.16em; }
+.trick.cross .trickRow .card .rank{ font-size:max(10px, 1em); left:.16em; top:.12em; }
+.trick.cross .trickRow .card .pip { font-size:max(10px, .8em); right:.18em; top:.16em; }
 .trick.cross .trickRow .card .big { font-size:1.9em; }
-.trick.cross .trickRow .card.jokerCard .rank{ font-size:.62em; }
+.trick.cross .trickRow .card.jokerCard .rank{ font-size:max(10px, .62em); }
 
 /* where each card lands: the side of the table its player sits on */
 .trick.cross .at-across{ transform:translate(-50%,-50%) translateY(calc(var(--jkDy, 35px) * -1)); }
@@ -319,7 +319,7 @@
      type on it stops. */
   font-size:max(12px, calc(var(--jkW, 40px) / 3.6));
 }
-.btable.jk .stock .card .rank{ font-size:1em; left:.16em; top:.12em; }
+.btable.jk .stock .card .rank{ font-size:max(10px, 1em); left:.16em; top:.12em; }
 .btable.jk .stock .card .pip { font-size:max(10px, .8em); right:.18em; top:.16em; }
 .btable.jk .stock .card .big { font-size:1.9em; }
 .btable.jk .trumpBox{ width:auto; height:auto; }
@@ -334,8 +334,8 @@
   width:var(--jkHandW, 62px); height:calc(var(--jkHandW, 62px) * 1.5);
   font-size:calc(var(--jkHandW, 62px) / 3.1);
 }
-.jkHand .card .rank{ font-size:1em; left:.16em; top:.1em; }
-.jkHand .card .pip { font-size:.8em; right:.18em; top:.14em; }
+.jkHand .card .rank{ font-size:max(10px, 1em); left:.16em; top:.1em; }
+.jkHand .card .pip { font-size:max(10px, .8em); right:.18em; top:.14em; }
 .jkHand .card .big { font-size:1.9em; }
 .jkHand .card.jokerCard .rank{ font-size:.62em; }
 

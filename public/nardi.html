@@ -481,13 +481,17 @@
     b.style.setProperty("--trayW", (boardW * trayF) + "px");
     b.style.setProperty("--dvW", (boardW * dvF) + "px");
 
-    /* Where the buttons stand: the middle of the right half, halfway up. That
-       band is empty on every board — a point holds five checkers and stops
-       short of it — so nothing is ever hidden behind them. */
-    const rightMid = inner * 0.75 + boardW * barF;
-    frame.style.setProperty("--ctlX", (side + rightMid) + "px");
+    /* Where the buttons stand: on the seam, halfway up. The band between the
+       point tips is empty on every board — a point holds five checkers and
+       stops short of it — and the seam is the one line across it where no
+       ornament is cut either, so nothing at all is hidden behind them. */
+    const seam = (inner + boardW * barF) / 2;
+    frame.style.setProperty("--ctlX", (side + seam) + "px");
     frame.style.setProperty("--ctlY", (pad + boardH / 2) + "px");
-    frame.style.setProperty("--ctlH", Math.max(20, Math.min(boardH * 0.125, 44)) + "px");
+    /* The gap between the opposing point tips is 24% of a row, and the buttons
+       have to fit INSIDE it: on a phone the innermost point carries five
+       checkers right up to the seam, and a pill a pixel too tall sits on them. */
+    frame.style.setProperty("--ctlH", Math.max(18, Math.min(boardH * 0.100, 44)) + "px");
     placeDice();                 // the dice lie on the board, so they move with it
   }
 
@@ -502,8 +506,14 @@
       if (!n) return;
       const side = seen[pt] > 0 ? 0 : 1;
       const cd = parseFloat(getComputedStyle(document.getElementById("board")).getPropertyValue("--cd"));
-      // five sit clear; anything above that overlaps so the stack stays put
-      const gap = n <= 5 ? 1 : -(cd * (n - 5) + (n - 1)) / (n - 1) + 1;
+      /* A stack has to fit the POINT, not the row: five checkers with a
+         fixed gap between them came to more than the point was long on a
+         small screen, and the fifth stuck out past the tip into the middle
+         band where the buttons stand. The gap is worked out from the room
+         there is, so five always fill the point exactly and no more. */
+      const room = rowH() * 0.865;                       // the length of a point
+      const clear = Math.max(0, (room - cd * 5) / 4);
+      const gap = n <= 5 ? clear : (room - cd) / (n - 1) - cd;
       for (let i = 0; i < n; i++) {
         const c = document.createElement("div");
         c.className = "chk " + (side === 0 ? "w" : "b");
@@ -663,6 +673,8 @@
   // a stake needs somebody to win it: there is none against the computer
   const canDouble = () => ONLINE && mayDouble;
   const ptEl = (pt) => document.querySelector('.npt[data-pt="' + pt + '"]');
+  const rowH = () => parseFloat(getComputedStyle(document.getElementById("board"))
+    .getPropertyValue("--rowH")) || 0;
 
   /* ---------------- what the player does ---------------- */
   function mainAction() {

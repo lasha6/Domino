@@ -434,20 +434,20 @@ svg.grain{
 .nhalf::after{
   content:""; position:absolute; z-index:0; pointer-events:none;
   left:50%; top:50%; transform:translate(-50%, -50%);
-  width:64%; height:32%;
+  width:52%; height:28%;
   background:linear-gradient(160deg, var(--br-hi), var(--br) 45%, var(--br-lo));
   opacity:.42;
-  -webkit-mask:var(--ornMap) no-repeat center / contain;
-  mask:var(--ornMap) no-repeat center / contain;
+  -webkit-mask:var(--ornVine) no-repeat center / contain;
+  mask:var(--ornVine) no-repeat center / contain;
   filter:drop-shadow(0 1px 0 rgba(0,0,0,.5));
 }
-/* The country goes in the far half and the vine in the near one, because the
-   controls stand in the middle of the near half: better they cover a leaf than
-   a border. */
+/* The vine on the left, the country on the right. Neither is covered: the
+   controls stand on the seam between them, which is the one place on a board
+   where nothing is ever drawn and nothing ever stands. */
 .nhalf.right::after{
-  width:46%; height:30%; opacity:.40;
-  -webkit-mask-image:var(--ornVine);
-  mask-image:var(--ornVine);
+  width:58%; height:30%; opacity:.40;
+  -webkit-mask-image:var(--ornMap);
+  mask-image:var(--ornMap);
 }
 .nhalf .nrow{ position:relative; z-index:1; }
 
