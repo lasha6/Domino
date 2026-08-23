@@ -22,11 +22,20 @@
   <div class="stage">
     <div class="top">
       <button class="back" onclick="location.href='index.html'">←</button>
+      <!-- Who is playing, one at each end of the bar, the way the two chairs
+           face each other. Mine carries the purse; the other one does not,
+           because another player's money is not mine to look at. -->
+      <div class="seatPlate me" id="seatMe">
+        <span class="face" id="meFace"></span>
+        <span class="who"><b id="meName">—</b><i id="meCoins" class="purse"></i></span>
+        <span class="rank" id="meLevel">1</span>
+      </div>
       <div class="info">
         <span class="stat"><span class="k">ანგარიში</span><b id="scoreLbl">0 : 0</b></span>
         <span class="stat"><span class="dot w"></span><b id="myPip">—</b></span>
         <span class="stat"><span class="dot b"></span><b id="cpuPip">—</b></span>
         <span class="badge">პრაქტიკა</span>
+      <span class="stat cubeStat" id="cubeStat" style="display:none"><b id="cubeVal">×2</b></span>
       </div>
       <div class="bStat">
         <span class="dot" id="turnDot"></span>
@@ -34,6 +43,11 @@
       </div>
       <div class="msg" id="msg"></div>
       <div class="spacer" style="flex:1 1 auto"></div>
+      <div class="seatPlate them" id="seatThem">
+        <span class="who"><b id="themName">—</b><i id="themNote"></i></span>
+        <span class="face" id="themFace"></span>
+        <span class="rank" id="themLevel"></span>
+      </div>
       <button class="back sndBtn" id="sndBtn" onclick="toggleSound()" title="ხმა"></button>
       <button class="newgame" onclick="startMatch()">ახალი თამაში</button>
     </div>
@@ -66,6 +80,20 @@
     </div>
   </div>
 
+  <!-- The cube. One side offers to play for twice as much; the other takes it
+       or gives the match up at what it is worth now. There is no third answer,
+       which is the whole point of a doubling cube. -->
+  <div class="overlay" id="cubeOverlay">
+    <div class="modal">
+      <h2 id="cubeTitle">ფსონის გაორმაგება</h2>
+      <p id="cubeText"></p>
+      <div class="modalActions" id="cubeAsk">
+        <button onclick="answerDouble(true)">დათანხმება</button>
+        <button class="alt" onclick="answerDouble(false)">გასვლა</button>
+      </div>
+    </div>
+  </div>
+
   <div class="overlay" id="resultOverlay">
     <div class="modal">
       <h2 id="resTitle">—</h2>
@@ -80,6 +108,7 @@
   <script src="js/sound.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/nardi.js"></script>
+  <script src="js/coins.js"></script>
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/socket.io.min.js"></script>
@@ -123,6 +152,8 @@
      back. Online the server keeps the same pile and this only counts it. */
   let hist = [];
   let undoLeft = 0;
+  let mayDouble = false;    // the cube is mine to offer and it is the moment to
+  let stakeMul = 1;         // what the match is worth, in stakes
 
   document.title = (VARIANT === "short" ? "მოკლე ნარდი" : "გრძელი ნარდი") + " — კომპიუტერთან";
 
@@ -512,6 +543,10 @@
       : g.side === ME ? (g.phase === "roll" ? "შენი გაგორებაა" : "შენი სვლა")
       : "კომპიუტერი";
     controls();
+    seatPlates();
+    const cs = document.getElementById("cubeStat");
+    cs.style.display = stakeMul > 1 ? "" : "none";
+    document.getElementById("cubeVal").textContent = "×" + stakeMul;
     highlight();
   }
 
@@ -561,9 +596,56 @@
     alt.disabled = moving ? !undoCount() : !canDouble();
     main.classList.toggle("ready", moving && !main.disabled);
   }
+  /* The two plates. Mine is filled from what this device already knows, so it
+     is right before the first packet arrives; the other one waits for the
+     server to say who sat down. */
+  let opp = { name: "", pic: null, level: null, bot: false };
+  let mine = { name: "", pic: null, level: null, coins: null };
+  function seatPlates() {
+    /* Offline this device is the only source there is; online the server is,
+       because a level and a purse are its to say and not the browser's. */
+    const acc = (window.Auth && Auth.load && Auth.load()) || {};
+    const myName = mine.name || acc.name || "სტუმარი";
+    face(document.getElementById("meFace"), mine.pic || acc.picture, myName);
+    document.getElementById("meName").textContent = myName;
+    const purse = mine.coins != null ? mine.coins
+      : (window.Coins ? Coins.get() : null);
+    document.getElementById("meCoins").textContent =
+      purse == null ? "" : (window.Coins ? Coins.format(purse) : String(purse));
+    rank(document.getElementById("meLevel"), mine.level);
+
+    document.getElementById("themName").textContent =
+      ONLINE ? (opp.name || "მოწინააღმდეგე") : "კომპიუტერი";
+    document.getElementById("themNote").textContent =
+      ONLINE && opp.bot ? "ავტომატურად თამაშობს" : "";
+    rank(document.getElementById("themLevel"), ONLINE ? opp.level : null);
+    face(document.getElementById("themFace"), ONLINE ? opp.pic : null,
+         ONLINE ? (opp.name || "?") : "\u2699");
+  }
+  // a rank with no number is not a rank: the chip goes away rather than sit empty
+  function rank(el, level) {
+    el.textContent = level != null ? level : "";
+    el.style.display = level != null ? "" : "none";
+  }
+  /* A picture if there is one, otherwise the first letter of the name cut into
+     brass. Never a broken image: an avatar that fails to load is a hole in the
+     table. The letter is left exactly as it was typed — Georgian has no
+     capitals to raise it to, only მთავრული, which is unreadable at this size. */
+  function face(el, pic, name) {
+    if (pic) {
+      el.style.backgroundImage = "url(\"" + String(pic).replace(/["\\]/g, "") + "\")";
+      el.textContent = "";
+      el.classList.add("hasPic");
+    } else {
+      el.style.backgroundImage = "";
+      el.textContent = (name || "?").trim().charAt(0) || "?";
+      el.classList.remove("hasPic");
+    }
+  }
+
   const undoCount = () => (ONLINE ? undoLeft : hist.length);
-  // the doubling cube is a stake, and there is no stake against the computer
-  const canDouble = () => false;
+  // a stake needs somebody to win it: there is none against the computer
+  const canDouble = () => ONLINE && mayDouble;
   const ptEl = (pt) => document.querySelector('.npt[data-pt="' + pt + '"]');
 
   /* ---------------- what the player does ---------------- */
@@ -575,6 +657,12 @@
   function altAction() {
     if (!g || g.side !== ME || busy) return;
     if (g.phase === "move") undoMove();
+    else if (canDouble()) socket.emit("nDouble");
+  }
+
+  function answerDouble(take) {
+    show(document.getElementById("cubeOverlay"), false);
+    if (socket) socket.emit("nDoubleAnswer", { take: !!take });
   }
 
   /* The turn is over when the player says so, not when the last die is spent.
@@ -896,6 +984,26 @@
       g.round = st.round || g.round; g.target = st.target || g.target;
     }
     undoLeft = st.undo || 0;
+    mayDouble = !!st.mayDouble;
+    opp = { name: st.oppName || "", pic: st.oppPic || null,
+            level: st.oppLevel != null ? st.oppLevel : null, bot: !!st.oppBot };
+    mine = { name: mine.name, pic: st.myPic || null,
+             level: st.myLevel != null ? st.myLevel : null,
+             coins: st.myCoins != null ? st.myCoins : null };
+    stakeMul = st.stakeMul || 1;
+    /* The question only stops the player it is put to. The one who asked sees
+       the same window without the buttons, so they know why nothing is
+       happening. */
+    const offer = st.offer;
+    const cube = document.getElementById("cubeOverlay");
+    if (offer) {
+      const mine = offer.to === ME;
+      document.getElementById("cubeText").textContent = mine
+        ? "მოწინააღმდეგე ×" + offer.value + " ფსონს გთავაზობს. თუ არ დათანხმდი, მატჩს კარგავ."
+        : "შეთავაზება გაგზავნილია — ×" + offer.value + ". ველოდებით პასუხს.";
+      document.getElementById("cubeAsk").style.display = mine ? "" : "none";
+    }
+    show(cube, !!offer);
     const playing = st.pts && (st.phase === "play" || st.phase === "roundEnd" || st.phase === "over");
     show(document.getElementById("waitOverlay"), !playing);
     busy = !!st.paused || st.phase === "roundEnd";

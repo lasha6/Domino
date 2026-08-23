@@ -681,9 +681,38 @@ function startNardi(room) {
   clearAuto(room);
   room.n = Nardi.newGame({ variant: room.variant, target: room.target });
   room.nHist = [];
+  /* The cube starts at one and belongs to nobody, so either player may offer
+     the first double; after that only whoever took the last one may offer
+     again. Eight is as far as it goes — past that a bad roll costs more coins
+     than a player can have. */
+  room.stakeMul = 1; room.cubeOwner = null; room.offer = null;
   room.phase = "play";
   say(room, room.variant === "short" ? "მოკლე ნარდი" : "გრძელი ნარდი");
   nardiAdvance(room);
+}
+
+/* Refusing a double is walking away from the match at the price it has
+   reached. It is not the same as somebody dropping off the network: here we
+   know exactly who gave up, so the win goes to the other chair rather than to
+   everyone who happened to still be connected. */
+function resignMatch(room, seat) {
+  room.phase = "over"; room.paused = false;
+  clearBoardClock(room);
+  room.offer = null;
+  room.players.forEach((o) => {
+    const won = o.seat !== seat;
+    awardMatch(room, o, won);
+    const s2 = io.sockets.sockets.get(o.id);
+    if (!s2) return;
+    s2.emit("matchOver", {
+      youWon: won, scores: room.n ? room.n.scores.slice() : null,
+      myTeam: o.team, target: room.target, size: room.size,
+      progress: o.profile ? summarise(o.profile) : null,
+      settled: o.lastSettle || null, earned: o.lastEarned || [], resigned: true,
+    });
+    o.lastEarned = [];
+  });
+  pushState(room);
 }
 
 function nardiAdvance(room) {
@@ -696,6 +725,7 @@ function nardiAdvance(room) {
   const n = room.n;
   if (n.phase === "over") { nardiMatchOver(room); return; }
   if (n.phase === "roundOver") { nardiRoundOver(room); return; }
+  if (room.offer) { pushState(room); return; }   // nobody's clock runs on a question
   armBoardClock(room, n.turn === undefined ? n.side : n.side);
   nardiMaybeBot(room);
   pushState(room);
@@ -798,12 +828,25 @@ function nardiView(room, seat) {
   return Object.assign({}, base, {
     pts: n.pts.slice(), bar: n.bar.slice(), off: n.off.slice(),
     undo: (room.nHist || []).length,
+    stakeMul: room.stakeMul || 1,
+    offer: room.offer ? { by: room.offer.by, to: room.offer.to,
+                          value: (room.stakeMul || 1) * 2 } : null,
+    mayDouble: !room.offer && n.phase === "roll" && n.side === seat &&
+               (room.stakeMul || 1) < 8 &&
+               (room.cubeOwner === null || room.cubeOwner === seat),
     side: n.side, dice: n.dice ? n.dice.slice() : null, left: n.left.slice(),
     nphase: n.phase,
     myTurn: n.side === seat && (n.phase === "roll" || n.phase === "move") && !room.paused,
     scores: n.scores.slice(), round: n.round,
     oppName: other.name || "მოწინააღმდეგე",
     oppBot: !!other.bot, oppVerified: !!other.verified,
+    /* Enough to put a face and a rank on the other chair. Their purse is not
+       sent: it is nobody else's business, and nothing here needs it. */
+    myPic: me && me.profile ? (me.profile.picture || null) : null,
+    myLevel: me && me.profile ? Progress.levelFromXp(me.profile.xp).level : null,
+    myCoins: me && me.profile ? me.profile.coins : null,
+    oppPic: other.profile ? (other.profile.picture || null) : null,
+    oppLevel: other.profile ? Progress.levelFromXp(other.profile.xp).level : null,
     reveal: room.reveal || null,
     moveLeft: room.moveDeadline ? Math.max(0, Math.ceil((room.moveDeadline - Date.now()) / 1000)) : null,
     moveTime: Math.round(BOARD_MOVE_TIME / 1000),
@@ -1260,7 +1303,9 @@ function awardMatch(room, p, won) {
     }
     pr.xp += Progress.matchXp(won);
 
-    const stake = stakeFor(room.target);
+    /* The cube multiplies what the match is worth. It lives on the room, and
+       it is applied here, where the only settling happens. */
+    const stake = stakeFor(room.target) * (room.stakeMul || 1);
     pr.coins = Math.max(0, pr.coins + (won ? stake : -stake));
     p.lastSettle = { stake, delta: won ? stake : -stake, after: pr.coins };
   });
@@ -1595,7 +1640,7 @@ io.on("connection", (socket) => {
 
   on("nRoll", () => {
     const room = boardRoom("nardi", "n");
-    if (!room || room.phase !== "play") return;
+    if (!room || room.phase !== "play" || room.offer) return;
     const n = room.n;
     if (n.side !== mySeat(room) || n.phase !== "roll") return;
     Nardi.roll(n);
@@ -1620,6 +1665,47 @@ io.on("connection", (socket) => {
     room.nHist.push(before);
     // still the same turn: send the board and leave the clock where it is
     if (n.phase === "move" && n.side === was) { armBoardClock(room, was); pushState(room); return; }
+    nardiAdvance(room);
+  });
+
+  /* ---------------- the cube ----------------
+     Offered before you roll and never in the middle of a turn: doubling after
+     seeing the dice would not be a stake, it would be a refund. The other
+     player takes it or gives up the match at the price it stands at now. */
+  on("nDouble", () => {
+    const room = boardRoom("nardi", "n");
+    if (!room || room.phase !== "play" || room.paused || room.offer) return;
+    const n = room.n, seat = mySeat(room);
+    if (n.side !== seat || n.phase !== "roll") return;
+    if ((room.stakeMul || 1) >= 8) return;
+    if (room.cubeOwner !== null && room.cubeOwner !== seat) return;
+    if (room.players.length < 2 || room.players.some((p) => p.bot)) return;
+    room.offer = { by: seat, to: 1 - seat };
+    clearBoardClock(room);
+    /* An unanswered question must not lock the table. It simply lapses, and
+       the player who offered rolls as if they never had — nobody can be hurt
+       by a dropped connection that way. */
+    clearTimeout(room.offerTimer);
+    room.offerTimer = setTimeout(() => {
+      if (!rooms.has(room.id) || !room.offer) return;
+      room.offer = null;
+      nardiAdvance(room);
+    }, 30000);
+    pushState(room);
+  });
+
+  on("nDoubleAnswer", (msg) => {
+    const room = boardRoom("nardi", "n");
+    if (!room || room.phase !== "play" || !room.offer) return;
+    const seat = mySeat(room);
+    if (room.offer.to !== seat) return;            // not your question to answer
+    clearTimeout(room.offerTimer); room.offerTimer = null;
+    const take = !!(msg && msg.take);
+    room.offer = null;
+    if (!take) { resignMatch(room, seat); return; }
+    room.stakeMul = (room.stakeMul || 1) * 2;
+    room.cubeOwner = seat;                          // now it is his to offer next
+    say(room, "ფსონი ×" + room.stakeMul);
     nardiAdvance(room);
   });
 

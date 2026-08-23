@@ -341,3 +341,66 @@ test("the server survives being asked for nonsense at a board", async () => {
   await wait(600);
   assert.equal(srv.exited, null, `still up: ${srv.log.slice(-400)}`);
 });
+
+/* ---------------- the doubling cube ---------------- */
+
+test("the cube is offered before the roll, and only by whoever may offer it", async () => {
+  const cs = await boardTable("nardi", { variant: "long", target: 3 });
+  const me = cs.find((c) => c.last.side === c.last.seat);
+  const you = cs.find((c) => c !== me);
+  assert.equal(me.last.stakeMul, 1, "a match starts at one stake");
+  assert.equal(me.last.mayDouble, true, "the cube belongs to nobody, so he may offer");
+  assert.equal(you.last.mayDouble, false, "and it is not the other player's turn");
+
+  // the one who is not on roll cannot put the question
+  you.emit("nDouble");
+  await wait(400);
+  assert.equal(me.last.offer, null, "no question was asked");
+
+  me.emit("nDouble");
+  assert.ok(await until(() => you.last.offer), "the question reached the other chair");
+  assert.equal(you.last.offer.to, you.last.seat, "and it is his to answer");
+  assert.equal(you.last.offer.value, 2, "for twice the stake");
+
+  // and nothing moves while it stands
+  me.emit("nRoll");
+  await wait(400);
+  assert.equal(me.last.dice, null, "the dice wait for an answer");
+});
+
+test("taking the double doubles the stake and passes the cube", async () => {
+  const cs = await boardTable("nardi", { variant: "long", target: 3 });
+  const me = cs.find((c) => c.last.side === c.last.seat);
+  const you = cs.find((c) => c !== me);
+  me.emit("nDouble");
+  assert.ok(await until(() => you.last.offer));
+
+  // it is not the offerer's answer to give
+  me.emit("nDoubleAnswer", { take: true });
+  await wait(300);
+  assert.equal(me.last.stakeMul, 1, "he cannot accept his own offer");
+
+  you.emit("nDoubleAnswer", { take: true });
+  assert.ok(await until(() => me.last.stakeMul === 2), "the match is worth twice as much");
+  assert.equal(you.last.stakeMul, 2, "and both of them are told so");
+  assert.equal(me.last.offer, null, "the question is answered");
+  assert.ok(await until(() => me.last.mayDouble === false, 2000),
+    "the cube has crossed the table: he cannot double again");
+
+  me.emit("nRoll");
+  assert.ok(await until(() => me.last.dice), "and play carries on");
+});
+
+test("refusing the double gives the match up there and then", async () => {
+  const cs = await boardTable("nardi", { variant: "long", target: 3 });
+  const me = cs.find((c) => c.last.side === c.last.seat);
+  const you = cs.find((c) => c !== me);
+  me.emit("nDouble");
+  assert.ok(await until(() => you.last.offer));
+
+  you.emit("nDoubleAnswer", { take: false });
+  assert.ok(await until(() => me.over && you.over), "the match is over for both of them");
+  assert.equal(me.over.youWon, true, "the one who offered wins it");
+  assert.equal(you.over.youWon, false, "the one who would not pay loses it");
+  assert.equal(srv.exited, null, `still up: ${srv.log.slice(-300)}`);
+});

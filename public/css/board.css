@@ -120,6 +120,9 @@ body{
 .dot.w{ background:linear-gradient(180deg, var(--ivory-hi), var(--ivory-lo)); }
 .dot.b{ background:linear-gradient(180deg, var(--wine-hi), var(--wine-lo)); }
 .stat .dot{ width:10px; height:10px; }
+/* what the match is worth, once somebody has doubled it */
+.cubeStat b{ color:var(--br-hi); }
+.cubeStat{ border-color:var(--br-lo); }
 
 .rollBtn{
   cursor:pointer; border-radius:4px; padding:8px 18px; min-height:34px;
@@ -131,6 +134,57 @@ body{
 }
 .rollBtn:active{ transform:translateY(1px); }
 .rollBtn[disabled]{ opacity:.4; cursor:default; }
+
+/* =====================================================================
+   who is playing
+
+   One plate at each end of the table, the way the two chairs face each
+   other. Mine carries the purse; the other one does not, because another
+   player's money is not mine to look at.
+   ===================================================================== */
+.seatPlate{
+  display:flex; align-items:center; gap:9px;
+  flex:0 1 auto; padding:3px 9px 3px 3px; border-radius:999px;
+  background:linear-gradient(180deg, rgba(58,38,22,.9), rgba(35,23,13,.92));
+  border:1px solid var(--br-lo);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.12), 0 3px 8px rgba(0,0,0,.5);
+  min-width:0;
+}
+.seatPlate.them{ padding:3px 3px 3px 9px; margin-left:auto; }
+.seatPlate .face{
+  flex:none; width:28px; height:28px; border-radius:50%;
+  display:grid; place-items:center;
+  font:700 14px/1 var(--font-display); color:#2a1c07;
+  background:linear-gradient(180deg, var(--br-hi), var(--br) 60%, var(--br-lo));
+  background-size:cover; background-position:center;
+  box-shadow:0 0 0 2px var(--br-lo), inset 0 1px 0 rgba(255,255,255,.4);
+  overflow:hidden;
+}
+.seatPlate .face.hasPic{ color:transparent; }
+.seatPlate .who{
+  display:flex; flex-direction:column; gap:2px; min-width:0;
+}
+.seatPlate .who b{
+  font:700 12.5px/1 var(--font-ui); color:var(--cream);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:22vw;
+}
+.seatPlate .who i{ font:400 10.5px/1 var(--font-ui); color:var(--br-hi); font-style:normal; }
+.seatPlate .who i.purse::before{ content:"\25c9 "; opacity:.8; }
+.seatPlate .rank{
+  flex:none; min-width:21px; height:21px; padding:0 5px; border-radius:999px;
+  display:grid; place-items:center;
+  font:800 11px/1 var(--font-ui); color:#1a1206;
+  background:linear-gradient(180deg, var(--br-hi), var(--br-lo));
+  box-shadow:0 1px 2px rgba(0,0,0,.5);
+}
+.seatPlate.them .who{ align-items:flex-end; text-align:right; }
+
+@media (max-width:760px){
+  .seatPlate .face{ width:23px; height:23px; font-size:12px; }
+  .seatPlate .who b{ font-size:11px; max-width:15vw; }
+  .seatPlate .who i{ font-size:10px; }
+  .seatPlate .rank{ min-width:18px; height:18px; font-size:10px; }
+}
 
 /* =====================================================================
    the frame the board sits in
