@@ -10,13 +10,16 @@
   --gold:#c9a24a;
   --gold-hi:#f0dca0;
   --gold-lo:#8a6a26;
-  --wine:#6d1f2c;
-  --wine-hi:#8d2c3a;
+  /* ebony and boxwood: the older pairing, and the one that shows an
+     ornament best — gold on black reads from across a room */
+  --ebony:#17171a;
+  --ebony-hi:#2c2c31;
   --ivory:#e8dcbb;
   --ivory-hi:#f6eed6;
 
   --cd:46px;            /* checker */
-  --rowH:calc(var(--cd) * 5);   /* five checkers, touching, fill the half */
+  --stack:6px;          /* daylight between one piece and the next */
+  --rowH:calc(var(--cd) * 5 + var(--stack) * 4 + 16px);
   --colW:calc(var(--cd) * 1.36);
   --spineW:34px;
   --railW:44px;         /* the carved edge */
@@ -115,8 +118,17 @@ svg.grain{ position:absolute; inset:0; width:100%; height:100%; pointer-events:n
 
 /* A point is let into the surface: the veneer is cut away and the ivory or the
    wine is laid in, with a hair of gold round the edge of the cut. */
+/* the gold hairline is the edge of the cut, and it is what keeps a black
+   point from disappearing into a dark board */
+.pt::after{
+  content:""; position:absolute; left:0; right:0; top:1.2%; bottom:11.6%;
+  clip-path:polygon(0 0, 100% 0, 50% 100%);
+  background:linear-gradient(180deg, rgba(201,162,74,.85), rgba(138,106,38,.35));
+  z-index:0;
+}
+.row.bot .pt::after{ top:11.6%; bottom:1.2%; transform:scaleY(-1); }
 .pt .tri{
-  position:absolute; left:1px; right:1px; top:1.5%; bottom:12%;
+  position:absolute; z-index:1; left:1px; right:1px; top:1.5%; bottom:12%;
   clip-path:polygon(0 0, 100% 0, 50% 100%);
   background:
     repeating-linear-gradient(91deg, rgba(120,96,52,.06) 0 1px, rgba(0,0,0,0) 1px 7px),
@@ -126,20 +138,25 @@ svg.grain{ position:absolute; inset:0; width:100%; height:100%; pointer-events:n
 }
 .pt.odd .tri{
   background:
-    repeating-linear-gradient(89deg, rgba(0,0,0,.07) 0 1px, rgba(0,0,0,0) 1px 6px),
-    linear-gradient(178deg, var(--wine-hi), var(--wine) 52%, #4a111e);
+    repeating-linear-gradient(89deg, rgba(255,255,255,.035) 0 1px, rgba(0,0,0,0) 1px 6px),
+    linear-gradient(178deg, var(--ebony-hi), var(--ebony) 52%, #08080a);
 }
 .row.bot .pt .tri{ top:12%; bottom:1.5%; transform:scaleY(-1); }
 
-/* the vine cut shallow into the middle of each half */
+/* cut shallow into the middle of each half, and never the same twice */
 .sprig{
   position:absolute; z-index:0; left:50%; top:50%; transform:translate(-50%,-50%);
-  width:120px; height:74px; opacity:.5;
-  background:linear-gradient(160deg, var(--gold-hi), var(--gold-lo));
+  width:150px; height:92px; opacity:.62;
+  background:linear-gradient(160deg, var(--gold-hi), var(--gold) 45%, var(--gold-lo));
   -webkit-mask:var(--vine) no-repeat center / contain;
   mask:var(--vine) no-repeat center / contain;
+  filter:drop-shadow(0 1px 0 rgba(0,0,0,.5));
 }
-.half.r .sprig{ transform:translate(-50%,-50%) scaleX(-1); }
+.half.r .sprig{
+  width:196px; height:97px; opacity:.58;
+  -webkit-mask-image:var(--map);
+  mask-image:var(--map);
+}
 
 /* ---------------- the spine ---------------- */
 .spine{
@@ -176,7 +193,7 @@ svg.grain{ position:absolute; inset:0; width:100%; height:100%; pointer-events:n
 .chk{
   position:relative; flex:none; z-index:3;
   width:var(--cd); height:var(--cd); border-radius:50%;
-  margin-top:var(--stack, 0px);
+  margin-top:var(--gap, 0px);
   box-shadow:
     0 0 0 1px rgba(0,0,0,.5),
     0 1px 0 rgba(0,0,0,.42), 0 2px 0 rgba(0,0,0,.36),
@@ -185,9 +202,9 @@ svg.grain{ position:absolute; inset:0; width:100%; height:100%; pointer-events:n
     inset 0 2px 3px rgba(255,255,255,.45),
     inset 0 -4px 6px rgba(0,0,0,.38);
 }
-.row.bot .chk{ margin-top:0; margin-bottom:var(--stack, 0px); }
+.row.bot .chk{ margin-top:0; margin-bottom:var(--gap, 0px); }
 .chk.w{ background:radial-gradient(circle at 36% 28%, #fbf4e0, var(--ivory) 52%, #c3b489); }
-.chk.b{ background:radial-gradient(circle at 36% 28%, #97313f, var(--wine) 50%, #43101c); }
+.chk.b{ background:radial-gradient(circle at 36% 28%, #3a3a41, var(--ebony) 48%, #050507); }
 /* the band round the rim, and the groove just inside it */
 .chk::before{
   content:""; position:absolute; inset:7%; border-radius:50%;
@@ -207,15 +224,19 @@ svg.grain{ position:absolute; inset:0; width:100%; height:100%; pointer-events:n
 }
 
 /* ---------------- the dice ---------------- */
-.dice{ position:absolute; z-index:6; left:66%; top:47%; display:flex; gap:20px; }
+.dice{ position:absolute; z-index:6; left:70%; top:60%; display:flex; gap:20px; }
+/* The dice are made of whatever the pieces are made of: the shop writes
+   --bone-* and --pip on the root, and they are the only colours in here. With
+   nothing bought they fall back to plain bone. */
 .die{
   width:52px; height:52px; border-radius:9px; position:relative;
   background:
-    radial-gradient(120% 120% at 30% 22%, #8d2c3a, var(--wine) 48%, #3d0e18);
+    radial-gradient(120% 120% at 30% 22%,
+      var(--bone-hi, #fffdf6), var(--bone, #f4eeda) 48%, var(--bone-lo, #cdc2a2));
   box-shadow:
-    inset 0 2px 3px rgba(255,255,255,.28),
-    inset 0 -5px 8px rgba(0,0,0,.5),
-    0 0 0 1px rgba(0,0,0,.55),
+    inset 0 2px 3px rgba(255,255,255,.55),
+    inset 0 -5px 8px rgba(0,0,0,.30),
+    0 0 0 1px rgba(0,0,0,.45),
     0 10px 16px rgba(0,0,0,.6),
     0 20px 32px rgba(0,0,0,.35);
   display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr);
@@ -226,8 +247,8 @@ svg.grain{ position:absolute; inset:0; width:100%; height:100%; pointer-events:n
 .die span{ display:grid; place-items:center; }
 .die i{
   width:9px; height:9px; border-radius:50%;
-  background:radial-gradient(circle at 36% 30%, var(--gold-hi), var(--gold) 60%, var(--gold-lo));
-  box-shadow:inset 0 -1px 1px rgba(0,0,0,.5), 0 1px 1px rgba(0,0,0,.55);
+  background:var(--pip, #15150f);
+  box-shadow:inset 0 -1px 1px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.28);
 }
 </style>
 </head>
@@ -238,13 +259,14 @@ svg.grain{ position:absolute; inset:0; width:100%; height:100%; pointer-events:n
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
     <!-- walnut: streaks along the grain, then broad figure over the top -->
-    <filter id="walnut" x="0" y="0" width="100%" height="100%">
+    <filter id="walnut" x="0" y="0" width="100%" height="100%"
+            color-interpolation-filters="sRGB">
       <feTurbulence type="fractalNoise" baseFrequency="0.010 0.42" numOctaves="6" seed="7" result="n"/>
       <feColorMatrix in="n" type="saturate" values="0" result="g"/>
       <feComponentTransfer in="g" result="wood">
-        <feFuncR type="table" tableValues="0.15 0.27 0.38 0.28 0.43 0.31 0.22"/>
-        <feFuncG type="table" tableValues="0.08 0.15 0.21 0.15 0.24 0.17 0.12"/>
-        <feFuncB type="table" tableValues="0.04 0.08 0.13 0.09 0.15 0.11 0.07"/>
+        <feFuncR type="table" tableValues="0.09 0.17 0.25 0.18 0.29 0.20 0.14"/>
+        <feFuncG type="table" tableValues="0.05 0.09 0.14 0.10 0.16 0.11 0.07"/>
+        <feFuncB type="table" tableValues="0.02 0.05 0.08 0.05 0.09 0.06 0.04"/>
       </feComponentTransfer>
       <feTurbulence type="fractalNoise" baseFrequency="0.003 0.035" numOctaves="4" seed="19" result="f"/>
       <feColorMatrix in="f" type="saturate" values="0" result="fg"/>
@@ -259,26 +281,28 @@ svg.grain{ position:absolute; inset:0; width:100%; height:100%; pointer-events:n
     </filter>
 
     <!-- the field is the same timber cut the other way and left a shade lighter -->
-    <filter id="walnutField" x="0" y="0" width="100%" height="100%">
+    <filter id="walnutField" x="0" y="0" width="100%" height="100%"
+            color-interpolation-filters="sRGB">
       <feTurbulence type="fractalNoise" baseFrequency="0.011 0.38" numOctaves="6" seed="23" result="n"/>
       <feColorMatrix in="n" type="saturate" values="0" result="g"/>
       <feComponentTransfer in="g" result="flat">
-        <feFuncR type="table" tableValues="0.30 0.45 0.58 0.46 0.63 0.49 0.39"/>
-        <feFuncG type="table" tableValues="0.17 0.27 0.36 0.28 0.40 0.30 0.24"/>
-        <feFuncB type="table" tableValues="0.08 0.14 0.20 0.15 0.23 0.17 0.13"/>
+        <feFuncR type="table" tableValues="0.19 0.30 0.40 0.31 0.44 0.33 0.25"/>
+        <feFuncG type="table" tableValues="0.11 0.18 0.24 0.18 0.27 0.20 0.15"/>
+        <feFuncB type="table" tableValues="0.05 0.08 0.12 0.09 0.14 0.10 0.07"/>
       </feComponentTransfer>
       <feTurbulence type="fractalNoise" baseFrequency="0.009" numOctaves="2" seed="11" result="warp"/>
       <feDisplacementMap in="flat" in2="warp" scale="30"
                          xChannelSelector="R" yChannelSelector="G"/>
     </filter>
 
-    <filter id="walnutSpine" x="0" y="0" width="100%" height="100%">
+    <filter id="walnutSpine" x="0" y="0" width="100%" height="100%"
+            color-interpolation-filters="sRGB">
       <feTurbulence type="fractalNoise" baseFrequency="0.012 0.44" numOctaves="5" seed="41" result="n"/>
       <feColorMatrix in="n" type="saturate" values="0" result="g"/>
       <feComponentTransfer in="g">
-        <feFuncR type="table" tableValues="0.12 0.24 0.34 0.26 0.40"/>
-        <feFuncG type="table" tableValues="0.07 0.14 0.21 0.15 0.25"/>
-        <feFuncB type="table" tableValues="0.03 0.07 0.11 0.08 0.13"/>
+        <feFuncR type="table" tableValues="0.08 0.15 0.22 0.16 0.26"/>
+        <feFuncG type="table" tableValues="0.04 0.08 0.13 0.09 0.15"/>
+        <feFuncB type="table" tableValues="0.02 0.04 0.07 0.05 0.08"/>
       </feComponentTransfer>
     </filter>
   </defs>
@@ -332,19 +356,53 @@ const corner = svg("0 0 60 60",
   '</g>' +
   '<g fill="#000"><circle cx="42" cy="18" r="2.8"/><circle cx="18" cy="42" r="2.8"/></g>');
 
-/* a vine with a bunch on it, for the middle of each half */
-const vine = svg("0 0 120 74",
-  '<g ' + S + ' stroke-width="1.8">' +
-  '<path d="M6 46c26-6 44-22 58-38"/>' +
-  '<path d="M40 34c-8-6-18-4-22 4 9 5 18 3 22-4z"/>' +
-  '<path d="M64 20c9-3 14-11 12-19-9 3-13 11-12 19z"/>' +
-  '<path d="M74 30c6 3 9 9 8 15"/>' +
-  '</g>' +
+/* The near half carries the vine, the far half the country. Two different
+   marks, because a board that says the same thing twice is a pattern and not a
+   piece of work.
+
+   A grape leaf is five pointed lobes with a notch between each, and veins
+   running from the stem to every tip. Drawn round, it stops being a leaf. */
+const leaf =
+  '<path ' + S + ' stroke-width="2.6" stroke-linejoin="round" d="' +
+  'M50 97V78' +
+  'C43 85 29 86 19 79 C9 72 8 62 15 57 C4 55 0 44 7 36 C14 27 26 26 32 33' +
+  'C25 20 31 8 41 5 C47 3 50 9 50 16' +
+  'C50 9 53 3 59 5 C69 8 75 20 68 33 C74 26 86 27 93 36 C100 44 96 55 85 57' +
+  'C92 62 91 72 81 79 C71 86 57 85 50 78Z"/>' +
+  '<g ' + S + ' stroke-width="1.5" opacity="0.9">' +
+  '<path d="M50 78V30M50 62L22 48M50 62l28-14M50 48L28 26M50 48l22-22"/>' +
+  '</g>';
+
+/* a bunch: rows of berries narrowing to a point, with a stem and a tendril */
+const grapes =
   '<g fill="#000">' +
-  '<circle cx="88" cy="44" r="5"/><circle cx="100" cy="44" r="5"/>' +
-  '<circle cx="94" cy="53" r="5"/><circle cx="106" cy="53" r="5"/>' +
-  '<circle cx="100" cy="62" r="5"/>' +
-  '</g>');
+  '<circle cx="24" cy="30" r="7"/><circle cx="40" cy="30" r="7"/><circle cx="56" cy="30" r="7"/>' +
+  '<circle cx="32" cy="43" r="7"/><circle cx="48" cy="43" r="7"/>' +
+  '<circle cx="24" cy="56" r="7"/><circle cx="40" cy="56" r="7"/><circle cx="56" cy="56" r="7"/>' +
+  '<circle cx="32" cy="69" r="7"/><circle cx="48" cy="69" r="7"/>' +
+  '<circle cx="40" cy="82" r="7"/>' +
+  '</g>' +
+  '<g ' + S + ' stroke-width="2.4"><path d="M40 22V6"/>' +
+  '<path d="M40 10c9-6 20-4 24 4-9 6-20 4-24-4z"/></g>';
+
+const vine = svg("0 0 190 100",
+  '<g transform="translate(2 0)">' + leaf + '</g>' +
+  '<g transform="translate(112 4) scale(0.86)">' + grapes + '</g>' +
+  '<g ' + S + ' stroke-width="2"><path d="M96 40c8-6 18-6 26 0"/></g>');
+
+/* A stylised outline, not a survey. It has to read as the country at the size
+   of a thumbnail, cut shallow into a board: the wide waist, the coast falling
+   away on the west, and the point running out to the east. */
+const GE =
+  /* Georgia's border, simplified from coordinates rather than sketched: the
+     coast running down the west, the southern frontier stepping east, the
+     point at Lagodekhi, and the Caucasus back along the north. */
+  'M0 8 L7.4 12 L23.7 22 L38.5 40 L49.5 58 L47.4 72 L45.9 83.2 L62.2 86 L77 96 L91.9 100 L102.2 94 L118.5 96 L133.3 90 L148.1 96 L165.9 92 L189.6 100 L199.1 96 L189.6 80 L177.8 64 L165.9 48 L148.1 40 L133.3 36 L118.5 40 L103.7 34 L88.9 24 L74.1 16 L59.3 12 L29.6 8Z';
+const map = svg("0 0 200 102",
+  '<path d="' + GE + '" fill="#000" fill-opacity="0.14"/>' +
+  '<path d="' + GE + '" ' + S + ' stroke-width="3.4" stroke-linejoin="round"/>' +
+  /* a mark where the capital stands */
+  '<g fill="#000"><circle cx="130" cy="55" r="5"/></g>');
 
 /* a small bunch for the face of a checker */
 const bunch = svg("0 0 44 44",
@@ -365,13 +423,14 @@ const root = document.documentElement.style;
 root.setProperty("--band", band);
 root.setProperty("--cnr", corner);
 root.setProperty("--vine", vine);
+root.setProperty("--map", map);
 root.setProperty("--bunch", bunch);
 root.setProperty("--knot", knot);
 
 /* ---------------- the board ---------------- */
 const START = { 0:[2,'w'], 5:[5,'b'], 7:[3,'b'], 11:[5,'w'],
                 12:[5,'b'], 16:[3,'w'], 18:[5,'w'], 23:[2,'b'] };
-const CD = 46;
+const CD = 46, GAP = 6;
 
 function point(i){
   const d = document.createElement('div');
@@ -380,11 +439,11 @@ function point(i){
   const s = START[i];
   if (s) {
     const [n, side] = s;
-    const gap = n <= 5 ? 0 : -(CD * (n - 5)) / (n - 1);
+    const gap = n <= 5 ? GAP : -(CD * (n - 5) + GAP * (n - 1)) / (n - 1) + GAP;
     for (let k = 0; k < n; k++) {
       const c = document.createElement('div');
       c.className = 'chk ' + side;
-      c.style.setProperty('--stack', (k === 0 ? 0 : gap) + 'px');
+      c.style.setProperty('--gap', (k === 0 ? 0 : gap) + 'px');
       d.appendChild(c);
     }
   }
