@@ -46,14 +46,14 @@
      One border tile, repeated: a pointed oval with a diamond between, which is
      the border that runs round these boards. One rosette, small, for the face
      of a checker. One vine sprig, used once in each half and once on the lid. */
-  --ornBand:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 64"><g fill="%23000"><path d="M20 3c7 11 10 18 10 24s-3 13-10 24C13 40 10 33 10 27s3-13 10-24z"/><path d="M20 55l4 4.5-4 4.5-4-4.5z"/></g><g fill="none" stroke="%23000" stroke-width="1.6"><path d="M20 9c4 7 6 12 6 18s-2 11-6 18c-4-7-6-12-6-18s2-11 6-18z"/></g></svg>');
+  --ornBand:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 68"><g fill="none" stroke="%23000" stroke-width="1.5" stroke-linecap="round"><path d="M15 2v64"/><path d="M15 14c-5-2-8-6-7-11 5 1 8 5 7 11z"/><path d="M15 14c5-2 8-6 7-11-5 1-8 5-7 11z"/><path d="M15 30c-6 3-9 9-6 15 5-3 7-9 6-15z"/><path d="M15 30c6 3 9 9 6 15-5-3-7-9-6-15z"/><path d="M15 52c-4-1-6-4-5-8 4 1 6 4 5 8z"/><path d="M15 52c4-1 6-4 5-8-4 1-6 4-5 8z"/></g><g fill="%23000"><path d="M15 20l2.6 3.4-2.6 3.4-2.6-3.4z"/><path d="M15 58l2.2 3-2.2 3-2.2-3z"/><circle cx="15" cy="38" r="1.9"/></g></svg>');
   --ornCrown:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 40"><path fill="%23000" d="M6 30l-3-19 10 7 11-14 11 14 10-7-3 19z"/><rect fill="%23000" x="6" y="32" width="36" height="5" rx="1.6"/></svg>');
   --ornMark:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><g fill="%23000"><path d="M20 2c3.4 7 4.6 8.6 11.6 12C24.6 17.4 23.4 19 20 26c-3.4-7-4.6-8.6-11.6-12C15.4 10.6 16.6 9 20 2z" transform="translate(0 6)"/><circle cx="20" cy="20" r="2.6"/></g></svg>');
   --ornVine:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 72"><g fill="none" stroke="%23000" stroke-width="2.6" stroke-linecap="round"><path d="M10 52c22-6 36-18 44-34"/><path d="M54 18c14 10 30 12 46 4"/><path d="M54 18c-2-8 2-14 10-16"/><path d="M30 40c-6-8-4-16 4-19 5 6 4 14-4 19z"/><path d="M78 26c8-7 17-6 22 1-7 7-16 7-22-1z"/></g><g fill="%23000"><circle cx="106" cy="30" r="5"/><circle cx="117" cy="26" r="5"/><circle cx="112" cy="38" r="5"/><circle cx="123" cy="35" r="4.5"/><circle cx="117" cy="46" r="4"/></g></svg>');
-  --ornCorner:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><g fill="none" stroke="%23000" stroke-width="3.4" stroke-linecap="round"><path d="M6 54C6 28 28 6 54 6"/><path d="M6 38c0-18 14-32 32-32"/><path d="M20 54c8-4 14-10 18-18"/></g><g fill="%23000"><circle cx="46" cy="20" r="3.4"/></g></svg>');
-  --ornCornerR:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><g transform="translate(60 0) scale(-1 1)"><g fill="none" stroke="%23000" stroke-width="3.4" stroke-linecap="round"><path d="M6 54C6 28 28 6 54 6"/><path d="M6 38c0-18 14-32 32-32"/><path d="M20 54c8-4 14-10 18-18"/></g><g fill="%23000"><circle cx="46" cy="20" r="3.4"/></g></g></svg>');
-  --ornCornerB:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><g transform="translate(0 60) scale(1 -1)"><g fill="none" stroke="%23000" stroke-width="3.4" stroke-linecap="round"><path d="M6 54C6 28 28 6 54 6"/><path d="M6 38c0-18 14-32 32-32"/><path d="M20 54c8-4 14-10 18-18"/></g><g fill="%23000"><circle cx="46" cy="20" r="3.4"/></g></g></svg>');
-  --ornCornerRB:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><g transform="translate(60 60) scale(-1 -1)"><g fill="none" stroke="%23000" stroke-width="3.4" stroke-linecap="round"><path d="M6 54C6 28 28 6 54 6"/><path d="M6 38c0-18 14-32 32-32"/><path d="M20 54c8-4 14-10 18-18"/></g><g fill="%23000"><circle cx="46" cy="20" r="3.4"/></g></g></svg>');
+  --ornCorner:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><g fill="none" stroke="%23000" stroke-width="1.9" stroke-linecap="round"><path d="M5 55C5 27 27 5 55 5"/><path d="M5 41C5 21 21 5 41 5"/><path d="M14 55c6-16 18-28 34-34"/><path d="M22 22c-5-4-11-3-14 2 5 4 11 3 14-2z"/></g><g fill="%23000"><circle cx="41" cy="19" r="2.6"/><circle cx="19" cy="41" r="2.6"/></g></svg>');
+  --ornCornerR:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><g transform="translate(60 0) scale(-1 1)"><g fill="none" stroke="%23000" stroke-width="1.9" stroke-linecap="round"><path d="M5 55C5 27 27 5 55 5"/><path d="M5 41C5 21 21 5 41 5"/><path d="M14 55c6-16 18-28 34-34"/><path d="M22 22c-5-4-11-3-14 2 5 4 11 3 14-2z"/></g><g fill="%23000"><circle cx="41" cy="19" r="2.6"/><circle cx="19" cy="41" r="2.6"/></g></g></svg>');
+  --ornCornerB:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><g transform="translate(0 60) scale(1 -1)"><g fill="none" stroke="%23000" stroke-width="1.9" stroke-linecap="round"><path d="M5 55C5 27 27 5 55 5"/><path d="M5 41C5 21 21 5 41 5"/><path d="M14 55c6-16 18-28 34-34"/><path d="M22 22c-5-4-11-3-14 2 5 4 11 3 14-2z"/></g><g fill="%23000"><circle cx="41" cy="19" r="2.6"/><circle cx="19" cy="41" r="2.6"/></g></g></svg>');
+  --ornCornerRB:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60"><g transform="translate(60 60) scale(-1 -1)"><g fill="none" stroke="%23000" stroke-width="1.9" stroke-linecap="round"><path d="M5 55C5 27 27 5 55 5"/><path d="M5 41C5 21 21 5 41 5"/><path d="M14 55c6-16 18-28 34-34"/><path d="M22 22c-5-4-11-3-14 2 5 4 11 3 14-2z"/></g><g fill="%23000"><circle cx="41" cy="19" r="2.6"/><circle cx="19" cy="41" r="2.6"/></g></g></svg>');
 }
 
 /* The two board screens sit on navy, not on the green baize the card tables
@@ -138,44 +138,66 @@ body{
 .boardWrap{
   flex:1 1 auto; min-height:0; display:flex; align-items:center; justify-content:center;
 }
+/* Walnut has figure in it — bands of light and dark running along the grain,
+   not one flat brown. Four layers do it: two fine repeats at slightly different
+   angles for the grain itself, one broad sweep for the figure, and a vignette
+   so the middle of a board is not as bright as its edge. */
 .boardFrame{
-  position:relative; border-radius:5px;
-  padding:var(--frameP, 8px);
+  position:relative; border-radius:7px;
+  padding:var(--frameP, 9px) var(--frameS, 22px);
   background:
-    repeating-linear-gradient(88deg, rgba(0,0,0,.14) 0 1px, rgba(255,255,255,.035) 1px 3px,
-                              rgba(0,0,0,0) 3px 9px),
-    linear-gradient(158deg, var(--wal-hi) 0%, var(--wal) 34%, var(--wal-lo) 78%, var(--wal-edge) 100%);
+    /* the grain: fine, low contrast, and never a hard edge */
+    repeating-linear-gradient(89deg, rgba(0,0,0,.07) 0 1px, rgba(0,0,0,0) 1px 4px,
+                              rgba(255,255,255,.022) 4px 5px, rgba(0,0,0,0) 5px 13px),
+    /* the figure: broad soft bands, the thing that makes walnut walnut */
+    repeating-linear-gradient(84deg, rgba(0,0,0,.11) 0 9px, rgba(0,0,0,0) 9px 26px,
+                              rgba(255,255,255,.035) 26px 34px, rgba(0,0,0,0) 34px 62px),
+    radial-gradient(120% 80% at 30% 0%, rgba(255,255,255,.10), rgba(0,0,0,0) 60%),
+    radial-gradient(110% 90% at 80% 100%, rgba(0,0,0,.22), rgba(0,0,0,0) 55%),
+    linear-gradient(158deg, var(--wal-hi) 0%, var(--wal) 38%, var(--wal-lo) 80%, var(--wal-edge) 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.14),          /* the bevel catching light */
-    inset 0 -1px 0 rgba(0,0,0,.5),
+    inset 0 2px 0 rgba(255,255,255,.16),          /* the top edge catching light */
+    inset 0 -3px 5px rgba(0,0,0,.55),             /* and the underside of it */
+    inset 3px 0 6px rgba(0,0,0,.35),
+    inset -3px 0 6px rgba(0,0,0,.35),
     0 0 0 1px var(--wal-edge),
-    0 18px 40px rgba(0,0,0,.55);
+    0 22px 50px rgba(0,0,0,.6);
 }
-/* a hairline of brass just inside the frame, and the ornament running along it */
+/* the playing field is sunk into the wood: a brass line round it, and a shadow
+   falling from the rail onto the felt */
 .boardFrame::before{
-  content:""; position:absolute; inset:calc(var(--frameP, 8px) - 3px);
+  content:""; position:absolute;
+  top:calc(var(--frameP, 9px) - 4px); bottom:calc(var(--frameP, 9px) - 4px);
+  left:calc(var(--frameS, 22px) - 4px); right:calc(var(--frameS, 22px) - 4px);
   border:1px solid var(--br-line);
   border-radius:3px;
+  box-shadow:0 0 10px 3px rgba(0,0,0,.45) inset, 0 2px 6px rgba(0,0,0,.5);
   pointer-events:none; z-index:2;
 }
 .boardFrame::after{
   content:""; position:absolute; inset:1px;
   pointer-events:none; z-index:3;
-  background:var(--br);
-  opacity:.34;
-  /* the same scroll in all four corners, each turned to face out of its own —
-     a mask cannot rotate, so the four are drawn as four backgrounds and the
-     element is mirrored by the shorthand's position keywords */
+  background:linear-gradient(160deg, var(--br-hi), var(--br) 45%, var(--br-lo));
+  opacity:.72;
+  /* The carving on the rail: a band running the length of each side, and a
+     scroll turned into each corner. A mask cannot be rotated, so the four
+     corners are four drawings; they are one file's worth of path each. */
+  --ornW:calc(var(--frameS, 22px) * .60);
+  --ornC:calc(var(--frameS, 22px) * 1.5);
   -webkit-mask:
-    var(--ornCorner) no-repeat left top / 26px 26px,
-    var(--ornCornerR) no-repeat right top / 26px 26px,
-    var(--ornCornerB) no-repeat left bottom / 26px 26px,
-    var(--ornCornerRB) no-repeat right bottom / 26px 26px;
+    var(--ornBand) repeat-y left calc(var(--frameS, 22px) * .19) top 0 / var(--ornW) calc(var(--ornW) * 2.3),
+    var(--ornBand) repeat-y right calc(var(--frameS, 22px) * .24) top 0 / var(--ornW) calc(var(--ornW) * 2.3),
+    var(--ornCorner) no-repeat left top / var(--ornC) var(--ornC),
+    var(--ornCornerR) no-repeat right top / var(--ornC) var(--ornC),
+    var(--ornCornerB) no-repeat left bottom / var(--ornC) var(--ornC),
+    var(--ornCornerRB) no-repeat right bottom / var(--ornC) var(--ornC);
   mask:
-    var(--ornCorner) no-repeat left top / 26px 26px,
-    var(--ornCornerR) no-repeat right top / 26px 26px,
-    var(--ornCornerB) no-repeat left bottom / 26px 26px,
-    var(--ornCornerRB) no-repeat right bottom / 26px 26px;
+    var(--ornBand) repeat-y left calc(var(--frameS, 22px) * .24) top 0 / var(--ornW) calc(var(--ornW) * 2.3),
+    var(--ornBand) repeat-y right calc(var(--frameS, 22px) * .24) top 0 / var(--ornW) calc(var(--ornW) * 2.3),
+    var(--ornCorner) no-repeat left top / var(--ornC) var(--ornC),
+    var(--ornCornerR) no-repeat right top / var(--ornC) var(--ornC),
+    var(--ornCornerB) no-repeat left bottom / var(--ornC) var(--ornC),
+    var(--ornCornerRB) no-repeat right bottom / var(--ornC) var(--ornC);
 }
 
 /* =====================================================================
@@ -185,10 +207,12 @@ body{
   position:relative; display:flex; flex-direction:column;
   border-radius:2px; overflow:hidden;
   background:
-    repeating-linear-gradient(91deg, rgba(0,0,0,.10) 0 1px, rgba(255,255,255,.022) 1px 4px,
-                              rgba(0,0,0,0) 4px 10px),
-    linear-gradient(180deg, #3a2718 0%, #2c1c11 52%, #35231500 52%, #2c1c11 100%),
-    linear-gradient(180deg, #332215, #281a10);
+    repeating-linear-gradient(90deg, rgba(0,0,0,.06) 0 1px, rgba(0,0,0,0) 1px 5px,
+                              rgba(255,255,255,.02) 5px 6px, rgba(0,0,0,0) 6px 15px),
+    repeating-linear-gradient(86deg, rgba(0,0,0,.09) 0 11px, rgba(0,0,0,0) 11px 30px,
+                              rgba(255,255,255,.028) 30px 39px, rgba(0,0,0,0) 39px 70px),
+    radial-gradient(100% 70% at 50% 0%, rgba(255,255,255,.06), rgba(0,0,0,0) 62%),
+    linear-gradient(180deg, #3b2819, #2d1d12 55%, #241710);
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.65), inset 0 8px 26px rgba(0,0,0,.42);
 }
 .nrow{ display:flex; height:var(--rowH); align-items:stretch; }
@@ -326,16 +350,18 @@ body{
   background:
     linear-gradient(90deg, rgba(0,0,0,.5), rgba(0,0,0,0) 22%, rgba(0,0,0,0) 78%, rgba(0,0,0,.5)),
     linear-gradient(90deg, var(--wal-lo), var(--wal) 40%, var(--wal-hi) 52%, var(--wal) 62%, var(--wal-lo));
-  box-shadow:inset 1px 0 0 rgba(0,0,0,.6), inset -1px 0 0 rgba(0,0,0,.6);
+  box-shadow:inset 1px 0 0 rgba(0,0,0,.6), inset -1px 0 0 rgba(0,0,0,.6),
+             inset 2px 0 0 rgba(201,164,90,.18), inset -2px 0 0 rgba(201,164,90,.18);
   display:flex; flex-direction:column; align-items:center; justify-content:space-between;
   padding:2% 0;
 }
 .nmid::before{
-  content:""; position:absolute; left:50%; top:12%; bottom:12%;
-  width:10px; transform:translateX(-50%);
-  background:var(--br); opacity:.22; pointer-events:none;
-  -webkit-mask:var(--ornBand) repeat-y center / 100% 30px;
-  mask:var(--ornBand) repeat-y center / 100% 30px;
+  content:""; position:absolute; left:50%; top:9%; bottom:9%;
+  width:72%; transform:translateX(-50%);
+  background:linear-gradient(160deg, var(--br-hi), var(--br) 45%, var(--br-lo));
+  opacity:.62; pointer-events:none; z-index:0;
+  -webkit-mask:var(--ornBand) repeat-y center / 100% calc(var(--barW, 24px) * 1.9);
+  mask:var(--ornBand) repeat-y center / 100% calc(var(--barW, 24px) * 1.9);
 }
 .nmid .hinge{
   flex:none; width:56%; height:0; padding-bottom:26%; border-radius:2px;
@@ -358,13 +384,17 @@ body{
   display:flex; flex-direction:column; align-items:center;
 }
 .nrow.nbot .npt{ flex-direction:column-reverse; }
+/* A point is inlaid: the wood is cut away and the ivory or the wine is let in,
+   with a line of brass round the edge of it. The outer shape IS that line —
+   the inner one sits a pixel and a half inside it. */
 .npt .tri{
-  position:absolute; left:11%; right:11%; top:2%; bottom:4%;
-  background:var(--ptEdge, rgba(201,164,90,.45));
+  position:absolute; left:13%; right:13%; top:2%; bottom:4%;
+  background:var(--ptEdge, rgba(214,178,102,.85));
   clip-path:polygon(0 0, 100% 0, 50% 100%);
+  filter:drop-shadow(0 1px 1px rgba(0,0,0,.5));
 }
 .npt .tri::after{
-  content:""; position:absolute; inset:1px;
+  content:""; position:absolute; inset:1.5px;
   background:var(--ptFill, linear-gradient(180deg, var(--ivory-hi), var(--ivory-lo)));
   clip-path:polygon(0 0, 100% 0, 50% 100%);
 }
@@ -397,14 +427,30 @@ body{
    Turned discs, ivory and wine, with a brass rim and a small engraved rosette.
    The engraving is deliberately faint: it is a mark on a playing piece, not a
    picture of anything. */
+/* A checker is a turned disc with thickness, not a coloured circle. The stack
+   of flat shadows under it is its EDGE — each one a millimetre of the side of
+   the piece catching less light than the one above — and the inset pair is the
+   bevel where the top face rolls over into it. The brass ring is the band
+   round the rim. */
 .chk{
   position:relative; flex:none;
   width:var(--cd); height:var(--cd); border-radius:50%;
   margin-top:var(--chkGap, 0px);
-  /* the outer ring is what keeps a stack of fifteen from reading as one
-     striped column: every disc gets an edge of its own */
-  box-shadow:0 0 0 1px var(--br-lo), 0 2px 3px rgba(0,0,0,.55),
-             inset 0 1px 0 rgba(255,255,255,.22);
+  box-shadow:
+    0 0 0 1px var(--br-lo),                       /* the rim */
+    0 1px 0 rgba(0,0,0,.40),                      /* and the side of it, */
+    0 2px 0 rgba(0,0,0,.34),                      /* a layer at a time */
+    0 3px 0 rgba(0,0,0,.28),
+    0 4px 0 rgba(0,0,0,.20),
+    0 6px 8px rgba(0,0,0,.55),                    /* what it casts on the felt */
+    inset 0 2px 2px rgba(255,255,255,.42),        /* the bevel, lit from above */
+    inset 0 -3px 4px rgba(0,0,0,.34);
+}
+/* the groove turned into the face, just inside the rim */
+.chk::before{
+  content:""; position:absolute; inset:11%;
+  border-radius:50%;
+  box-shadow:inset 0 1px 1px rgba(0,0,0,.34), 0 1px 0 rgba(255,255,255,.22);
 }
 .nrow.nbot .chk{ margin-top:0; margin-bottom:var(--chkGap, 0px); }
 .chk.w{
@@ -427,7 +473,9 @@ body{
 }
 .chk .more{
   position:absolute; inset:0; z-index:2; display:grid; place-items:center;
-  font:700 calc(var(--cd) * .46)/1 var(--font-ui); color:var(--wal-lo);
+  /* how many are in the stack, and it has to be readable: the wider rail
+     took the checker down far enough that this fell under ten pixels */
+  font:700 max(10px, calc(var(--cd) * .46))/1 var(--font-ui); color:var(--wal-lo);
 }
 .chk.b .more{ color:var(--ivory-hi); }
 
