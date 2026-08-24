@@ -119,6 +119,7 @@
   <script src="js/versus.js"></script>
   <script src="js/sound.js"></script>
   <script src="js/haptic.js"></script>
+  <script src="js/turnring.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
@@ -467,7 +468,9 @@
         const box = document.getElementById("seat" + rel[0].toUpperCase() + rel.slice(1));
         box.innerHTML = "";
         if (!q) continue;
-        box.classList.toggle("turn", S.turn === q.seat && S.phase === "play");
+        const onClock = S.turn === q.seat && S.phase === "play";
+        box.classList.toggle("turn", onClock);
+        if (window.TurnRing) TurnRing.set(box, onClock, S.moveLeft, S.moveTime);
 
         const who = document.createElement("div");
         who.className = "who";

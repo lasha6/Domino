@@ -128,6 +128,7 @@
   <script src="js/versus.js"></script>
   <script src="js/sound.js"></script>
   <script src="js/haptic.js"></script>
+  <script src="js/turnring.js"></script>
   <script src="js/fx.js"></script>
   <script>
     /* ბურა against a real opponent. The server holds the game and checks every
@@ -364,7 +365,10 @@
         const q = four ? seatsOf().find((x) => x.rel === rel) : null;
         box.innerHTML = "";
         box.style.display = q ? "" : "none";
-        box.classList.toggle("turn", !!q && S.turn === q.seat && S.phase === "play");
+        const onClock = !!q && S.turn === q.seat && S.phase === "play";
+        box.classList.toggle("turn", onClock);
+        // and the clock they are on, drawn round them rather than written out
+        if (window.TurnRing) TurnRing.set(box, onClock, S.moveLeft, S.moveTime);
         if (!q) continue;
         const who = document.createElement("div");
         who.className = "who";

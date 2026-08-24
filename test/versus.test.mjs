@@ -165,3 +165,46 @@ test("every screen that makes a sound can also buzz", () => {
       f + ": haptic.js must load after sound.js, or it has nothing to wrap");
   }
 });
+
+/* ---------------- whose turn it is ---------------- */
+
+test("the ring is a CSS animation, not a timer nobody is ticking", () => {
+  /* The server sends `moveLeft` when something happens, not once a second, so
+     a ring driven off state pushes would jump rather than sweep. */
+  const ring = readFileSync(path.join(ROOT, "public", "js", "turnring.js"), "utf8");
+  assert.doesNotMatch(ring, /setInterval|setTimeout/, "the ring must not tick in JS");
+  assert.match(base, /@keyframes turnDrain/, "there is nothing to drain");
+  assert.match(base, /animation:turnDrain var\(--tSec/, "the drain is not run");
+});
+
+test("a player who arrives mid-turn joins the ring where the clock is", () => {
+  /* A negative delay starts an animation partway through. Without it, opening
+     the screen with eight seconds left would show a full ring. */
+  const ring = readFileSync(path.join(ROOT, "public", "js", "turnring.js"), "utf8");
+  assert.match(ring, /--tFrom", "-" \+ spent \+ "s"/, "there is no negative delay");
+  assert.match(base, /animation:turnDrain var\(--tSec, 25s\) linear var\(--tFrom/);
+});
+
+test("a state push in the middle of a turn does not send the ring back to full", () => {
+  const ring = readFileSync(path.join(ROOT, "public", "js", "turnring.js"), "utf8");
+  assert.match(ring, /if \(el\.dataset\.ring === key\) return;/,
+    "every push would restart the ring");
+  assert.match(ring, /spent < wasSpent/, "a tick and a new turn are not told apart");
+});
+
+test("a browser without an animatable custom property still says whose turn", () => {
+  /* Without @property the angle cannot be interpolated, so the sweep would
+     jump from full to empty in one step. Better a steady lit rim than a ring
+     that lies about the time left. */
+  assert.match(base, /@supports not \(background:conic-gradient/,
+    "there is no fallback for the ring");
+  assert.match(base, /@property --tTurn/);
+});
+
+test("every screen with a clock draws the ring", () => {
+  for (const f of ["nardi.html", "damka.html", "buraonline.html", "jokeronline.html"]) {
+    const html = readFileSync(path.join(ROOT, "public", f), "utf8");
+    assert.match(html, /src="js\/turnring\.js"/, f + " never loads turnring.js");
+    assert.match(html, /TurnRing\.set\(/, f + " never sets the ring");
+  }
+});

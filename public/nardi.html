@@ -110,6 +110,7 @@
   <script src="js/versus.js"></script>
   <script src="js/sound.js"></script>
   <script src="js/haptic.js"></script>
+  <script src="js/turnring.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/nardi.js"></script>
   <script src="js/coins.js"></script>
@@ -631,6 +632,7 @@
      is right before the first packet arrives; the other one waits for the
      server to say who sat down. */
   let opp = { name: "", pic: null, level: null, bot: false };
+  let clockLeft = null, clockTotal = null;
   let mine = { name: "", pic: null, level: null, coins: null };
   function seatPlates() {
     /* Offline this device is the only source there is; online the server is,
@@ -652,6 +654,16 @@
     rank(document.getElementById("themLevel"), ONLINE ? opp.level : null);
     face(document.getElementById("themFace"), ONLINE ? opp.pic : null,
          ONLINE ? (opp.name || "?") : "\u2699");
+
+    /* The ring goes on whoever is on the clock. Offline there is no clock, so
+       the turn is shown without a countdown \u2014 it lights, it does not drain. */
+    if (window.TurnRing) {
+      const live = !!g && !busy && g.phase !== "over";
+      TurnRing.set(document.querySelector("#seatMe .avatar"),
+                   live && g.side === ME, clockLeft, clockTotal);
+      TurnRing.set(document.querySelector("#seatThem .avatar"),
+                   live && g.side !== ME, clockLeft, clockTotal);
+    }
   }
   // a rank with no number is not a rank: the chip goes away rather than sit empty
   function rank(el, level) {
@@ -1059,6 +1071,7 @@
     if (st.seat != null && st.seat !== ME) { ME = st.seat; CPU = 1 - ME; build(); fit(); }
     seated = true;
     lastState = st;
+    clockLeft = st.moveLeft; clockTotal = st.moveTime;
     maybeVersus(st, "nardi", !!st.pts && st.phase === "play");
     if (!g) g = Nardi.newGame({ variant: st.variant || VARIANT, target: st.target || TARGET });
     if (st.pts) {

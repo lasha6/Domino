@@ -572,3 +572,46 @@ body::after{
   .vsEnd .vsSide:not(.beat) .vsFace{ animation:none; }
   .vsXpBar i{ transition-duration:1ms; }
 }
+
+/* ---------------- whose turn it is ----------------
+   A ring that empties, drawn round whoever is on the clock. It is seen
+   without being looked at, which is the whole point: a player watching the
+   board should not have to read a line of text to know the turn has come to
+   them.
+
+   The sweep is a conic gradient with one animated angle. `--tFrom` is a
+   NEGATIVE delay, so a player who opens the screen halfway through somebody
+   else's turn joins the ring where the clock already is rather than at the
+   top. */
+.onTurn{ position:relative; }
+.onTurn::after{
+  content:""; position:absolute; inset:-5px; border-radius:inherit;
+  pointer-events:none; z-index:3;
+  background:conic-gradient(from -90deg,
+    var(--brass-lit) calc(var(--tTurn, 1) * 360deg),
+    rgba(0,0,0,0) 0);
+  /* only the rim of it: the middle is cut out so the face still shows */
+  -webkit-mask:radial-gradient(closest-side, rgba(0,0,0,0) calc(100% - 3px), #000 calc(100% - 3px));
+  mask:radial-gradient(closest-side, rgba(0,0,0,0) calc(100% - 3px), #000 calc(100% - 3px));
+  filter:drop-shadow(0 0 5px rgba(242,205,126,.55));
+}
+/* an avatar is round, a plate is not: the ring follows whichever it is on */
+.seatPlate.onTurn::after{ inset:-3px; border-radius:999px; }
+.vsFace.onTurn::after, .avatar.onTurn::after{ border-radius:50%; }
+
+.onTurn.ticking::after{
+  animation:turnDrain var(--tSec, 25s) linear var(--tFrom, 0s) forwards;
+}
+@property --tTurn{ syntax:"<number>"; inherits:false; initial-value:1; }
+@keyframes turnDrain{ from{ --tTurn:1 } to{ --tTurn:0 } }
+
+/* Without @property the angle cannot be interpolated, so the ring would jump
+   from full to empty in one step. A browser that does not have it gets a
+   steady lit rim instead — still the right answer to "whose turn", just
+   without the countdown. */
+@supports not (background:conic-gradient(from -90deg, red calc(var(--x, 1) * 360deg), blue 0)){
+  .onTurn::after{ background:none; box-shadow:0 0 0 2px var(--brass-lit); }
+}
+@media (prefers-reduced-motion:reduce){
+  .onTurn.ticking::after{ animation:none; }
+}

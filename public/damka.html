@@ -82,6 +82,7 @@
   <script src="js/versus.js"></script>
   <script src="js/sound.js"></script>
   <script src="js/haptic.js"></script>
+  <script src="js/turnring.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/damka.js"></script>
   <script src="js/config.js"></script>
@@ -154,6 +155,7 @@
   /* Who is playing. Offline this device is the only source there is; online
      the server is, because a level and a purse are its to say. */
   let opp = { name: "", pic: null, level: null, bot: false };
+  let clockLeft = null, clockTotal = null;
   let mine = { name: "", pic: null, level: null, coins: null };
   function seatPlates() {
     const acc = (window.Auth && Auth.load && Auth.load()) || {};
@@ -172,6 +174,16 @@
     rank(document.getElementById("themLevel"), ONLINE ? opp.level : null);
     face(document.getElementById("themFace"), ONLINE ? opp.pic : null,
          ONLINE ? (opp.name || "?") : "\u2699");
+
+    /* The ring goes on whoever is on the clock. Offline there is no clock, so
+       the turn is shown without a countdown \u2014 it lights, it does not drain. */
+    if (window.TurnRing) {
+      const live = !!g && !busy && g.phase !== "over";
+      TurnRing.set(document.querySelector("#seatMe .avatar"),
+                   live && g.side === ME, clockLeft, clockTotal);
+      TurnRing.set(document.querySelector("#seatThem .avatar"),
+                   live && g.side !== ME, clockLeft, clockTotal);
+    }
   }
   // a rank with no number is not a rank: the chip goes rather than sit empty
   function rank(el, level) {
@@ -332,6 +344,7 @@
   function applyState(st) {
     if (st.seat != null && st.seat !== ME) { ME = st.seat; CPU = 1 - ME; build(); fit(); }
     seated = true;
+    clockLeft = st.moveLeft; clockTotal = st.moveTime;
     maybeVersus(st, "damka", !!st.cells && st.phase === "play");
     if (!g) g = Damka.newGame({});
     if (st.cells) {
