@@ -533,3 +533,29 @@
 @media (max-width:900px){
   .stage .top .stat.stake{ display:none; }      /* the stake matters least mid-hand */
 }
+
+/* =====================================================================
+   The card just played.
+
+   At a table of four the pile grows while you are looking at your own hand.
+   You look up and there are three cards on the table where there was one,
+   and no way to tell which of them landed a moment ago.
+
+   `.took` — the hand that WON the trick — is already two solid pixels of
+   brass, so this cannot be another brass ring or the two would be read as the
+   same thing. It is a lift instead: the card stands a little proud of the
+   pile, the way the one you just threw down actually does.
+   ===================================================================== */
+.trickRow.justPlayed .card{
+  box-shadow:0 0 0 1px rgba(236,207,144,.55),
+             0 6px 14px rgba(0,0,0,.55), 0 14px 26px rgba(0,0,0,.3);
+  transform:translateY(-3px);
+}
+.trickRow.justPlayed.took .card{
+  /* whoever took it wins the argument: that is the fact worth reading */
+  box-shadow:0 0 0 2px var(--brass), 0 4px 10px rgba(0,0,0,.5);
+  transform:none;
+}
+@media (prefers-reduced-motion:reduce){
+  .trickRow.justPlayed .card{ transform:none; }
+}

@@ -880,3 +880,73 @@ svg.grain{
   .stage .top .stat .k{ display:none; }
   .stage .top .stat b{ font-size:13px; }
 }
+
+/* =====================================================================
+   What they just did.
+
+   Not the inlay lit up — that is what a point you can PLAY looks like, and
+   the difference matters: `can` and `from` are things to act on, this is
+   something to read. So the mark goes on the wood AROUND the point, with a
+   brass bar across the inner end where it stays visible however many
+   checkers are stacked on it.
+
+   It pulses three times and then stops. Something that never stops moving on
+   a board stops being read and starts being ignored, and it is still there
+   to be read after it settles.
+   ===================================================================== */
+.npt.lastMove::before{
+  content:""; position:absolute; inset:0; z-index:0; pointer-events:none;
+  background:radial-gradient(ellipse at 50% 30%, rgba(236,207,144,.46), rgba(236,207,144,.10) 62%, transparent 78%);
+  animation:lastPulse 2.2s ease-in-out 3;
+}
+.npt.lastMove::after{
+  content:""; position:absolute; left:16%; right:16%; bottom:2.5%; height:0;
+  z-index:2; pointer-events:none;
+  border-top:2.5px solid var(--br-hi);
+  box-shadow:0 0 7px rgba(236,207,144,.7);
+  animation:lastPulse 2.2s ease-in-out 3;
+}
+/* the near half is the far half turned over, so its inner end is the top */
+.nrow.nbot .npt.lastMove::after{ bottom:auto; top:2.5%; }
+/* The top checker of a marked point wears the mark too, and that is what
+   carries it: the ground behind a point is mostly covered by the checkers
+   standing on it, so on a full point there would be almost nothing to see.
+   A point emptied by the move keeps only the bar, which is why the bar is at
+   the inner end — clear of the stack however high it is. */
+.npt.lastMove .chk:last-child{
+  box-shadow:0 0 0 1.5px rgba(236,207,144,.8), 0 0 6px rgba(236,207,144,.4),
+             0 2px 3px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.22);
+}
+/* except when it is one of yours in your hand — that is a live choice, and a
+   live choice always wins over a note about what already happened */
+.npt.lastMove.from .chk:last-child, .npt.lastMove.pick .chk:last-child{
+  box-shadow:0 0 0 2px var(--br-hi), 0 0 8px rgba(236,207,144,.55),
+             0 2px 3px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.25);
+}
+
+/* the point and its checkers stay above the ground: it is a mark, not a veil */
+.npt.lastMove .tri, .npt.lastMove .chk{ position:relative; z-index:1; }
+.npt.lastMove .tri{ position:absolute; }   /* except the inlay, which is placed */
+
+/* A square is flat, so the same idea is simply a wash across it. It has to be
+   told apart from `.from` (a two-pixel brass inset) and `.last` (a one-pixel
+   one), both of which mean "yours, and it can move" — hence a fill and not
+   another line. */
+.dsq.lastMove::before{
+  content:""; position:absolute; inset:0; z-index:0; pointer-events:none;
+  background:rgba(236,207,144,.24);
+  box-shadow:inset 0 0 0 1.5px rgba(236,207,144,.55);
+  animation:lastPulse 2.2s ease-in-out 3;
+}
+.dsq.lastMove .pc{ z-index:1; }
+/* the man who arrived carries it as well, the same as a ნარდი checker does */
+.dsq.lastMove .pc{ box-shadow:0 0 0 1.5px rgba(236,207,144,.75), 0 2px 4px rgba(0,0,0,.5); }
+/* but a live choice always wins over a note about what already happened */
+.dsq.lastMove.from .pc, .dsq.lastMove.last .pc{ box-shadow:0 2px 4px rgba(0,0,0,.5); }
+
+@keyframes lastPulse{ 0%,100%{ opacity:.5; } 50%{ opacity:1; } }
+@media (prefers-reduced-motion:reduce){
+  .npt.lastMove::before, .npt.lastMove::after, .dsq.lastMove::before{
+    animation:none; opacity:.85;
+  }
+}

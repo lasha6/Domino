@@ -111,6 +111,7 @@
   <script src="js/sound.js"></script>
   <script src="js/haptic.js"></script>
   <script src="js/turnring.js"></script>
+  <script src="js/lastmove.js"></script>
   <script src="js/emote.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/nardi.js"></script>
@@ -507,7 +508,8 @@
     const seen = g.pts;
     document.querySelectorAll(".npt").forEach((el) => {
       const pt = +el.dataset.pt;
-      el.className = "npt" + (pt % 2 ? " odd" : "");
+      // the mark is re-applied here because draw() rebuilds every class
+      el.className = "npt" + (pt % 2 ? " odd" : "") + (theirs.has(pt) ? " lastMove" : "");
       el.querySelectorAll(".chk").forEach((c) => c.remove());
       const n = Math.abs(seen[pt]);
       if (!n) return;
@@ -736,6 +738,7 @@
      checker with a die that has not landed yet. */
   async function doRoll() {
     if (!g || g.phase !== "roll" || g.side !== ME || busy) return;
+    theirs.clear();                                 // the turn is under way
     if (ONLINE) { socket.emit("nRoll"); return; }   // the server throws them
     busy = true;
     const rolled = Nardi.roll(g);
@@ -868,6 +871,9 @@
   }
 
   function play(from, die) {
+    // acting on it is reading it: the mark has done its job by now, and
+    // leaving it up would only compete with what this player is doing
+    theirs.clear();
     if (ONLINE) { socket.emit("nMove", { from, die }); picked = null; highlight(); return; }
     hist.push(JSON.stringify(g));
     Nardi.move(g, from, die, true);      // held open: the turn ends on მზადაა
@@ -1069,6 +1075,13 @@
     });
   }
 
+  /* What the other player just did, kept until this player acts on it.
+     Online a move happens while you are looking somewhere else; the board is
+     simply different when you look back, with nothing to say whether one
+     checker moved or three. */
+  const theirs = window.LastMove ? LastMove.track()
+                                 : { note(){ return this; }, has(){ return false; }, clear(){ return this; } };
+
   /* Two seats, two plates. */
   const emoteAnchor = (seat) =>
     document.getElementById(seat === ME ? "seatMe" : "seatThem");
@@ -1090,6 +1103,15 @@
     wireEmotes(st);
     if (!g) g = Nardi.newGame({ variant: st.variant || VARIANT, target: st.target || TARGET });
     if (st.pts) {
+      /* Which points are not what they were. Taken BEFORE the board is
+         overwritten, and only for the other player's moves — a player who
+         watched themselves move needs no reminder of where they put it.
+
+         Who MOVED is the side that was on turn before this state arrived, not
+         the one on turn in it. Here a turn holds across several moves so the
+         two are usually the same, but on the state that ends a turn they are
+         not, and that is the one carrying the last move of it. */
+      theirs.note(g.pts, st.pts, g.side === ME);
       g.pts = st.pts.slice(); g.bar = st.bar.slice(); g.off = st.off.slice();
       g.side = st.side; g.dice = st.dice ? st.dice.slice() : null;
       g.left = st.left ? st.left.slice() : [];

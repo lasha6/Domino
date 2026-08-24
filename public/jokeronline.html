@@ -512,6 +512,12 @@
         if (Joker.isJoker(p.card)) card.title = p.high ? "მაღლა" : "დაბლა";
         d.appendChild(card);
         d.classList.add("at-" + REL[(p.seat - S.seat + 4) % 4]);
+        /* The last one played, marked, while the trick is still open — at a
+           table of four the pile grows while you are looking at your own hand.
+           Never your own: you watched yourself play it. Once the trick is over
+           the mark comes off, because then what matters is who took it. */
+        if (S.trick.length && i === show.length - 1 && p.seat !== S.seat)
+          d.classList.add("justPlayed");
         d.style.zIndex = String(2 + i);
         box.appendChild(d);
       });

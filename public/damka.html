@@ -83,6 +83,7 @@
   <script src="js/sound.js"></script>
   <script src="js/haptic.js"></script>
   <script src="js/turnring.js"></script>
+  <script src="js/lastmove.js"></script>
   <script src="js/emote.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/damka.js"></script>
@@ -212,7 +213,9 @@
     document.querySelectorAll(".dsq").forEach((el) => {
       const s = +el.dataset.sq;
       const r = Damka.rowOf(s), c = Damka.colOf(s);
-      el.className = "dsq " + (Damka.dark(r, c) ? "dark" : "light");
+      // the mark is re-applied here because draw() rebuilds every class
+      el.className = "dsq " + (Damka.dark(r, c) ? "dark" : "light")
+        + (theirs.has(s) ? " lastMove" : "");
       el.innerHTML = "";
       const v = Damka.at(g, r, c);
       if (!v) return;
@@ -257,6 +260,8 @@
   }
 
   function play(from, to) {
+    // acting on it is reading it: the mark has done its job by now
+    theirs.clear();
     if (ONLINE) { socket.emit("dMove", { from, to }); picked = null; draw(); return; }
     const was = g.side;
     Damka.move(g, from, to);
@@ -343,6 +348,12 @@
     Versus.show(st, { game });
   }
 
+  /* What the other player just did, kept until this player acts on it.
+     Online a move happens while you are looking somewhere else; the board is
+     simply different when you look back. */
+  const theirs = window.LastMove ? LastMove.track()
+                                 : { note(){ return this; }, has(){ return false; }, clear(){ return this; } };
+
   /* Two seats, two plates. */
   const emoteAnchor = (seat) =>
     document.getElementById(seat === ME ? "seatMe" : "seatThem");
@@ -363,6 +374,16 @@
     wireEmotes(st);
     if (!g) g = Damka.newGame({});
     if (st.cells) {
+      /* Which squares are not what they were. Taken BEFORE the board is
+         overwritten, and only for the other player's moves — a jump can pass
+         over four squares and, coming back to the tab, there is otherwise
+         nothing to say which piece went where.
+
+         Who MOVED is the side that was on turn before this state arrived, not
+         the one on turn in it: in დამკა the turn flips with the move, so
+         reading st.side would credit every move to the wrong player and
+         throw away every mark the moment it was made. */
+      theirs.note(g.cells, st.cells, g.side === ME);
       g.cells = st.cells.slice();
       g.side = st.side;
       g.mustFrom = st.mustFrom;
