@@ -33,6 +33,46 @@
   const sameCard = (a, b) => a[0] === b[0] && a[1] === b[1];
   const nameOf = (c) => (isJoker(c) ? "ჯოკერი" : RANKS[c[1]] + SUITS[c[0]]);
 
+  /* ---------------- how a hand is held ----------------
+     Trumps first and highest first, the other suits after them, the jokers on
+     the end. A player has to see at a glance what he holds and in which suit
+     before he can say what he will take, and a shuffled fan tells him nothing.
+
+     It is sorted again when the trump is named, because until then there is no
+     first suit to put first. */
+  const isRed = (s) => s === 1 || s === 2;          // ♥ and ♦
+
+  /* Trumps first, and after them the colours alternate: two red suits side by
+     side blur into one long red block, and the player is counting suits, not
+     admiring them. */
+  function suitOrder(trump) {
+    const out = [];
+    let rest = [0, 1, 2, 3];
+    if (trump != null && trump !== NOTRUMP) {
+      out.push(trump);
+      rest = rest.filter((s) => s !== trump);
+    }
+    while (rest.length) {
+      const wantRed = out.length ? !isRed(out[out.length - 1]) : false;
+      let i = rest.findIndex((s) => isRed(s) === wantRed);
+      if (i < 0) i = 0;
+      out.push(rest[i]);
+      rest.splice(i, 1);
+    }
+    return out;
+  }
+
+  function sortHand(hand, trump) {
+    const order = suitOrder(trump);
+    const bySuit = (c) => {
+      const s = suitOf(c);
+      return s === JOKER ? 9 : order.indexOf(s);   // the jokers go last, always
+    };
+    hand.sort((a, b) => bySuit(a) - bySuit(b) || rankOf(b) - rankOf(a));
+    return hand;
+  }
+  const sortHands = (g) => { g.hands.forEach((h) => sortHand(h, g.trump)); return g; };
+
   /* The deck: 36 cards, but the two BLACK sixes are not in it — the jokers take
      their place. So 34 ordinary cards and two jokers. */
   function makeDeck() {
@@ -167,6 +207,7 @@
       // three cards to the player who will choose, and nothing more yet
       const chooser = leftOfDealer(g);
       for (let i = 0; i < 3; i++) g.hands[chooser].push(g.deck.pop());
+      sortHands(g);
       g.phase = "choose";
       g.turn = chooser;
       g.log = "კოზირს აცხადებს";
@@ -178,6 +219,7 @@
         g.hands[seat].push(g.deck.pop());
     g.turned = g.deck.pop() || null;
     g.trump = (g.turned && !isJoker(g.turned)) ? suitOf(g.turned) : NOTRUMP;
+    sortHands(g);
     startBidding(g);
     return true;
   }
@@ -193,6 +235,7 @@
     while (g.deck.length)
       for (let p = 0, st = leftOfDealer(g); p < g.players && g.deck.length; p++, st = nextSeat(g, st))
         if (g.hands[st].length < s.size) g.hands[st].push(g.deck.pop());
+    sortHands(g);           // the trump is known now, so it goes to the front
     startBidding(g);
     return true;
   }
@@ -410,7 +453,7 @@
   return {
     SUITS, RANKS, JOKER, NOTRUMP, SET_SIZES, SCHEDULE, HANDS, WHIST,
     suitOf, rankOf, isJoker, sameCard, nameOf, makeDeck, shuffle,
-    handScore, trickWinner,
+    handScore, trickWinner, sortHand, suitOrder,
     newGame, deal, chooseTrump, spec, nextSeat, leftOfDealer,
     startBidding, canBid, bid, forbiddenBid, bidTotal, bidsIn,
     legalPlays, canPlay, play, finishHand, nextHand,

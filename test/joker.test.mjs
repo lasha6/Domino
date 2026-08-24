@@ -571,3 +571,87 @@ test("a set that has not finished has nothing written against it", () => {
   J.finishHand(g);
   assert.deepEqual(g.bonuses, {}, "not until the set is done");
 });
+
+/* ---------------- how a hand is held ---------------- */
+
+test("a hand is held trumps first, highest first, jokers last", () => {
+  /* A player has to see at a glance what he holds and in which suit before he
+     can say what he will take. A shuffled fan tells him nothing. */
+  const T = 2;                                  // ♦ is trump
+  const hand = [
+    [0, 8], [4, 0], [2, 3], [1, 6], [2, 8], [3, 1], [2, 5], [4, 1], [1, 2],
+  ];
+  J.sortHand(hand, T);
+
+  const suits = hand.map((c) => c[0]);
+  assert.deepEqual(suits.slice(0, 3), [T, T, T], "every diamond comes first");
+  assert.deepEqual(suits.slice(-2), [J.JOKER, J.JOKER], "and the jokers are last");
+
+  // inside a suit, the ace leads
+  const diamonds = hand.filter((c) => c[0] === T).map((c) => c[1]);
+  assert.deepEqual(diamonds, [8, 5, 3], "A, then down");
+
+  // every suit stays in one block: no card of a suit appears after another suit
+  const seen = [];
+  for (const s of suits) if (!seen.length || seen[seen.length - 1] !== s) seen.push(s);
+  assert.equal(new Set(seen).size, seen.length, "a suit is not split in two");
+});
+
+test("after the trump, the colours alternate", () => {
+  /* Two red suits side by side blur into one long red block, and a player
+     counting his hearts should not have to pick them out of the diamonds. */
+  const red = (s) => s === 1 || s === 2;
+  for (const trump of [0, 1, 2, 3, J.NOTRUMP]) {
+    const order = J.suitOrder(trump);
+    assert.equal(order.length, 4, "all four suits, once each");
+    assert.equal(new Set(order).size, 4);
+    if (trump !== J.NOTRUMP) assert.equal(order[0], trump, "the trump leads");
+    for (let i = 1; i < order.length; i++)
+      assert.notEqual(red(order[i]), red(order[i - 1]),
+        "trump " + trump + " gives " + order.join(",") + ", two of a colour together");
+  }
+});
+
+test("with ბეზი there is no first suit, and nothing pretends there is", () => {
+  const hand = [[3, 2], [0, 8], [4, 0], [1, 5], [0, 1]];
+  J.sortHand(hand, J.NOTRUMP);
+  assert.deepEqual(hand.map((c) => c[0]), [0, 0, 1, 3, J.JOKER]);
+  assert.deepEqual(hand.filter((c) => c[0] === 0).map((c) => c[1]), [8, 1]);
+});
+
+test("the hands come off the deal already sorted, and again once a trump is named", () => {
+  const g = J.newGame({ seed: 5 });
+  J.deal(g);
+
+  const sorted = (hand, trump) => {
+    const key = (c) => (c[0] === J.JOKER ? 9 : (trump !== J.NOTRUMP && c[0] === trump ? -1 : c[0]));
+    for (let i = 1; i < hand.length; i++) {
+      const a = hand[i - 1], b = hand[i];
+      if (key(a) > key(b)) return false;
+      if (key(a) === key(b) && a[1] < b[1]) return false;
+    }
+    return true;
+  };
+
+  if (g.phase === "choose") {
+    // the nine-card hands: three cards seen, a suit named, then the rest
+    assert.ok(sorted(g.hands[g.turn], g.trump), "the three he chooses from are in order");
+    J.chooseTrump(g, g.turn, 1);
+    for (let seat = 0; seat < 4; seat++)
+      assert.ok(sorted(g.hands[seat], g.trump),
+        "seat " + seat + " holds hearts first once hearts are named");
+  }
+  for (let seat = 0; seat < 4; seat++)
+    assert.ok(sorted(g.hands[seat], g.trump), "seat " + seat + " is in order");
+});
+
+test("sorting a hand does not change what is in it", () => {
+  /* The order is for the eye. Losing or duplicating a card while tidying it
+     would be a rules bug wearing a cosmetic hat. */
+  const g = J.newGame({ seed: 11 });
+  J.deal(g);
+  const before = g.hands.map((h) => h.map((c) => c.join(",")).sort().join(" "));
+  g.hands.forEach((h) => J.sortHand(h, 0));
+  const after = g.hands.map((h) => h.map((c) => c.join(",")).sort().join(" "));
+  assert.deepEqual(after, before);
+});
