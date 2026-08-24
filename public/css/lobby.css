@@ -254,16 +254,40 @@
   display:grid; place-items:center; font-size:15px; font-style:normal; }
 .gBura i:first-child{ color:#1b1b22; transform:rotate(-10deg); }
 .gBura i:last-child{ color:#b3202b; transform:rotate(10deg); }
-/* ნარდი: three checkers stacked on a point. დამკა: two draughtsmen, one dark
-   one light, the way a board looks from across the table. */
-.gNardi{ gap:3px; }
-.gNardi i{ width:18px; height:18px; border-radius:50%;
-  background:radial-gradient(circle at 34% 30%, var(--bone-hi), var(--bone-lo));
-  border:1px solid var(--bone-edge); }
-.gNardi i:nth-child(2){ background:radial-gradient(circle at 34% 30%, #4a4038, #17120f);
-  border-color:#0a0806; }
-.gNardi.short i:nth-child(3){ background:radial-gradient(circle at 34% 30%, #4a4038, #17120f);
-  border-color:#0a0806; }
+/* ნარდი: a thrown pair of dice, the way they land on the felt — one leaning
+   left, one right, five pips and three. დამკა keeps its own icon below: two
+   draughtsmen, one dark one light, the way a board looks from across the
+   table. The pips are painted rather than drawn as extra elements, the same
+   trick the ivory-inlaid board uses. */
+.gNardi{ gap:6px; }
+.gNardi i{
+  position:relative; width:20px; height:20px; border-radius:5px;
+  background:linear-gradient(160deg, var(--bone-hi), var(--bone) 55%, var(--bone-lo));
+  border:1px solid var(--bone-edge);
+  box-shadow:0 2px 3px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.5);
+}
+.gNardi i:first-child{ transform:rotate(-10deg); }
+.gNardi i:last-child{ transform:rotate(10deg); }
+.gNardi i::before{
+  content:""; position:absolute; inset:3px;
+  --pip:radial-gradient(circle, #2a1c10 32%, rgba(0,0,0,0) 34%);
+}
+/* five pips, one in each corner and one in the middle */
+.gNardi i:first-child::before{
+  background:
+    var(--pip) 18% 18% / 30% 30% no-repeat,
+    var(--pip) 82% 18% / 30% 30% no-repeat,
+    var(--pip) 50% 50% / 30% 30% no-repeat,
+    var(--pip) 18% 82% / 30% 30% no-repeat,
+    var(--pip) 82% 82% / 30% 30% no-repeat;
+}
+/* three pips, on the diagonal */
+.gNardi i:last-child::before{
+  background:
+    var(--pip) 18% 18% / 30% 30% no-repeat,
+    var(--pip) 50% 50% / 30% 30% no-repeat,
+    var(--pip) 82% 82% / 30% 30% no-repeat;
+}
 .gDamka{ gap:5px; }
 .gDamka i{ width:22px; height:22px; border-radius:50%;
   background:radial-gradient(circle at 34% 28%, var(--bone-hi), var(--bone-lo));
