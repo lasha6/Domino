@@ -148,29 +148,12 @@
         <button class="backGame" onclick="chooseGame(null)">← თამაშები</button>
         <h1 class="logo-title">ნარდი</h1>
         <p class="logo-sub">ონლაინ</p>
-        <div class="games">
-          <button class="game" id="bgLong" onclick="pickBoard('long')">
-            <span class="gArt gNardi"><i></i><i></i><i></i></span>
-            <span class="gName">გრძელი ნარდი</span>
-            <span class="gSub">თავიდან, ჭამის გარეშე</span>
-          </button>
-          <button class="game" id="bgShort" onclick="pickBoard('short')">
-            <span class="gArt gNardi short"><i></i><i></i><i></i></span>
-            <span class="gName">კლასიკური ნარდი</span>
-            <span class="gSub">ჭამით და ბარიდან შემოსვლით</span>
-          </button>
-          <button class="game" id="bgDamka" onclick="pickBoard('damka')">
-            <span class="gArt gDamka"><i></i><i></i></span>
-            <span class="gName">დამკა</span>
-            <span class="gSub">8×8 · ჭამა სავალდებულოა</span>
-          </button>
-        </div>
-        <button class="play" onclick="boardGo('quick')">
+        <button class="play" onclick="openNardiRoom('quick')">
           <span class="arrow">▶</span> ითამაშე
         </button>
         <div class="modes">
-          <button class="mode" onclick="openFriend(boardGame())">👥 მეგობართან</button>
-          <button class="mode" onclick="boardGo('cpu')">🤖 კომპიუტერთან</button>
+          <button class="mode" onclick="openFriend('nardi')">👥 მეგობართან</button>
+          <button class="mode" onclick="openNardiRoom('cpu')">🤖 კომპიუტერთან</button>
         </div>
       </div>
 
@@ -361,6 +344,35 @@
         </button>
       </div>
       <button class="roomClose" onclick="closeJoker()">დახურვა</button>
+    </div>
+  </div>
+
+  <!-- ნარდი / დამკა: the same modal ბურა has, so it survives a phone the
+       same way — three rooms instead of two, and no size to pick between
+       them, but the row still closes up around them centred rather than
+       sitting three cards wide on the room screen itself. -->
+  <div class="roomOverlay" id="nardiOverlay">
+    <div class="roomModal">
+      <h2>ნარდი</h2>
+      <p class="roomSub" id="nardiWhere">კომპიუტერთან — პრაქტიკა, მონეტების გარეშე</p>
+      <div class="rooms">
+        <button class="room best" onclick="startNardiRoom('long')">
+          <span class="gArt gNardi"><i></i><i></i><i></i></span>
+          <span class="rName">გრძელი</span>
+          <span class="rTime">თავიდან, ჭამის გარეშე</span>
+        </button>
+        <button class="room" onclick="startNardiRoom('short')">
+          <span class="gArt gNardi short"><i></i><i></i><i></i></span>
+          <span class="rName">კლასიკური</span>
+          <span class="rTime">ჭამით და ბარიდან შემოსვლით</span>
+        </button>
+        <button class="room" onclick="startNardiRoom('damka')">
+          <span class="gArt gDamka"><i></i><i></i></span>
+          <span class="rName">დამკა</span>
+          <span class="rTime">8×8 · ჭამა სავალდებულოა</span>
+        </button>
+      </div>
+      <button class="roomClose" onclick="closeNardiRoom()">დახურვა</button>
     </div>
   </div>
 
@@ -986,7 +998,6 @@
       document.getElementById("viewBura").style.display   = name === "bura" ? "" : "none";
       document.getElementById("viewJoker").style.display  = name === "joker" ? "" : "none";
       document.getElementById("viewNardi").style.display  = name === "nardi" ? "" : "none";
-      if (name === "nardi") paintBoardPick();
 
       if (name) { Sound.play("tap"); localStorage.setItem("dominoLastGame", name); }
       else localStorage.removeItem("dominoLastGame");
@@ -1359,11 +1370,13 @@
        and to what score all belong to the table that was made, and the server
        reads them off it — so the screen learns them from the state it is sent
        rather than from the address it was opened with. */
-    /* The ნარდი room holds three boards. One of them is always chosen — it
-       starts on the long game, which is what "ნარდი" means to most people —
-       and the three buttons underneath then mean the same thing here as they
-       do on every other game in the app. */
-    let boardPick = localStorage.getItem("dominoBoard") || "long";
+    /* ნარდი — the same modal ბურა has: three rooms instead of two, and
+       nothing to pick between them (no teams, no deck size), so the picker is
+       simpler than ბურა's. It remembers the last board played, the way the
+       inline picker used to, only now that is a remembered DEFAULT rather
+       than something drawn on screen — nobody presses "long" twice a row to
+       notice it stayed lit. */
+    let nardiMode = "cpu", nardiPick = localStorage.getItem("dominoBoard") || "long";
     /* ჯოკერი — the same modal ბურა has: pick teams or not, then which of the
        two games. Alone against the computer is always solo, the way ბურა's
        practice screen is always 1v1 — a short match at four is not a table
@@ -1406,24 +1419,26 @@
       location.href = "jokeronline.html?" + (q ? q + "&" : "") + "mode=quick";
     }
 
-    function pickBoard(which){
-      boardPick = which;
+    function openNardiRoom(mode){
+      nardiMode = mode || "cpu";
+      document.getElementById("nardiWhere").textContent =
+        nardiMode === "cpu"    ? "კომპიუტერთან — პრაქტიკა, მონეტების გარეშე"
+      : nardiMode === "friend" ? "მიიღებ კოდს და გაუზიარებ მეგობარს"
+                                : "ცოცხალ მოწინააღმდეგესთან";
+      document.getElementById("nardiOverlay").classList.add("show");
+    }
+    function closeNardiRoom(){ document.getElementById("nardiOverlay").classList.remove("show"); }
+    function startNardiRoom(which){
+      closeNardiRoom();
+      nardiPick = which;
       localStorage.setItem("dominoBoard", which);
-      paintBoardPick();
-      Sound.play("tap");
-    }
-    function paintBoardPick(){
-      const map = { long: "bgLong", short: "bgShort", damka: "bgDamka" };
-      Object.entries(map).forEach(([k, id]) => {
-        const el = document.getElementById(id);
-        if (el) el.classList.toggle("on", k === boardPick);
-      });
-    }
-    const boardGame = () => boardPick === "damka" ? "damka" : "nardi";
-    function boardGo(how){
-      const screen = boardPick === "damka" ? "damka.html" : "nardi.html";
-      const v = boardPick === "damka" ? "" : "v=" + boardPick;
-      if (how === "cpu") { location.href = screen + (v ? "?" + v : ""); return; }
+      const screen = which === "damka" ? "damka.html" : "nardi.html";
+      const v = which === "damka" ? "" : "v=" + which;
+      if (nardiMode === "cpu") { location.href = screen + (v ? "?" + v : ""); return; }
+      if (nardiMode === "friend") {
+        location.href = screen + "?" + (v ? v + "&" : "") + "mode=friend";
+        return;
+      }
       location.href = screen + "?" + (v ? v + "&" : "") + "mode=quick";
     }
 
@@ -1447,7 +1462,7 @@
       closeFriend();
       if (friendGame === "joker") { openJoker("friend"); return; }
       else if (friendGame === "bura") openBura("friend");
-      else if (friendGame === "nardi") location.href = "nardi.html?v=" + boardPick + "&mode=friend";
+      else if (friendGame === "nardi") openNardiRoom("friend");
       else if (friendGame === "damka") location.href = "damka.html?mode=friend";
       else openRooms("friend");
     }
@@ -1458,7 +1473,7 @@
          itself, so the variant in the address is only a first guess. */
       /* A code carries which table it is: the guest is told by the table
          itself, so what is in the address is only a first guess. */
-      const sep = friendGame === "nardi" ? "?v=" + boardPick + "&" : "?";
+      const sep = friendGame === "nardi" ? "?v=" + nardiPick + "&" : "?";
       location.href = FRIEND_SCREEN[friendGame] + sep + "mode=join&code=" + encodeURIComponent(c);
     }
 
