@@ -280,8 +280,8 @@
       const first = !seated && !!st.hand;
       S = st;
       if (st.hand) { seated = true; document.getElementById("waitOverlay").classList.remove("show"); }
-      maybeVersus(st, "bura", !!st.hand);
       else paintWaiting(st);
+      maybeVersus(st, "bura", !!st.hand);
       document.getElementById("pauseOverlay").classList.toggle("show", !!st.paused);
       if (st.paused && st.waitingFor && st.waitingFor.length)
         document.getElementById("pauseText").textContent = "ველოდებით — " + st.waitingFor.join(", ");
