@@ -84,6 +84,7 @@
   <script src="js/haptic.js"></script>
   <script src="js/turnring.js"></script>
   <script src="js/lastmove.js"></script>
+  <script src="js/hints.js"></script>
   <script src="js/emote.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/damka.js"></script>
@@ -360,6 +361,26 @@
   /* Phrases across the table. Mounted once; after that the screen only says
      whether anybody human is still there to hear one — a table the computer
      has taken over should not be offering a greeting to nobody. */
+  /* Three sentences, once: how the board is worked, the rule that surprises
+     everybody who learned draughts somewhere else, and the one that decides
+     matches nobody saw coming. */
+  const hints = window.Hints && Hints.attach({ game: "damka", steps: [
+    { key: "pick",
+      text: "ჯერ ქვას შეეხე, მერე — უჯრას.",
+      at: () => document.getElementById("board"),
+      when: (st) => st.dphase === "move" && st.side === ME },
+    { key: "must",
+      text: "ჭამა სავალდებულოა. ჩვეულებრივი ქვა უკანაც ჭამს, დამკა კი — შორიდან.",
+      at: () => document.getElementById("board"),
+      when: (st) => st.dphase === "move" && st.side === ME
+                 && !!g && Damka.legalMoves(g).some((m) => m.take != null) },
+    { key: "stuck",
+      text: "ვისაც სვლა აღარ აქვს, მან წააგო — ქვები რომც ჰქონდეს.",
+      at: () => document.getElementById("board"),
+      when: (st) => st.dphase === "move" && st.side === ME
+                 && !!g && Damka.legalMoves(g).length <= 2 },
+  ] });
+
   function wireEmotes(st) {
     if (!window.Emote) return;
     Emote.mount({ socket, anchor: emoteAnchor });
@@ -410,6 +431,10 @@
       st.phase === "over" ? "თამაში დასრულდა"
       : st.paused ? "შეჩერებულია"
       : st.side === ME ? "შენი სვლა" : (st.oppName || "მოწინააღმდეგე");
+    /* Last of all, after the screen has been redrawn: a hint measures the
+       thing it points at, and before draw() that thing is where it was a
+       state ago — or not on screen at all. */
+    if (hints) hints.check(st);
   }
 
   function leaveTable() {

@@ -130,6 +130,7 @@
   <script src="js/haptic.js"></script>
   <script src="js/turnring.js"></script>
   <script src="js/emote.js"></script>
+  <script src="js/hints.js"></script>
   <script src="js/fx.js"></script>
   <script>
     /* ბურა against a real opponent. The server holds the game and checks every
@@ -308,7 +309,24 @@
     /* Phrases across the table. Mounted once; after that the screen only says
        whether anybody human is still there to hear one — a table the computer
        has taken over should not be offering a greeting to nobody. */
-    function wireEmotes(st) {
+      /* Three sentences, once. All three are rules rather than buttons: ბურა is
+       simple to work and easy to lose without knowing why. */
+    const hints = window.Hints && Hints.attach({ game: "bura", steps: [
+      { key: "pick",
+        text: "კარტებს შეეხე და ჩამოდი — რამდენიც გინდა, მაგრამ ერთი ფერიდან.",
+        at: () => document.getElementById("myhand"),
+        when: (st) => !!st.myTurn && !st.lead },
+      { key: "points",
+        text: "ქულა კარტებშია: ტუზი 11, ათიანი 10, ხელისება 4, ქალი 3, ჯოტი 2.",
+        at: () => document.getElementById("trumpBox"),
+        when: (st) => !!st.hand },
+      { key: "answer",
+        text: "პასუხი იმდენივე კარტია, რამდენიც ჩამოვიდა — და გატანა კოზირით ან იმავე ფერით ხდება.",
+        at: () => document.getElementById("myhand"),
+        when: (st) => !!st.hand && !!st.lead && !!st.myTurn },
+    ] });
+
+  function wireEmotes(st) {
       if (!window.Emote) return;
       Emote.mount({ socket, anchor: emoteAnchor });
       Emote.live((st.roster || []).some((p) => !p.me && !p.bot));
@@ -467,6 +485,11 @@
       pill.classList.toggle("mine", !!S.myTurn);
 
       paintBar();
+
+      /* Last of all, once the screen has been redrawn: a hint measures the
+         thing it points at, and before this it is where it was a state ago —
+         or not on screen at all. */
+      if (hints) hints.check(S);
     }
 
     function renderCoins(){

@@ -49,6 +49,24 @@
     "გამორთე ფრაზები": "Turn phrases off",
     "ჩართე ფრაზები": "Turn phrases on",
 
+    // --- the first match: three sentences per game ---
+    "შეხება ყოველთვის დიდ კამათელს თამაშობს. დაბალი თუ გინდა — ქვა გადაათრიე.": "A tap always plays the higher die. For the lower one, drag the checker.",
+    "სვლა შენს ხელშია — უკან დაბრუნებაც შეიძლება. „მზადაა“ ამბობს, რომ დაასრულე.": "The turn is yours until you say so — you can take moves back. “Done” ends it.",
+    "×2 ფსონს აორმაგებს — მხოლოდ გაგორებამდე. მოწინააღმდეგე ან იღებს, ან მატჩს თმობს.": "×2 doubles the stake, and only before the throw. They either take it or give up the match.",
+    "ჯერ ქვას შეეხე, მერე — უჯრას.": "Touch the piece first, then the square.",
+    "ჭამა სავალდებულოა. ჩვეულებრივი ქვა უკანაც ჭამს, დამკა კი — შორიდან.": "Taking is compulsory. A man takes backwards too; a king takes from a distance.",
+    "ვისაც სვლა აღარ აქვს, მან წააგო — ქვები რომც ჰქონდეს.": "Whoever has no move left has lost, pieces on the board or not.",
+    "ქვა აირჩიე, მერე — დაფის ბოლო.": "Choose a tile, then an end of the line.",
+    "ქულა მაშინ გერიცხება, როცა დაფის ბოლოების ჯამი ხუთზე იყოფა.": "You score when the ends of the line add up to a multiple of five.",
+    "ვერაფერს დებ — ბაზრიდან აიღე. ბაზარი მხოლოდ 1v1-შია.": "Nothing to play? Draw from the boneyard. There is only one in 1v1.",
+    "კარტებს შეეხე და ჩამოდი — რამდენიც გინდა, მაგრამ ერთი ფერიდან.": "Touch the cards and lead — as many as you like, but all of one suit.",
+    "ქულა კარტებშია: ტუზი 11, ათიანი 10, ხელისება 4, ქალი 3, ჯოტი 2.": "The points are in the cards: ace 11, ten 10, king 4, queen 3, jack 2.",
+    "პასუხი იმდენივე კარტია, რამდენიც ჩამოვიდა — და გატანა კოზირით ან იმავე ფერით ხდება.": "Answer with as many cards as were led — and you take with trumps or the same suit.",
+    "ბიდი — რამდენ ხელს იღებ. ზუსტად იმდენი უნდა აიღო: ნაკლებიც სჯის და მეტიც.": "The bid is how many tricks you will take. Take exactly that many: fewer costs you, and so does more.",
+    "კოზირი ყველა სხვა ფერს ჯობნის. ხელი დალაგებულია: ჯერ კოზირი, ბოლოს — ჯოკრები.": "Trumps beat every other suit. Your hand is sorted: trumps first, jokers last.",
+    "ჯოკერით შესვლა ორნაირია: „იღებს“ — ყველა ვალდებულია უმაღლესი ჩამოაგდოს; „წაიღოს“ — არა.": "A joker leads two ways: “takes” — everyone must play their highest; “let it go” — nobody must.",
+    "კარგი": "Got it",
+
     // --- rooms and tables ---
     "აირჩიე ოთახი": "Choose a table",
     "ბლიც": "Blitz", "სწრაფი": "Quick", "კლასიკური": "Classic", "ოსტატი": "Master",

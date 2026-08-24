@@ -691,3 +691,37 @@ body::after{
   .emSay, .emTray{ transition:none; }
 }
 
+
+/* =====================================================================
+   The first match.
+
+   Three sentences per game, each one where the thing it is about actually is.
+   Deliberately not a dialog: a dialog stops the game and gets dismissed
+   without being read, and these are worth reading exactly once.
+   ===================================================================== */
+.hintLayer{ position:fixed; inset:0; z-index:70; pointer-events:none; }
+.hintBubble{
+  position:fixed; max-width:min(74vw, 300px); pointer-events:auto; cursor:pointer;
+  padding:9px 12px 8px; border-radius:12px;
+  border:1px solid var(--brass); background:rgba(8,34,20,.97);
+  color:var(--cream); font-size:13px; line-height:1.35;
+  box-shadow:0 8px 26px rgba(0,0,0,.55);
+  opacity:0; transform:translateY(8px) scale(.96);
+  transition:opacity .2s ease, transform .2s cubic-bezier(.2,1.4,.4,1);
+}
+.hintBubble.in{ opacity:1; transform:none; }
+.hintBubble.loose.in{ transform:translateX(-50%); }
+.hintOk{
+  display:block; margin-top:6px; text-align:right;
+  color:var(--brass-lit); font-size:11.5px; font-weight:600;
+}
+/* the tail, so a hint belongs to the thing it is about */
+.hintBubble::after{
+  content:""; position:absolute; left:50%; margin-left:-5px; bottom:-5px;
+  width:9px; height:9px; background:inherit;
+  border-right:1px solid var(--brass); border-bottom:1px solid var(--brass);
+  transform:rotate(45deg);
+}
+.hintBubble.below::after{ bottom:auto; top:-5px; transform:rotate(225deg); }
+.hintBubble.loose::after{ display:none; }
+@media (prefers-reduced-motion:reduce){ .hintBubble{ transition:none; } }

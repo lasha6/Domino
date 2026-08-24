@@ -119,6 +119,7 @@
   <script src="js/haptic.js"></script>
   <script src="js/turnring.js"></script>
   <script src="js/emote.js"></script>
+  <script src="js/hints.js"></script>
   <script src="js/fx.js"></script>
   <script>
     /* A hand ends and the tiles left over are what the score is made of, so
@@ -297,7 +298,24 @@
     /* Phrases across the table. Mounted once; after that the screen only says
        whether anybody human is still there to hear one — a table the computer
        has taken over should not be offering a greeting to nobody. */
-    function wireEmotes(st) {
+      /* Three sentences, once. ოზი is easy to play and hard to see the point
+       of — the whole game is in the second one. */
+    const hints = window.Hints && Hints.attach({ game: "domino", steps: [
+      { key: "play",
+        text: "ქვა აირჩიე, მერე — დაფის ბოლო.",
+        at: () => document.getElementById("myhand"),
+        when: (st) => !!st.myTurn && st.phase === "play" },
+      { key: "fives",
+        text: "ქულა მაშინ გერიცხება, როცა დაფის ბოლოების ჯამი ხუთზე იყოფა.",
+        at: () => document.getElementById("board"),
+        when: (st) => !!st.myTurn && st.phase === "play" },
+      { key: "bone",
+        text: "ვერაფერს დებ — ბაზრიდან აიღე. ბაზარი მხოლოდ 1v1-შია.",
+        at: () => document.getElementById("board"),
+        when: (st) => st.phase === "draw" && !!st.myTurn },
+    ] });
+
+  function wireEmotes(st) {
       if (!window.Emote) return;
       Emote.mount({ socket, anchor: emoteAnchor });
       Emote.live((st.roster || []).some((p) => !p.me && !p.bot));
@@ -647,6 +665,11 @@
         d.onclick = () => onTileClick(i);
         mh.appendChild(d);
       });
+
+      /* Last of all, once the screen has been redrawn: a hint measures the
+         thing it points at, and before this it is where it was a state ago —
+         or not on screen at all. */
+      if (hints) hints.check(S);
     }
 
   /* The board is laid out against the box it is given, and that box changes:

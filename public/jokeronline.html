@@ -121,6 +121,7 @@
   <script src="js/haptic.js"></script>
   <script src="js/turnring.js"></script>
   <script src="js/emote.js"></script>
+  <script src="js/hints.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
@@ -431,6 +432,11 @@
       else if (S.myTurn)       pill.textContent = "შენი სვლა" + (S.moveLeft != null ? " · " + S.moveLeft : "");
       else                     pill.textContent = nameOfSeat(S.turn) + " ფიქრობს";
       pill.classList.toggle("mine", !!S.myTurn);
+
+      /* Last of all, once the screen has been redrawn: a hint measures the
+         thing it points at, and before this it is where it was a state ago —
+         or not on screen at all. */
+      if (hints) hints.check(S);
     }
 
     function paintScores(){
@@ -772,7 +778,25 @@
     /* Phrases across the table. Mounted once; after that the screen only says
        whether anybody human is still there to hear one — a table the computer
        has taken over should not be offering a greeting to nobody. */
-    function wireEmotes(st) {
+      /* Three sentences, once. ჯოკერი is the one game here that punishes a
+       player for taking MORE than they promised, and that is the sentence
+       everybody needs first. */
+    const hints = window.Hints && Hints.attach({ game: "joker", steps: [
+      { key: "bid",
+        text: "ბიდი — რამდენ ხელს იღებ. ზუსტად იმდენი უნდა აიღო: ნაკლებიც სჯის და მეტიც.",
+        at: () => document.getElementById("myhand"),
+        when: (st) => st.stage === "bid" && !!st.myTurn },
+      { key: "trump",
+        text: "კოზირი ყველა სხვა ფერს ჯობნის. ხელი დალაგებულია: ჯერ კოზირი, ბოლოს — ჯოკრები.",
+        at: () => document.getElementById("myhand"),
+        when: (st) => st.stage === "play" && !!st.hand },
+      { key: "joker",
+        text: "ჯოკერით შესვლა ორნაირია: „იღებს“ — ყველა ვალდებულია უმაღლესი ჩამოაგდოს; „წაიღოს“ — არა.",
+        at: () => document.getElementById("myhand"),
+        when: (st) => st.stage === "play" && (st.round || 1) >= 2 },
+    ] });
+
+  function wireEmotes(st) {
       if (!window.Emote) return;
       Emote.mount({ socket, anchor: emoteAnchor });
       Emote.live((st.roster || []).some((p) => !p.me && !p.bot));

@@ -112,6 +112,7 @@
   <script src="js/haptic.js"></script>
   <script src="js/turnring.js"></script>
   <script src="js/lastmove.js"></script>
+  <script src="js/hints.js"></script>
   <script src="js/emote.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/nardi.js"></script>
@@ -1088,6 +1089,29 @@
   /* Phrases across the table. Mounted once; after that the screen only says
      whether anybody human is still there to hear one — a table the computer
      has taken over should not be offering a greeting to nobody. */
+  /* The first match, three sentences, each where the thing it is about is.
+     None of the three is a rule of the game — all three are about how this
+     BOARD is worked, which is where a player who has played ნარდი all their
+     life still gets caught on a phone. */
+  const hints = window.Hints && Hints.attach({ game: "nardi", steps: [
+    { key: "tap",
+      text: "შეხება ყოველთვის დიდ კამათელს თამაშობს. დაბალი თუ გინდა — ქვა გადაათრიე.",
+      at: () => document.getElementById("board"),
+      when: (st) => st.nphase === "move" && st.side === ME },
+    { key: "done",
+      text: "სვლა შენს ხელშია — უკან დაბრუნებაც შეიძლება. „მზადაა“ ამბობს, რომ დაასრულე.",
+      at: () => document.getElementById("btnMain"),
+      when: (st) => st.nphase === "move" && st.side === ME
+                 && (st.left || []).length < ((st.dice || []).length || 9) },
+    { key: "cube",
+      text: "×2 ფსონს აორმაგებს — მხოლოდ გაგორებამდე. მოწინააღმდეგე ან იღებს, ან მატჩს თმობს.",
+      at: () => document.getElementById("btnAlt"),
+      /* Not in the first round: mayDouble is true before the very first
+         throw, so this would arrive before the player had moved a checker —
+         the wrong first lesson by a distance. */
+      when: (st) => !!st.mayDouble && (st.round || 1) >= 2 },
+  ] });
+
   function wireEmotes(st) {
     if (!window.Emote) return;
     Emote.mount({ socket, anchor: emoteAnchor });
@@ -1161,6 +1185,10 @@
       shownValues = st.dice.slice();
       throwDice(shownValues, st.side === ME);
     } else if (!st.dice) { lastDice = null; clearDice(true); }
+    /* Last of all, after the screen has been redrawn: a hint measures the
+       thing it points at, and before draw() that thing is where it was a
+       state ago — or not on screen at all. */
+    if (hints) hints.check(st);
   }
 
   /* The opening throw, online. The server owns both dice — it decides who

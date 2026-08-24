@@ -145,7 +145,7 @@ test("a shared helper is never declared where the code using it cannot see it", 
   for (const f of ONLINE) {
     const html = readFileSync(path.join(PUB, f), "utf8");
     const dep = depths(html);
-    for (const name of ["wireEmotes", "emoteAnchor"]) {
+    for (const name of ["wireEmotes", "emoteAnchor", "hints"]) {
       /* Plain string scanning, not a built regex: a backslash that has to
          survive a string literal on its way into RegExp is exactly what
          quietly turns a word boundary into a backspace character, and a test
