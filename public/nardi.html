@@ -109,6 +109,7 @@
   <script src="js/woodgrain.js"></script>
   <script src="js/versus.js"></script>
   <script src="js/sound.js"></script>
+  <script src="js/haptic.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/nardi.js"></script>
   <script src="js/coins.js"></script>
@@ -1182,6 +1183,7 @@
       applyState(st);
     });
     socket.on("matchOver", (m) => {
+      if (window.Versus) Versus.result(lastState, m);
       busy = true; draw();
       showResult(m.youWon ? "მოიგე!" : "წააგე",
         m.scores ? "ანგარიში " + m.scores[ME] + " : " + m.scores[CPU] : "");

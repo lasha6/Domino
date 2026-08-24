@@ -116,6 +116,7 @@
   <script src="js/coins.js"></script>
   <script src="js/versus.js"></script>
   <script src="js/sound.js"></script>
+  <script src="js/haptic.js"></script>
   <script src="js/fx.js"></script>
   <script>
     /* A hand ends and the tiles left over are what the score is made of, so
@@ -191,7 +192,13 @@
     socket.on("opponentLeft", ({ name }) => {
       showResult("მოწინააღმდეგე გავიდა", name + " დატოვა მაგიდა.");
     });
-    socket.on("matchOver", ({ youWon, scores, target, myTeam, size, settled, progress, earned }) => {
+    socket.on("matchOver", function ({ youWon, scores, target, myTeam, size, settled, progress, earned }) {
+      /* The card sits over the dialog that follows it (z-index 70 against
+         20), so the dialog can be built underneath exactly as it always was
+         and is simply revealed when the card goes. Nothing about what
+         happens next had to move. */
+      if (window.Versus) Versus.result(lastSt, arguments[0]);
+
       // The server settles the stake now; `settle` here only mirrors it locally
       // so the balance on screen matches until the lobby refreshes it.
       const c = settled || Coins.settle(target, youWon);
@@ -270,6 +277,9 @@
   /* The versus card, once per match and only when there is somebody to be
      introduced to. It is a Versus.show away, but which state means "the match
      has begun" is different in every game, so each screen says so itself. */
+  /* The last state seen, kept because the card that closes a match needs to
+     know who was at the table and the payload that ends it does not say. */
+  let lastSt = null;
   let vsShown = false;
   function maybeVersus(st, game, started) {
     if (vsShown || !started || !window.Versus) return;
@@ -278,6 +288,7 @@
   }
     socket.on("state", (st) => {
       S = st;
+      lastSt = st;
       seated = true;
       maybeVersus(st, "domino", st.phase === "play");
       if (st.paused) showPaused(st.waitingFor, st.resumeIn); else hidePaused();

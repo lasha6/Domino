@@ -81,6 +81,7 @@
   <script src="js/woodgrain.js"></script>
   <script src="js/versus.js"></script>
   <script src="js/sound.js"></script>
+  <script src="js/haptic.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/damka.js"></script>
   <script src="js/config.js"></script>
@@ -390,6 +391,7 @@
       applyState(st);
     });
     socket.on("matchOver", (m) => {
+      if (window.Versus) Versus.result(lastState, m);
       busy = true; draw();
       showResult(m.draw ? "ფრე" : m.youWon ? "მოიგე!" : "წააგე", "");
       if (m.youWon && window.Fx) Fx.confetti();

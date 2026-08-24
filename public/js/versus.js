@@ -165,7 +165,127 @@
     });
   }
 
+  /* ---------------- the end of it ----------------
+     The card that announces a match should have a twin that closes it. The
+     start of a match was an occasion and the end of one was a line of text —
+     which is the wrong way round, because the end is the part a player came
+     for. Same two sides, the winning one lit; then the things a player wants
+     counted out rather than stated: the coins, and the bar towards the next
+     level.
+
+     It does not replace the dialog that follows it. That dialog owns the
+     buttons, and taking those over would mean five screens rewiring what
+     happens next for the sake of a flourish. */
+  function count(el, from, to, ms) {
+    const t0 = performance.now();
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / ms);
+      // fast first, then settling — a number that lands rather than stops
+      const e = 1 - Math.pow(1 - k, 3);
+      el.textContent = Math.round(from + (to - from) * e).toLocaleString("en-US");
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  let rWrap = null, rTimer = null;
+  function resultBuild() {
+    if (rWrap) return rWrap;
+    rWrap = document.createElement("div");
+    rWrap.className = "vsWrap vsEnd";
+    rWrap.innerHTML =
+      '<div class="vsCard">' +
+      '  <div class="vsVerdict"></div>' +
+      '  <div class="vsRow">' +
+      '    <div class="vsSide left"></div>' +
+      '    <div class="vsMark"><span></span><b class="vsScore"></b><span></span></div>' +
+      '    <div class="vsSide right"></div>' +
+      '  </div>' +
+      '  <div class="vsPurse"><i></i><b>0</b><em></em></div>' +
+      '  <div class="vsXp"><span class="vsXpBar"><i></i></span><em></em></div>' +
+      "</div>";
+    document.body.appendChild(rWrap);
+    return rWrap;
+  }
+
+  /* `st` is the last state seen (for the roster); `r` is the matchOver payload
+     exactly as the server sends it. */
+  function result(st, r) {
+    const o = r || {};
+    const ms = o.ms || 3200;
+    const list = (st && st.roster) || [];
+    if (showing) return Promise.resolve(false);
+    const mine = list.find((p) => p.me);
+    if (!mine || list.length < 2) return Promise.resolve(false);
+    const ours = list.filter((p) => p.team === mine.team);
+    const theirs = list.filter((p) => p.team !== mine.team);
+    if (!theirs.length) return Promise.resolve(false);
+
+    const el = resultBuild();
+    const won = !!o.youWon;
+    el.classList.toggle("weWon", won);
+
+    const left = el.querySelector(".vsSide.left");
+    const right = el.querySelector(".vsSide.right");
+    left.innerHTML = ""; right.innerHTML = "";
+    ours.sort((a, b) => (b.me ? 1 : 0) - (a.me ? 1 : 0)).forEach((p) => left.appendChild(player(p)));
+    theirs.forEach((p) => right.appendChild(player(p)));
+    left.classList.toggle("beat", !won);
+    right.classList.toggle("beat", won);
+
+    el.querySelector(".vsVerdict").textContent =
+      o.draw ? "ფრე" : won ? "მოიგე!" : "წააგე";
+
+    const sc = el.querySelector(".vsScore");
+    if (Array.isArray(o.scores) && o.scores.length >= 2) {
+      const t = o.myTeam || 0;
+      sc.textContent = o.scores[t] + " : " + o.scores[1 - t];
+    } else sc.textContent = "—";   // the word above already says who won
+
+    /* The coins are counted, not stated. A number that arrives already at its
+       new value tells a player nothing about what just happened to it. */
+    const purse = el.querySelector(".vsPurse");
+    const settled = o.settled;
+    if (settled && typeof settled.after === "number") {
+      const before = settled.after - (settled.delta || 0);
+      purse.style.display = "";
+      purse.classList.toggle("lost", (settled.delta || 0) < 0);
+      purse.querySelector("em").textContent =
+        (settled.delta > 0 ? "+" : "") + (settled.delta || 0).toLocaleString("en-US");
+      const b = purse.querySelector("b");
+      b.textContent = before.toLocaleString("en-US");
+      setTimeout(() => count(b, before, settled.after, 1100), 620);
+    } else purse.style.display = "none";
+
+    const xp = el.querySelector(".vsXp");
+    const p = o.progress;
+    if (p && typeof p.into === "number" && p.need) {
+      xp.style.display = "";
+      xp.querySelector("em").textContent = "დონე " + p.level;
+      const bar = xp.querySelector(".vsXpBar i");
+      bar.style.width = "0%";
+      setTimeout(() => { bar.style.width = Math.max(2, Math.min(100, p.into / p.need * 100)) + "%"; }, 700);
+    } else xp.style.display = "none";
+
+    showing = true;
+    el.classList.add("show");
+    if (global.Haptic) Haptic.tap(won ? "win" : "lose");
+
+    return new Promise((done) => {
+      const finish = () => {
+        if (!showing) return;
+        showing = false;
+        clearTimeout(rTimer);
+        el.removeEventListener("click", finish);
+        el.classList.remove("show");
+        done(true);
+      };
+      el.addEventListener("click", finish);
+      rTimer = setTimeout(finish, ms);
+    });
+  }
+
   const open = () => showing;
 
-  global.Versus = { show, open };
+  global.Versus = { show, result, open };
 })(typeof window !== "undefined" ? window : this);

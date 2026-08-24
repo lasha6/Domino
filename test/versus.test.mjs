@@ -97,3 +97,71 @@ test("the card is styled where every screen already looks", () => {
   for (const cls of [".vsWrap", ".vsCard", ".vsFace", ".vsMark", ".vsStake", ".vsBar"])
     assert.ok(base.includes(cls), "base.css has no " + cls);
 });
+
+/* ---------------- the card that closes a match ---------------- */
+
+test("the end of a match has a card of its own", () => {
+  assert.match(versus, /function result\(st, r\)/, "there is no result card");
+  assert.match(versus, /global\.Versus = \{ show, result, open \}/,
+    "the result card is not handed out");
+});
+
+test("the coins are counted rather than stated", () => {
+  /* A number that arrives already at its new value tells a player nothing
+     about what just happened to it. */
+  assert.match(versus, /function count\(el, from, to, ms\)/, "nothing counts");
+  assert.match(versus, /requestAnimationFrame\(step\)/, "the count does not animate");
+  assert.match(versus, /settled\.after - \(settled\.delta \|\| 0\)/,
+    "it must count from where the purse was, not from zero");
+});
+
+test("every online screen shows the closing card too", () => {
+  for (const f of ONLINE) {
+    const html = readFileSync(path.join(ROOT, "public", f), "utf8");
+    assert.match(html, /Versus\.result\(/, f + " never closes a match with the card");
+  }
+});
+
+test("the losing side is stepped back, not hidden", () => {
+  /* They were there. A card that erases the other side reads as a scoreboard
+     rather than as the end of a game between two people. */
+  assert.match(base, /\.vsEnd \.vsSide\.beat\{[^}]*opacity:\.42/,
+    "the beaten side is not dimmed");
+  assert.doesNotMatch(base, /\.vsEnd \.vsSide\.beat\{[^}]*display:none/,
+    "the beaten side must not vanish");
+});
+
+/* ---------------- the phone's own answer ---------------- */
+
+test("a buzz never throws, whatever the phone does or does not have", () => {
+  const haptic = readFileSync(path.join(ROOT, "public", "js", "haptic.js"), "utf8");
+  assert.match(haptic, /typeof nav\.vibrate === "function"/, "it does not check for a motor");
+  assert.match(haptic, /catch \(e\) \{ return false; \}/, "a refused buzz would throw");
+});
+
+test("silence means silence: the sound switch turns the buzzing off too", () => {
+  /* A player who has muted the game has already said what they want. Asking
+     twice, in two places, is asking them to find a second switch. */
+  const haptic = readFileSync(path.join(ROOT, "public", "js", "haptic.js"), "utf8");
+  assert.match(haptic, /global\.Sound\.muted\(\)/, "muting does not reach the motor");
+  assert.match(haptic, /if \(!can \|\| muted\(\)\) return false;/);
+});
+
+test("the buzz is hung on the sound, so no event can be missed", () => {
+  const haptic = readFileSync(path.join(ROOT, "public", "js", "haptic.js"), "utf8");
+  assert.match(haptic, /global\.Sound\.play = function/, "Sound.play is not wrapped");
+  // and the events that matter most are all mapped
+  for (const s of ["place", "diceLand", "turn", "win", "lose"])
+    assert.match(haptic, new RegExp("\\b" + s + ': "'), "no buzz for " + s);
+});
+
+test("every screen that makes a sound can also buzz", () => {
+  const screens = readdirSync(path.join(ROOT, "public")).filter((f) => f.endsWith(".html"));
+  for (const f of screens) {
+    const html = readFileSync(path.join(ROOT, "public", f), "utf8");
+    if (!html.includes('src="js/sound.js"')) continue;
+    assert.match(html, /src="js\/haptic\.js"/, f + " has sound but no haptics");
+    assert.ok(html.indexOf('js/sound.js') < html.indexOf('js/haptic.js'),
+      f + ": haptic.js must load after sound.js, or it has nothing to wrap");
+  }
+});
