@@ -134,34 +134,12 @@
         <div class="buraArt"><span>🃏</span><span>♠</span><span>♥</span><span>♦</span></div>
         <h1 class="logo-title">ჯოკერი</h1>
         <p class="logo-sub">ონლაინ</p>
-        <div class="games">
-          <button class="game" id="jkFull" onclick="pickJoker('full')">
-            <span class="gArt gJoker"><i></i><i></i><i></i></span>
-            <span class="gName">კლასიკური</span>
-            <span class="gSub">24 ხელი · თითოეული თავისთვის</span>
-          </button>
-          <button class="game" id="jkNines" onclick="pickJoker('nines')">
-            <span class="gArt gJoker nines"><i></i><i></i><i></i></span>
-            <span class="gName">ცხრიანები</span>
-            <span class="gSub">16 ხელი · მხოლოდ ცხრები</span>
-          </button>
-          <button class="game" id="jkPairs" onclick="pickJoker('pairs')">
-            <span class="gArt gJoker pairs"><i></i><i></i><i></i></span>
-            <span class="gName">2v2 კლასიკური</span>
-            <span class="gSub">24 ხელი · წყვილებით</span>
-          </button>
-          <button class="game" id="jkNinesPairs" onclick="pickJoker('ninesPairs')">
-            <span class="gArt gJoker nines pairs"><i></i><i></i><i></i></span>
-            <span class="gName">2v2 ცხრიანები</span>
-            <span class="gSub">16 ხელი · წყვილებით</span>
-          </button>
-        </div>
-        <button class="play" onclick="jokerGo('quick')">
+        <button class="play" onclick="openJoker('quick')">
           <span class="arrow">▶</span> ითამაშე
         </button>
         <div class="modes">
           <button class="mode" onclick="openFriend('joker')">👥 მეგობართან</button>
-          <button class="mode" onclick="jokerGo('cpu')">🤖 კომპიუტერთან</button>
+          <button class="mode" onclick="openJoker('cpu')">🤖 კომპიუტერთან</button>
         </div>
       </div>
 
@@ -358,6 +336,31 @@
       <p class="roomSub" style="margin-top:12px">მატჩი რამდენ ქულამდე?</p>
       <div class="bbar" id="buraTargets"></div>
       <button class="roomClose" onclick="closeBura()">დახურვა</button>
+    </div>
+  </div>
+
+  <!-- ჯოკერი: the same modal ბურა has, so it survives a phone the same way -->
+  <div class="roomOverlay" id="jokerOverlay">
+    <div class="roomModal">
+      <h2>ჯოკერი</h2>
+      <p class="roomSub" id="jokerWhere">კომპიუტერთან — პრაქტიკა, მონეტების გარეშე</p>
+      <div class="sizePick" id="jokerSizePick">
+        <button class="sizeBtn on" data-teams="0" onclick="pickJokerTeams(false)">👤 თითოეული</button>
+        <button class="sizeBtn" data-teams="1" onclick="pickJokerTeams(true)">👥 2v2 წყვილებით</button>
+      </div>
+      <div class="rooms">
+        <button class="room best" id="jkFullBtn" onclick="startJoker('full')">
+          <span class="rIco suitIco"><i>♠</i><i>♥</i><i>♦</i></span>
+          <span class="rName">კლასიკური</span>
+          <span class="rTime">24 ხელი</span>
+        </button>
+        <button class="room" id="jkNinesBtn" onclick="startJoker('nines')">
+          <span class="rIco suitIco"><i>9</i></span>
+          <span class="rName">ცხრიანები</span>
+          <span class="rTime">16 ხელი · მხოლოდ ცხრები</span>
+        </button>
+      </div>
+      <button class="roomClose" onclick="closeJoker()">დახურვა</button>
     </div>
   </div>
 
@@ -984,7 +987,7 @@
       document.getElementById("viewJoker").style.display  = name === "joker" ? "" : "none";
       document.getElementById("viewNardi").style.display  = name === "nardi" ? "" : "none";
       if (name === "nardi") paintBoardPick();
-      if (name === "joker") paintJokerPick();
+
       if (name) { Sound.play("tap"); localStorage.setItem("dominoLastGame", name); }
       else localStorage.removeItem("dominoLastGame");
     }
@@ -1361,38 +1364,45 @@
        and the three buttons underneath then mean the same thing here as they
        do on every other game in the app. */
     let boardPick = localStorage.getItem("dominoBoard") || "long";
-    /* Four ways to play ჯოკერი, and they are four different tables: the long
-       game or ცხრიანები, each alone or in pairs. The choice is remembered the
-       way the board room remembers its own. */
-    let jokerPick = localStorage.getItem("dominoJoker") || "full";
-    const JOKER_KIND = {
-      full:       { v: "full",  teams: false },
-      nines:      { v: "nines", teams: false },
-      pairs:      { v: "full",  teams: true  },
-      ninesPairs: { v: "nines", teams: true  },
-    };
-    if (!JOKER_KIND[jokerPick]) jokerPick = "full";
-    function pickJoker(which){
-      jokerPick = JOKER_KIND[which] ? which : "full";
-      localStorage.setItem("dominoJoker", jokerPick);
-      paintJokerPick();
+    /* ჯოკერი — the same modal ბურა has: pick teams or not, then which of the
+       two games. Alone against the computer is always solo, the way ბურა's
+       practice screen is always 1v1 — a short match at four is not a table
+       that exists, and a mode nobody can reach must not sit there greyed out
+       pretending it might work. */
+    let jokerMode = "cpu", jokerTeams = false;
+    const jokerQuery = (variant, teams) =>
+      (variant === "nines" ? "v=nines" : "") + (teams ? (variant === "nines" ? "&" : "") + "teams=1" : "");
+
+    function openJoker(mode){
+      jokerMode = mode || "cpu";
+      if (jokerMode === "cpu") jokerTeams = false;
+      document.getElementById("jokerWhere").textContent =
+        jokerMode === "cpu"    ? "კომპიუტერთან — პრაქტიკა, მონეტების გარეშე"
+      : jokerMode === "friend" ? "მიიღებ კოდს და გაუზიარებ მეგობარს"
+                                : "ცოცხალ მოწინააღმდეგესთან";
+      document.getElementById("jokerOverlay").classList.toggle("practice", jokerMode === "cpu");
+      paintJokerTeams();
+      document.getElementById("jokerOverlay").classList.add("show");
+    }
+    function closeJoker(){ document.getElementById("jokerOverlay").classList.remove("show"); }
+    function pickJokerTeams(on){
+      if (jokerMode === "cpu") return;      // nothing to pick against a computer
+      jokerTeams = on;
+      paintJokerTeams();
       Sound.play("tap");
     }
-    function paintJokerPick(){
-      const map = { full: "jkFull", nines: "jkNines",
-                    pairs: "jkPairs", ninesPairs: "jkNinesPairs" };
-      Object.entries(map).forEach(([k, id]) => {
-        const el = document.getElementById(id);
-        if (el) el.classList.toggle("on", k === jokerPick);
-      });
+    function paintJokerTeams(){
+      document.querySelectorAll("#jokerSizePick .sizeBtn").forEach((b) =>
+        b.classList.toggle("on", (b.dataset.teams === "1") === jokerTeams));
     }
-    const jokerQuery = () => {
-      const k = JOKER_KIND[jokerPick];
-      return (k.v === "nines" ? "v=nines" : "") + (k.teams ? (k.v === "nines" ? "&" : "") + "teams=1" : "");
-    };
-    function jokerGo(how){
-      const q = jokerQuery();
-      if (how === "cpu") { location.href = "joker.html" + (q ? "?" + q : ""); return; }
+    function startJoker(variant){
+      closeJoker();
+      const q = jokerQuery(variant, jokerTeams);
+      if (jokerMode === "cpu") { location.href = "joker.html" + (q ? "?" + q : ""); return; }
+      if (jokerMode === "friend") {
+        location.href = "jokeronline.html?" + (q ? q + "&" : "") + "mode=friend";
+        return;
+      }
       location.href = "jokeronline.html?" + (q ? q + "&" : "") + "mode=quick";
     }
 
@@ -1435,10 +1445,7 @@
     }
     function friendCreate(){
       closeFriend();
-      if (friendGame === "joker") {
-        const q = jokerQuery();
-        location.href = "jokeronline.html?" + (q ? q + "&" : "") + "mode=friend";
-      }
+      if (friendGame === "joker") { openJoker("friend"); return; }
       else if (friendGame === "bura") openBura("friend");
       else if (friendGame === "nardi") location.href = "nardi.html?v=" + boardPick + "&mode=friend";
       else if (friendGame === "damka") location.href = "damka.html?mode=friend";
@@ -1451,9 +1458,7 @@
          itself, so the variant in the address is only a first guess. */
       /* A code carries which table it is: the guest is told by the table
          itself, so what is in the address is only a first guess. */
-      const sep = friendGame === "nardi" ? "?v=" + boardPick + "&"
-        : friendGame === "joker" ? "?" + (jokerQuery() ? jokerQuery() + "&" : "")
-        : "?";
+      const sep = friendGame === "nardi" ? "?v=" + boardPick + "&" : "?";
       location.href = FRIEND_SCREEN[friendGame] + sep + "mode=join&code=" + encodeURIComponent(c);
     }
 

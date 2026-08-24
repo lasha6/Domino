@@ -37,9 +37,23 @@
    the suit is still true, so only the suit is shown — a blank card with the
    mark on it, centred, no rank and no corner pip. */
 .card.suitOnly .rank, .card.suitOnly .big{ display:none; }
-.card.suitOnly .pip{ position:static; display:flex; width:100%; height:100%;
-  align-items:center; justify-content:center; font-size:30px; opacity:.92; }
-.card.small.suitOnly .pip{ font-size:24px; }
+/* A card with only a suit on it is a SIGN, not a card: the mark fills it.
+
+   It also has to BEAT the corner-pip rules that the hand, the stock and the
+   trick set on their own cards — those are four classes deep and this was
+   three, so the trump came out as a speck in the middle of an empty card. On
+   a phone it was not visible at all. The size follows the card as well, so it
+   grows with the table instead of sitting at thirty pixels forever. */
+.card.suitOnly .pip,
+.btable.jk .stock .card.suitOnly .pip,
+.btable.jk .trumpBox .card.suitOnly .pip,
+.jkHand .card.suitOnly .pip,
+.trick.cross .trickRow .card.suitOnly .pip{
+  position:static; display:flex; width:100%; height:100%;
+  align-items:center; justify-content:center;
+  font-size:max(30px, 2.4em); line-height:1; right:auto; top:auto; opacity:.95;
+}
+.card.small.suitOnly .pip{ font-size:max(22px, 2.2em); }
 
 /* the back, for the opponent's hand and the stock */
 .card.back{
@@ -323,7 +337,19 @@
 .btable.jk .stock .card .pip { font-size:max(10px, .8em); right:.18em; top:.16em; }
 .btable.jk .stock .card .big { font-size:1.9em; }
 .btable.jk .trumpBox{ width:auto; height:auto; }
-.btable.jk .trumpBox .card{ position:static; }
+/* The trump is ONE card and it is the one card on the table a player has to be
+   able to read, so it does not shrink with the fans around it. Sized from the
+   same measurement they are, but bigger, and never below a size a thumb-width
+   of phone can show: it came out eighteen pixels wide with a thirty-pixel
+   suit painted over the top of it, which is neither a card nor a suit. */
+.btable.jk .trumpBox .card{
+  position:static;
+  width:max(36px, calc(var(--jkW, 40px) * 1.25));
+  height:max(52px, calc(var(--jkH, 60px) * 1.25));
+  font-size:max(14px, calc(var(--jkW, 40px) / 2.4));
+}
+/* and on a blank card the mark IS the card */
+.btable.jk .trumpBox .card.suitOnly .pip{ font-size:max(26px, 1.85em); }
 .btable.jk .pileLbl{
   position:absolute; left:50%; bottom:7px; transform:translateX(-50%);
   display:flex; align-items:center; gap:6px; white-space:nowrap;
