@@ -2074,6 +2074,54 @@ io.on("connection", (socket) => {
 
   on("leaveRoom", () => leave(socket, true));   // deliberate exit
 
+  /* ---------------------------------------------------------------- *
+   * A word across the table
+   *
+   * Four people who cannot say anything to each other are four people
+   * playing four solitaire games in the same room, and in 2v2 it is worse
+   * than that — a partner is somebody you are supposed to be playing WITH.
+   *
+   * What goes over the wire is a NUMBER, never a sentence. The phrases live
+   * in the client, the same eight for everybody, so there is nothing to
+   * sanitise, nothing to translate on the server, and no way to use the
+   * table to say something that is not on the list. That is the whole
+   * moderation policy, and it is the reason there is no free text.
+   *
+   * The limit is per person and generous enough to be invisible in play
+   * (a phrase every couple of seconds) while making it pointless to try to
+   * bury somebody's screen.
+   * ---------------------------------------------------------------- */
+  const EMOTE_COUNT = 8;          // must match SAYINGS in public/js/emote.js
+  const EMOTE_GAP = 1800;         // ms between one player's phrases
+  const EMOTE_BURST = 4;          // and no more than this in
+  const EMOTE_WINDOW = 12000;     // this long, however patient they are
+
+  on("emote", (msg) => {
+    const room = roomOf(socket);
+    if (!room) return;
+    const p = room.players.find((x) => x.id === socket.id);
+    if (!p || p.bot) return;
+
+    const i = Math.floor(Number(msg.i));
+    if (!(i >= 0 && i < EMOTE_COUNT)) return;
+
+    const now = Date.now();
+    const sent = (p.emotes || []).filter((t) => now - t < EMOTE_WINDOW);
+    if (sent.length >= EMOTE_BURST) return;
+    if (sent.length && now - sent[sent.length - 1] < EMOTE_GAP) return;
+    sent.push(now);
+    p.emotes = sent;
+
+    /* Sent to everyone including the sender, so that what a player sees on
+       their own screen is what the others are seeing — if it was swallowed
+       by the limit, it should not appear for them either. */
+    room.players.forEach((q) => {
+      const s = io.sockets.sockets.get(q.id);
+      if (s) s.emit("emote", { seat: p.seat, i, mine: q.seat === p.seat });
+    });
+  });
+
+
   /* Giving a held chair up from somewhere else — the front page offers it
      next to the way back, because a chair that can only be given up from
      the table it belongs to cannot be given up at all by somebody whose

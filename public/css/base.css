@@ -615,3 +615,78 @@ body::after{
 @media (prefers-reduced-motion:reduce){
   .onTurn.ticking::after{ animation:none; }
 }
+
+/* =====================================================================
+   A word across the table.
+
+   The button sits in the corner the thumb already rests in and gets out of
+   the way against the computer. The tray is a column, not a wheel: a wheel
+   looks better in a screenshot and is slower to read, and every one of these
+   is said mid-hand with the other hand holding the phone.
+   ===================================================================== */
+.emBtn{
+  position:fixed; left:max(10px, env(safe-area-inset-left)); bottom:max(10px, env(safe-area-inset-bottom));
+  z-index:60; width:42px; height:42px; padding:0; border-radius:50%;
+  border:1px solid var(--brass-dim); background:linear-gradient(180deg,#123a22,#07220f);
+  box-shadow:0 3px 10px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.07);
+  display:grid; place-items:center; cursor:pointer;
+  transition:transform .16s ease, opacity .16s ease, border-color .16s ease;
+}
+.emBtn svg{ width:22px; height:22px; fill:var(--brass); }
+.emBtn svg .d{ fill:#07220f; }
+.emBtn.open{ transform:scale(1.06); border-color:var(--brass-lit); }
+.emBtn.open svg{ fill:var(--brass-lit); }
+.emBtn.quiet svg{ fill:var(--brass-dim); opacity:.5; }
+.emBtn.hidden{ display:none; }
+
+.emTray{
+  position:fixed; left:max(10px, env(safe-area-inset-left));
+  bottom:calc(max(10px, env(safe-area-inset-bottom)) + 50px);
+  z-index:61; display:flex; flex-direction:column; gap:4px;
+  padding:7px; border-radius:12px;
+  border:1px solid var(--brass-dim); background:rgba(6,30,17,.96);
+  box-shadow:0 10px 30px rgba(0,0,0,.5);
+  opacity:0; transform:translateY(8px) scale(.97); transform-origin:left bottom;
+  pointer-events:none; transition:opacity .14s ease, transform .14s ease;
+  max-height:min(62vh, 340px); overflow:auto;
+}
+.emTray.open{ opacity:1; transform:none; pointer-events:auto; }
+.emPick{
+  border:1px solid transparent; background:transparent; color:var(--cream);
+  font:inherit; font-size:13px; text-align:left; padding:6px 10px;
+  border-radius:8px; cursor:pointer; white-space:nowrap;
+}
+.emPick:hover, .emPick:active{ background:rgba(194,145,60,.16); border-color:var(--brass-dim); }
+.emQuiet{
+  margin-top:3px; padding-top:7px; border-top:1px solid var(--line);
+  border-left:0; border-right:0; border-bottom:0; background:transparent;
+  color:var(--cream-dim); font:inherit; font-size:11.5px; text-align:left;
+  padding-left:10px; cursor:pointer;
+}
+.emQuiet:hover{ color:var(--cream); }
+
+/* The bubbles themselves live in a layer of their own so that a state push
+   redrawing a seat cannot sweep away a sentence halfway through it. */
+.emLayer{ position:fixed; inset:0; z-index:59; pointer-events:none; }
+.emSay{
+  position:fixed; max-width:min(60vw, 190px);
+  padding:6px 11px; border-radius:12px;
+  border:1px solid var(--brass-dim); background:rgba(8,34,20,.95);
+  color:var(--cream); font-size:13px; line-height:1.25;
+  box-shadow:0 6px 18px rgba(0,0,0,.45);
+  opacity:0; transform:translateY(6px) scale(.94);
+  transition:opacity .18s ease, transform .18s cubic-bezier(.2,1.5,.4,1);
+}
+.emSay.in{ opacity:1; transform:none; }
+.emSay.mine{ border-color:var(--brass); background:rgba(18,58,34,.95); }
+/* the little tail, so a bubble belongs to a face rather than floating */
+.emSay::after{
+  content:""; position:absolute; left:50%; margin-left:-5px; bottom:-5px;
+  width:9px; height:9px; background:inherit;
+  border-right:1px solid var(--brass-dim); border-bottom:1px solid var(--brass-dim);
+  transform:rotate(45deg);
+}
+.emSay.below::after{ bottom:auto; top:-5px; transform:rotate(225deg); }
+@media (prefers-reduced-motion:reduce){
+  .emSay, .emTray{ transition:none; }
+}

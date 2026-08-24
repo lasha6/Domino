@@ -120,6 +120,7 @@
   <script src="js/sound.js"></script>
   <script src="js/haptic.js"></script>
   <script src="js/turnring.js"></script>
+  <script src="js/emote.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
@@ -741,17 +742,43 @@
      know who was at the table and the payload that ends it does not say. */
   let lastSt = null;
   let vsShown = false;
+
   function maybeVersus(st, game, started) {
     if (vsShown || !started || !window.Versus) return;
     vsShown = true;
     Versus.show(st, { game });
   }
+    /* Where a phrase from a given seat should point. The three seat boxes are
+       placed by where a player sits RELATIVE to me, so the seat has to be looked
+       up in the same table those boxes were drawn from. */
+    const emoteAnchor = (seat) => {
+      if (S && seat === S.seat) return document.getElementById("myhand");
+      const q = ((S && S.table) || []).find((x) => x.seat === seat);
+      const box = q && q.rel
+        ? document.getElementById("seat" + q.rel[0].toUpperCase() + q.rel.slice(1))
+        : null;
+      /* A hidden box measures as a zero-sized rectangle in the corner of the
+         screen, so it has to be turned down rather than pointed at: joker is
+         always four-handed, and a seat with no box yet means the table has
+         not arrived — the phrase goes to the middle instead of the corner. */
+      return box && box.offsetParent ? box : null;
+    };
+    /* Phrases across the table. Mounted once; after that the screen only says
+       whether anybody human is still there to hear one — a table the computer
+       has taken over should not be offering a greeting to nobody. */
+    function wireEmotes(st) {
+      if (!window.Emote) return;
+      Emote.mount({ socket, anchor: emoteAnchor });
+      Emote.live((st.roster || []).some((p) => !p.me && !p.bot));
+    }
+
     socket.on("state", (st) => {
       S = st;
       lastSt = st;
       if (st.hand) { seated = true; document.getElementById("waitOverlay").classList.remove("show"); }
       else { paintWaiting(st); return; }
       maybeVersus(st, "joker", !!st.hand);
+      wireEmotes(st);
       document.getElementById("pauseOverlay").classList.toggle("show", !!st.paused);
       if (st.paused && st.waitingFor && st.waitingFor.length)
         document.getElementById("pauseText").textContent = "ველოდებით: " + st.waitingFor.join(", ");

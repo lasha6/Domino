@@ -111,6 +111,7 @@
   <script src="js/sound.js"></script>
   <script src="js/haptic.js"></script>
   <script src="js/turnring.js"></script>
+  <script src="js/emote.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/nardi.js"></script>
   <script src="js/coins.js"></script>
@@ -1055,6 +1056,7 @@
   /* The versus card, once per match and only when there is somebody to be
      introduced to. */
   let vsShown = false, lastState = null;
+
   function maybeVersus(st, game, started) {
     if (vsShown || !started || !window.Versus) return;
     vsShown = true;
@@ -1067,12 +1069,25 @@
     });
   }
 
+  /* Two seats, two plates. */
+  const emoteAnchor = (seat) =>
+    document.getElementById(seat === ME ? "seatMe" : "seatThem");
+  /* Phrases across the table. Mounted once; after that the screen only says
+     whether anybody human is still there to hear one — a table the computer
+     has taken over should not be offering a greeting to nobody. */
+  function wireEmotes(st) {
+    if (!window.Emote) return;
+    Emote.mount({ socket, anchor: emoteAnchor });
+    Emote.live((st.roster || []).some((p) => !p.me && !p.bot));
+  }
+
   function applyState(st) {
     if (st.seat != null && st.seat !== ME) { ME = st.seat; CPU = 1 - ME; build(); fit(); }
     seated = true;
     lastState = st;
     clockLeft = st.moveLeft; clockTotal = st.moveTime;
     maybeVersus(st, "nardi", !!st.pts && st.phase === "play");
+    wireEmotes(st);
     if (!g) g = Nardi.newGame({ variant: st.variant || VARIANT, target: st.target || TARGET });
     if (st.pts) {
       g.pts = st.pts.slice(); g.bar = st.bar.slice(); g.off = st.off.slice();

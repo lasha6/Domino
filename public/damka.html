@@ -83,6 +83,7 @@
   <script src="js/sound.js"></script>
   <script src="js/haptic.js"></script>
   <script src="js/turnring.js"></script>
+  <script src="js/emote.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/damka.js"></script>
   <script src="js/config.js"></script>
@@ -335,10 +336,23 @@
   /* The versus card, once per match and only when there is somebody to be
      introduced to. */
   let vsShown = false;
+
   function maybeVersus(st, game, started) {
     if (vsShown || !started || !window.Versus) return;
     vsShown = true;
     Versus.show(st, { game });
+  }
+
+  /* Two seats, two plates. */
+  const emoteAnchor = (seat) =>
+    document.getElementById(seat === ME ? "seatMe" : "seatThem");
+  /* Phrases across the table. Mounted once; after that the screen only says
+     whether anybody human is still there to hear one — a table the computer
+     has taken over should not be offering a greeting to nobody. */
+  function wireEmotes(st) {
+    if (!window.Emote) return;
+    Emote.mount({ socket, anchor: emoteAnchor });
+    Emote.live((st.roster || []).some((p) => !p.me && !p.bot));
   }
 
   function applyState(st) {
@@ -346,6 +360,7 @@
     seated = true;
     clockLeft = st.moveLeft; clockTotal = st.moveTime;
     maybeVersus(st, "damka", !!st.cells && st.phase === "play");
+    wireEmotes(st);
     if (!g) g = Damka.newGame({});
     if (st.cells) {
       g.cells = st.cells.slice();

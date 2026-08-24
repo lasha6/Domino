@@ -36,6 +36,19 @@
     "← თამაშები": "← Games",
     "მალე": "Soon",
 
+    // --- the eight phrases, and their switch ---
+    "გამარჯობა!": "Hello!",
+    "კარგი სვლაა!": "Nice move!",
+    "ვაშა!": "Yes!",
+    "ეჰ...": "Ah...",
+    "მადლობა": "Thanks",
+    "სწრაფად :)": "Any time now :)",
+    "მოიცა...": "One moment...",
+    "კარგი თამაში!": "Good game!",
+    "ფრაზები": "Phrases",
+    "გამორთე ფრაზები": "Turn phrases off",
+    "ჩართე ფრაზები": "Turn phrases on",
+
     // --- rooms and tables ---
     "აირჩიე ოთახი": "Choose a table",
     "ბლიც": "Blitz", "სწრაფი": "Quick", "კლასიკური": "Classic", "ოსტატი": "Master",

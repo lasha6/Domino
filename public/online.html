@@ -118,6 +118,7 @@
   <script src="js/sound.js"></script>
   <script src="js/haptic.js"></script>
   <script src="js/turnring.js"></script>
+  <script src="js/emote.js"></script>
   <script src="js/fx.js"></script>
   <script>
     /* A hand ends and the tiles left over are what the score is made of, so
@@ -282,16 +283,32 @@
      know who was at the table and the payload that ends it does not say. */
   let lastSt = null;
   let vsShown = false;
+
   function maybeVersus(st, game, started) {
     if (vsShown || !started || !window.Versus) return;
     vsShown = true;
     Versus.show(st, { game });
   }
+    /* Where a phrase from a given seat should point. The opponent boxes carry
+       their seat number; my own goes over my hand. */
+    const emoteAnchor = (seat) =>
+      (S && seat === S.seat) ? document.getElementById("myhand")
+                             : document.querySelector('.opp[data-seat="' + seat + '"]');
+    /* Phrases across the table. Mounted once; after that the screen only says
+       whether anybody human is still there to hear one — a table the computer
+       has taken over should not be offering a greeting to nobody. */
+    function wireEmotes(st) {
+      if (!window.Emote) return;
+      Emote.mount({ socket, anchor: emoteAnchor });
+      Emote.live((st.roster || []).some((p) => !p.me && !p.bot));
+    }
+
     socket.on("state", (st) => {
       S = st;
       lastSt = st;
       seated = true;
       maybeVersus(st, "domino", st.phase === "play");
+      wireEmotes(st);
       if (st.paused) showPaused(st.waitingFor, st.resumeIn); else hidePaused();
       // waiting room / code
       const wait = document.getElementById("waitOverlay");
@@ -585,6 +602,7 @@
       oh.innerHTML = "";
       others.forEach((p) => {
         const box = document.createElement("div");
+        box.dataset.seat = p.seat;      // so a phrase knows which face it belongs to
         box.className = "opp" + (p.turn ? " active" : "")
           + (S.size === 4 && p.team === myTeam ? " mate" : "");
         let tag = S.size === 4 ? (p.rel === 2 ? "🤝 " : p.rel === 1 ? "◀ " : "▶ ") : "";
