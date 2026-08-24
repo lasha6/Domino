@@ -655,3 +655,95 @@ test("sorting a hand does not change what is in it", () => {
   const after = g.hands.map((h) => h.map((c) => c.join(",")).sort().join(" "));
   assert.deepEqual(after, before);
 });
+
+/* ---------------- ცხრიანები, and playing in pairs ---------------- */
+
+test("ცხრიანები is four sets of four nines and nothing else", () => {
+  const g = J.newGame({ variant: "nines" });
+  const sched = J.scheduleOf(g);
+  assert.equal(sched.length, 16, "sixteen hands");
+  assert.equal(J.handsIn(g), 16);
+  assert.deepEqual([...new Set(sched.map((h) => h.size))], [9], "every hand is nine cards");
+  assert.deepEqual([...new Set(sched.map((h) => h.set))], [1, 2, 3, 4], "four sets");
+  for (let set = 1; set <= 4; set++) {
+    const inSet = sched.filter((h) => h.set === set);
+    assert.equal(inSet.length, 4, "four hands in set " + set);
+    assert.equal(inSet[0].first, true, "set " + set + " knows where it starts");
+    assert.equal(inSet[3].last, true, "and where it ends");
+  }
+});
+
+test("the long game is untouched by the short one existing", () => {
+  const g = J.newGame({});
+  assert.equal(g.variant, "full");
+  assert.equal(J.handsIn(g), 24);
+  assert.deepEqual(J.scheduleOf(g).map((h) => h.size).slice(0, 10),
+    [1, 2, 3, 4, 5, 6, 7, 8, 9, 9]);
+});
+
+test("a ხიშტი in a hand of nine costs five hundred, whatever set it is in", () => {
+  /* The penalty was written as a set number back when there was one schedule
+     and sets 2 and 4 were the nines. It was always about the size of the hand,
+     and in ცხრიანები every set is nines — under the old table half of them
+     would have been priced as short sets. */
+  for (const set of [1, 2, 3, 4])
+    assert.equal(J.handScore(2, 0, 9, set), -500, "nine cards, set " + set);
+  for (const set of [1, 3])
+    assert.equal(J.handScore(2, 0, 5, set), -200, "five cards, set " + set);
+  assert.equal(J.whistFor(9), -500);
+  assert.equal(J.whistFor(4), -200);
+});
+
+test("partners sit opposite, and the score is the pair's", () => {
+  const g = J.newGame({ teams: true });
+  assert.equal(J.teamOf(g, 0), J.teamOf(g, 2), "0 and 2 are partners");
+  assert.equal(J.teamOf(g, 1), J.teamOf(g, 3), "1 and 3 are partners");
+  assert.notEqual(J.teamOf(g, 0), J.teamOf(g, 1), "and they are not all one team");
+
+  g.scores = [300, 100, 250, 400];
+  assert.deepEqual(J.teamScores(g), [550, 500]);
+
+  const solo = J.newGame({});
+  assert.deepEqual(J.teamScores(solo), [0, 0, 0, 0], "without partners a seat is its own");
+  assert.equal(J.teamOf(solo, 2), 2);
+});
+
+test("a match in pairs is won by a pair, not by the best hand at the table", () => {
+  /* The seat with the most points can be on the losing side, and that is the
+     whole point of playing in pairs. */
+  const g = J.newGame({ teams: true, variant: "nines" });
+  g.hand = J.handsIn(g) - 1;
+  g.phase = "handOver";
+  g.scores = [900, 800, 100, 700];        // seat 0 is the best player at the table
+  J.nextHand(g);
+  assert.equal(g.phase, "over");
+  assert.deepEqual(J.teamScores(g), [1000, 1500]);
+  assert.equal(g.winner, 1, "and his pair still lost");
+});
+
+test("without partners the winner is still a seat", () => {
+  const g = J.newGame({});
+  g.hand = J.handsIn(g) - 1;
+  g.phase = "handOver";
+  g.scores = [100, 900, 200, 300];
+  J.nextHand(g);
+  assert.equal(g.winner, 1);
+});
+
+test("a whole ცხრიანები match can be played out", () => {
+  /* Sixteen hands, four players, every card legal-checked by the engine. If
+     the schedule and the deal disagree anywhere this will not reach the end. */
+  const g = J.newGame({ variant: "nines", teams: true, rnd: seeded(4) });
+  J.deal(g);
+  let guard = 0;
+  while (g.phase !== "over" && guard++ < 4000) {
+    if (g.phase === "choose") { J.chooseTrump(g, g.turn, 0); continue; }
+    if (g.phase === "bid") { J.bid(g, g.turn, J.aiBid(g, g.turn)); continue; }
+    if (g.phase === "play") { const p = J.aiPlay(g, g.turn); J.play(g, g.turn, p.card, p.opts); continue; }
+    if (g.phase === "handOver") { J.nextHand(g); continue; }
+    break;
+  }
+  assert.equal(g.phase, "over", "the match finished (stopped at hand " + g.hand + ")");
+  assert.equal(g.hand, 15, "after sixteen hands");
+  assert.ok(g.winner === 0 || g.winner === 1, "and a pair won it");
+});

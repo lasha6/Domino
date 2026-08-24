@@ -264,6 +264,22 @@
   border-color:#0a0806; }
 .gNardi.short i:nth-child(3){ background:radial-gradient(circle at 34% 30%, #4a4038, #17120f);
   border-color:#0a0806; }
+/* Three cards on their edge: two ordinary, and the joker leaning on them.
+   The nines wear a nine; the pairs stand two against two. */
+.gJoker{ gap:4px; }
+.gJoker i{
+  width:15px; height:22px; border-radius:3px;
+  background:linear-gradient(160deg, #fffdf6, #e6dcc2);
+  border:1px solid rgba(0,0,0,.45);
+  box-shadow:0 2px 3px rgba(0,0,0,.4);
+  transform:rotate(-8deg);
+}
+.gJoker i:nth-child(2){ transform:rotate(0deg); }
+.gJoker i:nth-child(3){ transform:rotate(8deg);
+  background:linear-gradient(160deg, #f2cd7e, #b3862f); }
+.gJoker.nines i{ height:26px; }
+.gJoker.pairs i:nth-child(2){ background:linear-gradient(160deg, #4a4038, #17120f); }
+
 .gDamka{ gap:5px; }
 .gDamka i{ width:22px; height:22px; border-radius:50%;
   background:radial-gradient(circle at 34% 28%, var(--bone-hi), var(--bone-lo));

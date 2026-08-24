@@ -149,7 +149,11 @@ function createRoom(target, isPrivate, size, opts) {
        Whatever the table was asked for is what it stays. */
     variant: o.game === "nardi" ? (o.variant === "short" ? "short" : "long")
       : o.game === "damka" ? ""
+      : o.game === "joker" ? (o.variant === "nines" ? "nines" : "full")
       : (o.variant === "3" ? "3" : "5"),
+    /* ჯოკერი is played alone or in pairs, and the two are not the same table:
+       somebody who sat down to play for himself must not be put in a team. */
+    teams: o.game === "joker" ? !!o.teams : false,
     openMalutka: o.openMalutka !== false,       // ბურა only: the table's agreement
     b: null,                                    // ბურა state, when that is the game
     j: null,                                    // ჯოკერი state, when that is the game
@@ -164,9 +168,12 @@ function createRoom(target, isPrivate, size, opts) {
   return room;
 }
 // A table is only the same table if the game, the length and the size all match
-const waitKey = (target, size, game, variant, openMalutka) =>
+const waitKey = (target, size, game, variant, openMalutka, teams) =>
   (game === "bura" ? "bura:" + variant + ":" + (openMalutka ? "open" : "shut")
-   : game === "joker" ? "joker"                     // one shape: four players, 24 hands
+   /* ჯოკერი comes in four now: long or ცხრიანები, each alone or in pairs.
+      Somebody who sat down for a short game must not be dealt into a long one,
+      and somebody playing for himself must not find he has a partner. */
+   : game === "joker" ? "joker:" + variant + ":" + (teams ? "pairs" : "solo")
    : game === "nardi" ? "nardi:" + variant          // the two ნარდი are not one game
    : game === "damka" ? "damka"
    : "domino")
@@ -969,11 +976,17 @@ const JOKER_MOVE_TIME = 30000;                 // a while to think; there is a l
 function startJoker(room) {
   room.players.forEach((p) => { p.settled = false; });   // a fresh match to write down
   clearAuto(room);
-  room.players.forEach((p, i) => { p.seat = i; p.team = i; });   // no teams here
-  room.j = Joker.newGame({ dealer: room.size - 1 });   // so seat 0 calls first
+  /* Alone, a seat is its own team. In pairs the partners sit opposite, 0 and
+     2 against 1 and 3, which is where they already are. */
+  room.players.forEach((p, i) => { p.seat = i; p.team = room.teams ? i % 2 : i; });
+  room.j = Joker.newGame({
+    dealer: room.size - 1,                 // so seat 0 calls first
+    variant: room.variant === "nines" ? "nines" : "full",
+    teams: !!room.teams,
+  });
   Joker.deal(room.j);
   room.phase = "play";
-  say(room, "დაიწყო — 24 ხელი");
+  say(room, "დაიწყო — " + Joker.handsIn(room.j) + " ხელი");
   jokerAdvance(room);
 }
 
@@ -1062,10 +1075,15 @@ function jokerMatchOver(room) {
   const j = room.j;
   room.players.forEach((p) => {
     const s = io.sockets.sockets.get(p.id);
-    const won = p.seat === j.winner;
+    /* In pairs `winner` is a TEAM and not a seat, so both partners win it or
+       neither does. Reading it as a seat would hand the match to one of them
+       and take it off the other. */
+    const won = room.teams ? Joker.teamOf(j, p.seat) === j.winner : p.seat === j.winner;
     awardMatch(room, p, won);
     if (s) s.emit("matchOver", {
-      youWon: won, scores: j.scores, myTeam: p.seat, target: 0, size: room.size,
+      youWon: won, scores: j.scores, myTeam: Joker.teamOf(j, p.seat),
+      teams: !!room.teams, teamScores: room.teams ? Joker.teamScores(j) : null,
+      target: 0, size: room.size,
       progress: p.profile ? summarise(p.profile) : null,
       settled: p.lastSettle || null, earned: p.lastEarned || [],
     });
@@ -1110,7 +1128,12 @@ function jokerView(room, seat) {
   return Object.assign({}, base, {
     hand: j.hands[seat],
     table,
-    handNo: j.hand + 1, handsInMatch: Joker.HANDS, set: spec.set, cards: spec.size,
+    handNo: j.hand + 1, handsInMatch: Joker.handsIn(j), set: spec.set, cards: spec.size,
+    /* The screen has to know whether it is showing four players or two pairs
+       before it draws a single score. */
+    teams: !!room.teams, variant: room.variant,
+    teamScores: room.teams ? Joker.teamScores(j) : null,
+    myTeam: Joker.teamOf(j, seat),
     trump: j.trump, turned: j.turned,
     stage: j.phase,                       // choose | bid | play | handOver | over
     turn: j.turn, myTurn: j.turn === seat && room.phase === "play",
@@ -1470,7 +1493,9 @@ io.on("connection", (socket) => {
       : (p.size === 4 ? 4 : 2);
     const variant = game === "nardi" ? (p.variant === "short" ? "short" : "long")
       : game === "damka" ? ""
+      : game === "joker" ? (p.variant === "nines" ? "nines" : "full")
       : (game === "bura" && size === 4) ? "5" : (p.variant === "3" ? "3" : "5");
+    const teams = game === "joker" ? !!p.teams : false;
     const target = game === "joker" ? 0
       : game === "damka" ? 0
       : game === "nardi" ? ([1, 3, 5, 7].includes(p.target) ? p.target : 3)
@@ -1479,7 +1504,7 @@ io.on("connection", (socket) => {
     // the agreement is part of the table: a quick match must not seat two
     // players who disagree about it together
     const openMalutka = p.openMalutka !== false;
-    return { game, variant, size, target, openMalutka };
+    return { game, variant, size, target, openMalutka, teams };
   };
 
   // --- quick match: pair with anyone waiting on the same target AND table size ---
@@ -1525,9 +1550,9 @@ io.on("connection", (socket) => {
   on("quickJoin", async (payload) => {
     if (busyElsewhere(socket, payload && payload.token)) return;
     const { name, token, auth } = payload;
-    const { game, variant, size: sz, target: t, openMalutka } = tableWanted(payload);
+    const { game, variant, size: sz, target: t, openMalutka, teams } = tableWanted(payload);
     const who = await whoIs(auth, name);
-    const key = waitKey(t, sz, game, variant, openMalutka);
+    const key = waitKey(t, sz, game, variant, openMalutka, teams);
     let room = waiting.has(key) ? rooms.get(waiting.get(key)) : null;
     if (room && room.players.length < room.size) {
       seat(room, who, token);
@@ -1537,7 +1562,7 @@ io.on("connection", (socket) => {
         : `ველოდებით — ${room.players.length}/${room.size}`);
       if (!maybeStart(room)) pushState(room);
     } else {
-      room = createRoom(t, false, sz, { game, variant, openMalutka });
+      room = createRoom(t, false, sz, { game, variant, openMalutka, teams });
       seat(room, who, token);
       waiting.set(key, room.id);
       say(room, `ველოდებით — 1/${sz}`);
@@ -1549,9 +1574,9 @@ io.on("connection", (socket) => {
   on("createTable", async (payload) => {
     if (busyElsewhere(socket, payload && payload.token)) return;
     const { name, token, auth } = payload;
-    const { game, variant, size: sz, target: t, openMalutka } = tableWanted(payload);
+    const { game, variant, size: sz, target: t, openMalutka, teams } = tableWanted(payload);
     const who = await whoIs(auth, name);
-    const room = createRoom(t, true, sz, { game, variant, openMalutka });
+    const room = createRoom(t, true, sz, { game, variant, openMalutka, teams });
     seat(room, who, token);
     say(room, "გაუზიარე კოდი მეგობრებს");
     pushState(room);

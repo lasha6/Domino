@@ -430,7 +430,7 @@
       fitTable();
       const s = Joker.spec(g);
       document.getElementById("setNo").textContent = s.set;
-      document.getElementById("handNo").textContent = (g.hand + 1) + "/" + Joker.HANDS
+      document.getElementById("handNo").textContent = (g.hand + 1) + "/" + Joker.handsIn(g)
                                                     + " · " + s.size;
       document.getElementById("trumpLbl").textContent =
         g.phase === "choose" ? "—"
@@ -458,8 +458,10 @@
       box.innerHTML = "";
       const d = document.createElement("div");
       d.className = "who me" + (g.turn === ME && g.phase !== "handOver" ? " turn" : "");
-      const nm = document.createElement("span"); nm.textContent = NAMES[ME];
-      const sc = document.createElement("b"); sc.textContent = g.scores[ME];
+      const nm = document.createElement("span");
+      nm.textContent = TEAMS ? NAMES[ME] + " + " + NAMES[(ME + 2) % 4] : NAMES[ME];
+      const sc = document.createElement("b");
+      sc.textContent = TEAMS ? Joker.teamScores(g)[Joker.teamOf(g, ME)] : g.scores[ME];
       d.appendChild(nm); d.appendChild(sc);
       box.appendChild(d);
     }
@@ -779,7 +781,7 @@
       else Sound.play("handLose");
 
       const btn = document.getElementById("handBtn");
-      btn.textContent = g.hand + 1 >= Joker.HANDS ? "შედეგი" : "შემდეგი ხელი ▶";
+      btn.textContent = g.hand + 1 >= Joker.handsIn(g) ? "შედეგი" : "შემდეგი ხელი ▶";
       btn.onclick = () => {
         document.getElementById("handOverlay").classList.remove("show");
         Joker.nextHand(g);
@@ -793,23 +795,34 @@
     function showResult(){
       const box = document.getElementById("resultBody");
       box.innerHTML = "";
-      const order = [0, 1, 2, 3].sort((a, b) => g.scores[b] - g.scores[a]);
       const t = document.createElement("table");
       t.className = "jkTable";
-      order.forEach((p, i) => {
+      /* In pairs the table is a table of pairs: the man with the most points
+         can be on the losing side, and showing him first would say the wrong
+         thing about who won. */
+      const rows = TEAMS
+        ? [0, 1].map((team) => ({
+            mine: Joker.teamOf(g, ME) === team,
+            name: NAMES[team] + " + " + NAMES[team + 2],
+            pts: Joker.teamScores(g)[team],
+          })).sort((a, b) => b.pts - a.pts)
+        : [0, 1, 2, 3].map((p) => ({ mine: p === ME, name: NAMES[p], pts: g.scores[p] }))
+            .sort((a, b) => b.pts - a.pts);
+      rows.forEach((r, i) => {
         const tr = document.createElement("tr");
-        if (p === ME) tr.className = "me";
+        if (r.mine) tr.className = "me";
         const pos = document.createElement("td"); pos.textContent = (i + 1) + ".";
-        const name = document.createElement("td"); name.textContent = NAMES[p];
+        const name = document.createElement("td"); name.textContent = r.name;
         const pts = document.createElement("td");
-        pts.className = "pts " + (g.scores[p] < 0 ? "bad" : "");
-        pts.textContent = g.scores[p];
+        pts.className = "pts " + (r.pts < 0 ? "bad" : "");
+        pts.textContent = r.pts;
         [pos, name, pts].forEach((td) => tr.appendChild(td));
         t.appendChild(tr);
       });
       box.appendChild(t);
-      const won = g.winner === ME;
-      document.getElementById("resultTitle").textContent = won ? "🏆 შენ მოიგე!" : "თამაში დასრულდა";
+      const won = TEAMS ? g.winner === Joker.teamOf(g, ME) : g.winner === ME;
+      document.getElementById("resultTitle").textContent =
+        won ? (TEAMS ? "🏆 თქვენმა წყვილმა მოიგო!" : "🏆 შენ მოიგე!") : "თამაში დასრულდა";
       if (won) { Sound.play("win"); Fx.confetti(80, { spread: 0.8 }); } else Sound.play("lose");
       document.getElementById("resultBtn").onclick = () => {
         document.getElementById("resultOverlay").classList.remove("show");
@@ -819,12 +832,19 @@
     }
 
     /* ---------------- a new match ---------------- */
+    /* One screen, three ways to play it: the long game or ცხრიანები, alone or
+       in pairs. Partners sit opposite — 0 and 2 against 1 and 3 — which is
+       where they already sit, so nothing about the table has to move. */
+    const Q = new URLSearchParams(location.search);
+    const VARIANT = Q.get("v") === "nines" ? "nines" : "full";
+    const TEAMS = Q.get("teams") === "1";
+
     function startMatch(){
       document.getElementById("handOverlay").classList.remove("show");
       document.getElementById("resultOverlay").classList.remove("show");
       busy = false; pending = null; trickCleared = true;
       clearTimeout(trickTimer);
-      g = Joker.newGame({ dealer: 3 });      // so you are the first to bid
+      g = Joker.newGame({ dealer: 3, variant: VARIANT, teams: TEAMS });
       Joker.deal(g);
       render();
       step();

@@ -97,20 +97,32 @@
   /* ---------------- the twenty-four hands ----------------
      Four sets: up from one to eight, four nines, back down from eight to one,
      four nines again. The set a hand belongs to decides what a ხიშტი costs. */
+  /* The long game climbs to eight, plays four nines, comes back down and
+     plays four more: twenty-four hands. ცხრიანები is the nines on their own,
+     four sets of four — the same game with the counting left out, which is
+     what people play when there is not an evening to spare. */
   const SET_SIZES = [
     [1, 2, 3, 4, 5, 6, 7, 8],
     [9, 9, 9, 9],
     [8, 7, 6, 5, 4, 3, 2, 1],
     [9, 9, 9, 9],
   ];
-  const SCHEDULE = (function () {
+  const NINES_SIZES = [[9, 9, 9, 9], [9, 9, 9, 9], [9, 9, 9, 9], [9, 9, 9, 9]];
+
+  const build = (sets) => {
     const out = [];
-    SET_SIZES.forEach((sizes, i) => {
-      sizes.forEach((size, j) => out.push({ set: i + 1, size, first: j === 0, last: j === sizes.length - 1 }));
+    sets.forEach((sizes, i) => {
+      sizes.forEach((size, j) => out.push({
+        set: i + 1, size, first: j === 0, last: j === sizes.length - 1,
+      }));
     });
     return out;
-  })();
+  };
+  const SCHEDULE = build(SET_SIZES);
+  const NINES = build(NINES_SIZES);
+  const scheduleOf = (g) => (g && g.variant === "nines" ? NINES : SCHEDULE);
   const HANDS = SCHEDULE.length;                              // 24
+  const NINE_HANDS = NINES.length;                            // 16
 
   /* ---------------- scoring ----------------
      Exact: fifty a trick and fifty for being right, so 0/0 is 50 and 3/3 is
@@ -118,13 +130,18 @@
      instead — and only then; taking them all without having said so is still a
      miss. A miss is ten a trick. And ხიშტი: having said you would take at
      least one and taken none costs 200 in the short sets, 500 in the nines. */
+  /* Written as a set number for as long as there was one schedule, where sets
+     2 and 4 were the nines. It was always about the SIZE of the hand: a hand
+     of nine costs five hundred. ცხრიანები is nines all the way through, and
+     under the old table half of it would have been priced as a short set. */
   const WHIST = { 1: -200, 2: -500, 3: -200, 4: -500 };
+  const whistFor = (size) => (size === 9 ? -500 : -200);
   function handScore(bid, took, size, set) {
     if (bid === took) {
       if (bid === size) return 100 * size;                    // all of them, called
       return bid * 50 + 50;
     }
-    if (bid >= 1 && took === 0) return WHIST[set];            // ხიშტი
+    if (bid >= 1 && took === 0) return whistFor(size);        // ხიშტი
     return took * 10;
   }
 
@@ -162,7 +179,13 @@
     const o = opts || {};
     return {
       players: 4,
-      hand: 0,                       // index into SCHEDULE
+      /* "full" — the whole twenty-four; "nines" — four sets of four nines.
+         `teams` puts partners opposite each other, 0+2 against 1+3, and the
+         match is won by a PAIR. Everything else is the same game: each player
+         still bids for himself and takes his own tricks. */
+      variant: o.variant === "nines" ? "nines" : "full",
+      teams: !!o.teams,
+      hand: 0,                       // index into the schedule
       dealer: o.dealer != null ? o.dealer : 0,
       scores: [0, 0, 0, 0],
       // every hand's result, so a set bonus can be worked out from the record
@@ -181,7 +204,14 @@
     };
   }
 
-  const spec = (g) => SCHEDULE[g.hand];
+  const spec = (g) => scheduleOf(g)[g.hand];
+  const handsIn = (g) => scheduleOf(g).length;
+  /* Partners sit opposite: seats 0 and 2 against 1 and 3, the way they do at
+     every four-handed table. */
+  const teamOf = (g, seat) => (g.teams ? seat % 2 : seat);
+  const teamScores = (g) => (g.teams
+    ? [g.scores[0] + g.scores[2], g.scores[1] + g.scores[3]]
+    : g.scores.slice());
   const nextSeat = (g, s) => (s + 1) % g.players;
   const leftOfDealer = (g) => nextSeat(g, g.dealer);
 
@@ -396,10 +426,14 @@
   // deal the next one; the deal moves round the table
   function nextHand(g) {
     if (g.phase !== "handOver") return false;
-    if (g.hand + 1 >= HANDS) {
+    if (g.hand + 1 >= handsIn(g)) {
       g.phase = "over";
+      /* With partners the match belongs to a PAIR, and `winner` is the team
+         number rather than a seat. Everything that reads it has to know which
+         it is looking at, which is what `teams` on the game is for. */
+      const totals = teamScores(g);
       let best = 0;
-      g.scores.forEach((n, p) => { if (n > g.scores[best]) best = p; });
+      totals.forEach((n, p) => { if (n > totals[best]) best = p; });
       g.winner = best;
       return true;
     }
@@ -452,6 +486,8 @@
 
   return {
     SUITS, RANKS, JOKER, NOTRUMP, SET_SIZES, SCHEDULE, HANDS, WHIST,
+    NINES_SIZES, NINES, NINE_HANDS, scheduleOf, handsIn, whistFor,
+    teamOf, teamScores,
     suitOf, rankOf, isJoker, sameCard, nameOf, makeDeck, shuffle,
     handScore, trickWinner, sortHand, suitOrder,
     newGame, deal, chooseTrump, spec, nextSeat, leftOfDealer,

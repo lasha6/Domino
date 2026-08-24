@@ -132,6 +132,10 @@
     const qs = new URLSearchParams(location.search);
     const MODE = qs.get("mode") || "quick";              // quick | friend | join
     const CODE = (qs.get("code") || "").toUpperCase();
+    /* ჯოკერი comes in four: the long game or ცხრიანები, each alone or in
+       pairs. They are four different tables and the server keeps them apart. */
+    const VARIANT = qs.get("v") === "nines" ? "nines" : "full";
+    const TEAMS = qs.get("teams") === "1";
     const WHO  = Auth.credentials();
     const NAME = WHO.name || "სტუმარი";
     const REL  = ["me", "left", "across", "right"];
@@ -430,8 +434,12 @@
       box.innerHTML = "";
       const d = document.createElement("div");
       d.className = "who me" + (S.myTurn ? " turn" : "");
-      const nm = document.createElement("span"); nm.textContent = "შენ";
-      const sc = document.createElement("b"); sc.textContent = S.scores[S.seat];
+      const across = (S.table || []).find((x) => x.rel === "across") || {};
+      const nm = document.createElement("span");
+      nm.textContent = S.teams ? "შენ + " + (across.name || "პარტნიორი") : "შენ";
+      const sc = document.createElement("b");
+      sc.textContent = S.teams && S.teamScores
+        ? S.teamScores[S.myTeam] : S.scores[S.seat];
       d.appendChild(nm); d.appendChild(sc);
       box.appendChild(d);
     }
@@ -694,7 +702,11 @@
       /* "rejoin" is the front page sending them back to the chair the server
          is still holding. Nothing is asked for; the token is the claim. */
       if (seated || MODE === "rejoin") { socket.emit("resume", { token: TOKEN, game: "joker" }); return; }
-      const who = { name: NAME, token: TOKEN, auth: WHO.auth, game: "joker", size: 4 };
+      /* Which ჯოკერი this is has to travel with the request: the server keeps
+         the four kinds apart, and a quick match must not seat somebody who
+         asked for ცხრიანები at a table playing the long game. */
+      const who = { name: NAME, token: TOKEN, auth: WHO.auth, game: "joker", size: 4,
+                    variant: VARIANT, teams: TEAMS };
       if (MODE === "quick")       socket.emit("quickJoin",   who);
       else if (MODE === "friend") socket.emit("createTable", who);
       else                        socket.emit("joinTable",   Object.assign({ code: CODE }, who));

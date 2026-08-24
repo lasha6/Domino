@@ -59,12 +59,13 @@ const until = async (fn, ms = 20000) => {
   return fn();
 };
 
-async function table() {
+async function table(extra = {}) {
   const tag = "jk" + (n++);
   const names = ["ერთი", "ორი", "სამი", "ოთხი"];
   const cs = names.map((name, i) => {
     const c = client();
-    c.emit("quickJoin", { game: "joker", name, auth: { kind: "guest", id: tag + i } });
+    c.emit("quickJoin", Object.assign(
+      { game: "joker", name, auth: { kind: "guest", id: tag + i } }, extra));
     return c;
   });
   assert.ok(await until(() => cs.every((c) => c.last && c.last.hand)), "all four were dealt");
@@ -230,3 +231,60 @@ test("nonsense at the ჯოკერი handlers cannot bring the server down",
     assert.ok(["play", "roundEnd", "over"].includes(c.last.phase), c.last.phase);
   });
 });
+
+/* ---------------- ცხრიანები, and playing in pairs ---------------- */
+
+test("ცხრიანები deals nine from the first hand and runs sixteen", async () => {
+  const cs = await table({ variant: "nines" });
+  const st = cs[0].last;
+  assert.equal(st.cards, 9, "nine cards in the first hand, not one");
+  assert.equal(st.handsInMatch, 16, "and sixteen hands in the match");
+  assert.equal(st.hand.length, 3,
+    "the nines start with three seen and a trump to name");
+  assert.equal(st.stage, "choose");
+  assert.equal(st.teams, false, "nobody asked for partners");
+});
+
+test("in pairs the partners sit opposite and share a score", async () => {
+  const cs = await table({ teams: true });
+  for (const c of cs) {
+    assert.equal(c.last.teams, true);
+    assert.equal(c.last.myTeam, c.last.seat % 2, "0 and 2 against 1 and 3");
+    assert.ok(Array.isArray(c.last.teamScores) && c.last.teamScores.length === 2,
+      "two scores, not four");
+  }
+  const across = cs[0].last.table.find((x) => x.rel === "across");
+  assert.equal(across.seat, 2, "his partner is the man opposite");
+});
+
+test("the four kinds of ჯოკერი are four different tables", async () => {
+  /* Somebody who sat down for a short game must not be dealt into a long one,
+     and somebody playing for himself must not find that he has a partner. */
+  const tag = "jkmix" + (n++);
+  const kinds = [
+    { variant: "full",  teams: false },
+    { variant: "nines", teams: false },
+    { variant: "full",  teams: true  },
+    { variant: "nines", teams: true  },
+  ];
+  const cs = kinds.map((k, i) => {
+    const c = client();
+    c.emit("quickJoin", Object.assign({ game: "joker", name: "მ" + i,
+      auth: { kind: "guest", id: tag + i } }, k));
+    return c;
+  });
+  await wait(900);
+  for (const c of cs) {
+    assert.ok(c.last, "each of them is at a table");
+    assert.ok(!c.last.hand || !c.last.hand.length,
+      "and none of them was dealt: four people wanting four different games");
+  }
+  assert.equal(srv.exited, null, `still up: ${srv.log.slice(-300)}`);
+});
+
+/* A whole pairs match is not driven here on purpose: sixteen hands of nine is
+   some six hundred round trips and a pause between every hand, which is a
+   minute of waiting to prove one line. Who wins a pair match is the engine's
+   rule and it is tested there, over a built position where the best player at
+   the table is on the losing side; the server only reads `teamOf`, and that it
+   reads it for every seat is what the test above checks. */

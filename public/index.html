@@ -134,12 +134,34 @@
         <div class="buraArt"><span>🃏</span><span>♠</span><span>♥</span><span>♦</span></div>
         <h1 class="logo-title">ჯოკერი</h1>
         <p class="logo-sub">ონლაინ</p>
-        <button class="play" onclick="location.href='jokeronline.html?mode=quick'">
+        <div class="games">
+          <button class="game" id="jkFull" onclick="pickJoker('full')">
+            <span class="gArt gJoker"><i></i><i></i><i></i></span>
+            <span class="gName">კლასიკური</span>
+            <span class="gSub">24 ხელი · თითოეული თავისთვის</span>
+          </button>
+          <button class="game" id="jkNines" onclick="pickJoker('nines')">
+            <span class="gArt gJoker nines"><i></i><i></i><i></i></span>
+            <span class="gName">ცხრიანები</span>
+            <span class="gSub">16 ხელი · მხოლოდ ცხრები</span>
+          </button>
+          <button class="game" id="jkPairs" onclick="pickJoker('pairs')">
+            <span class="gArt gJoker pairs"><i></i><i></i><i></i></span>
+            <span class="gName">2v2 კლასიკური</span>
+            <span class="gSub">24 ხელი · წყვილებით</span>
+          </button>
+          <button class="game" id="jkNinesPairs" onclick="pickJoker('ninesPairs')">
+            <span class="gArt gJoker nines pairs"><i></i><i></i><i></i></span>
+            <span class="gName">2v2 ცხრიანები</span>
+            <span class="gSub">16 ხელი · წყვილებით</span>
+          </button>
+        </div>
+        <button class="play" onclick="jokerGo('quick')">
           <span class="arrow">▶</span> ითამაშე
         </button>
         <div class="modes">
           <button class="mode" onclick="openFriend('joker')">👥 მეგობართან</button>
-          <button class="mode" onclick="location.href='joker.html'">🤖 კომპიუტერთან</button>
+          <button class="mode" onclick="jokerGo('cpu')">🤖 კომპიუტერთან</button>
         </div>
       </div>
 
@@ -962,6 +984,7 @@
       document.getElementById("viewJoker").style.display  = name === "joker" ? "" : "none";
       document.getElementById("viewNardi").style.display  = name === "nardi" ? "" : "none";
       if (name === "nardi") paintBoardPick();
+      if (name === "joker") paintJokerPick();
       if (name) { Sound.play("tap"); localStorage.setItem("dominoLastGame", name); }
       else localStorage.removeItem("dominoLastGame");
     }
@@ -1338,6 +1361,41 @@
        and the three buttons underneath then mean the same thing here as they
        do on every other game in the app. */
     let boardPick = localStorage.getItem("dominoBoard") || "long";
+    /* Four ways to play ჯოკერი, and they are four different tables: the long
+       game or ცხრიანები, each alone or in pairs. The choice is remembered the
+       way the board room remembers its own. */
+    let jokerPick = localStorage.getItem("dominoJoker") || "full";
+    const JOKER_KIND = {
+      full:       { v: "full",  teams: false },
+      nines:      { v: "nines", teams: false },
+      pairs:      { v: "full",  teams: true  },
+      ninesPairs: { v: "nines", teams: true  },
+    };
+    if (!JOKER_KIND[jokerPick]) jokerPick = "full";
+    function pickJoker(which){
+      jokerPick = JOKER_KIND[which] ? which : "full";
+      localStorage.setItem("dominoJoker", jokerPick);
+      paintJokerPick();
+      Sound.play("tap");
+    }
+    function paintJokerPick(){
+      const map = { full: "jkFull", nines: "jkNines",
+                    pairs: "jkPairs", ninesPairs: "jkNinesPairs" };
+      Object.entries(map).forEach(([k, id]) => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle("on", k === jokerPick);
+      });
+    }
+    const jokerQuery = () => {
+      const k = JOKER_KIND[jokerPick];
+      return (k.v === "nines" ? "v=nines" : "") + (k.teams ? (k.v === "nines" ? "&" : "") + "teams=1" : "");
+    };
+    function jokerGo(how){
+      const q = jokerQuery();
+      if (how === "cpu") { location.href = "joker.html" + (q ? "?" + q : ""); return; }
+      location.href = "jokeronline.html?" + (q ? q + "&" : "") + "mode=quick";
+    }
+
     function pickBoard(which){
       boardPick = which;
       localStorage.setItem("dominoBoard", which);
@@ -1377,8 +1435,10 @@
     }
     function friendCreate(){
       closeFriend();
-      // ჯოკერი has nothing to choose: four players, twenty-four hands, always
-      if (friendGame === "joker") location.href = "jokeronline.html?mode=friend";
+      if (friendGame === "joker") {
+        const q = jokerQuery();
+        location.href = "jokeronline.html?" + (q ? q + "&" : "") + "mode=friend";
+      }
       else if (friendGame === "bura") openBura("friend");
       else if (friendGame === "nardi") location.href = "nardi.html?v=" + boardPick + "&mode=friend";
       else if (friendGame === "damka") location.href = "damka.html?mode=friend";
@@ -1389,7 +1449,11 @@
       if(c.length !== 4) return toast("კოდი 4 სიმბოლოა");
       /* A ნარდი code carries which board it is: the guest is told by the table
          itself, so the variant in the address is only a first guess. */
-      const sep = friendGame === "nardi" ? "?v=" + boardPick + "&" : "?";
+      /* A code carries which table it is: the guest is told by the table
+         itself, so what is in the address is only a first guess. */
+      const sep = friendGame === "nardi" ? "?v=" + boardPick + "&"
+        : friendGame === "joker" ? "?" + (jokerQuery() ? jokerQuery() + "&" : "")
+        : "?";
       location.href = FRIEND_SCREEN[friendGame] + sep + "mode=join&code=" + encodeURIComponent(c);
     }
 
