@@ -107,6 +107,7 @@
   </div>
 
   <script src="js/woodgrain.js"></script>
+  <script src="js/versus.js"></script>
   <script src="js/sound.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/nardi.js"></script>
@@ -1038,9 +1039,26 @@
      `targetsFrom` offers the same moves, and a move it would refuse the server
      would refuse too.
      ===================================================================== */
+  /* The versus card, once per match and only when there is somebody to be
+     introduced to. */
+  let vsShown = false, lastState = null;
+  function maybeVersus(st, game, started) {
+    if (vsShown || !started || !window.Versus) return;
+    vsShown = true;
+    /* The opening throw waits behind the card so it is not made where nobody
+       can see it — which means something has to wake it when the card goes.
+       Nothing else will: the server has already sent the state that starts the
+       ceremony and has no reason to send another. */
+    Versus.show(st, { game }).then(() => {
+      if (lastState && lastState.nphase === "opening") openingOnline(lastState);
+    });
+  }
+
   function applyState(st) {
     if (st.seat != null && st.seat !== ME) { ME = st.seat; CPU = 1 - ME; build(); fit(); }
     seated = true;
+    lastState = st;
+    maybeVersus(st, "nardi", !!st.pts && st.phase === "play");
     if (!g) g = Nardi.newGame({ variant: st.variant || VARIANT, target: st.target || TARGET });
     if (st.pts) {
       g.pts = st.pts.slice(); g.bar = st.bar.slice(); g.off = st.off.slice();
@@ -1103,30 +1121,35 @@
     const op = st.opening || [null, null];
     const tied = !!st.openingTied;
     const key = JSON.stringify(op) + (tied ? "=" : "");
-    if (key === lastOpening) return;
-    const had = lastOpening ? JSON.parse(lastOpening.replace("=", "")) : [null, null];
 
-    if (op[0] == null && op[1] == null) {
-      clearDice(true);                       // a fresh throw: the felt is swept
-      say("ვინ იწყებს?");
-    } else {
-      [0, 1].forEach((seat) => {
-        if (op[seat] == null || had[seat] != null) return;   // nothing new here
-        throwDice([op[seat]], seat === ME, { keep: true, quiet: seat !== ME });
-      });
-      if (tied) say("თანაბარია — თავიდან");
-      else if (op[ME] == null || op[1 - ME] == null) say("ველოდებით მოწინააღმდეგეს");
-    }
-    lastOpening = key;
-
-    /* One die each, asked for once. A tie puts both back in play, so the ask
-       is owed again — which is why this is not simply "have I thrown yet". */
-    if (tied || op[ME] == null) {
-      if (!openingAsked) {
-        openingAsked = true;
-        setTimeout(() => { openingAsked = false; }, 1200);
-        socket.emit("nOpen");
+    /* Drawing is skipped when nothing has changed, but ASKING is not: the
+       versus card holds the throw back so it is not made where nobody can see
+       it, and the wake-up when the card goes arrives on the very same state.
+       Bailing out early on "seen this already" would swallow it. */
+    if (key !== lastOpening) {
+      const had = lastOpening ? JSON.parse(lastOpening.replace("=", "")) : [null, null];
+      if (op[0] == null && op[1] == null) {
+        clearDice(true);                     // a fresh throw: the felt is swept
+        say("ვინ იწყებს?");
+      } else {
+        [0, 1].forEach((seat) => {
+          if (op[seat] == null || had[seat] != null) return;  // nothing new here
+          throwDice([op[seat]], seat === ME, { keep: true, quiet: seat !== ME });
+        });
+        if (tied) say("თანაბარია — თავიდან");
+        else if (op[ME] == null || op[1 - ME] == null) say("ველოდებით მოწინააღმდეგეს");
       }
+      lastOpening = key;
+    }
+
+    /* One die each. A tie puts both back in play, so the ask is owed again —
+       which is why this is not simply "have I thrown yet". */
+    const owed = tied || op[ME] == null;
+    const behindCard = !!(window.Versus && Versus.open());
+    if (owed && !openingAsked && !behindCard) {
+      openingAsked = true;
+      setTimeout(() => { openingAsked = false; }, 1200);
+      socket.emit("nOpen");
     }
   }
   const show = (el, on) => el.classList.toggle("show", !!on);

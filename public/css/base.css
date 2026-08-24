@@ -334,3 +334,164 @@ body::after{
   background:linear-gradient(180deg, rgba(6,34,19,.92), rgba(3,20,11,.98));
   backdrop-filter:blur(2px);
 }
+
+/* =====================================================================
+   The versus card — how a real match is announced.
+
+   Shown once, when an online or friend table fills and the first hand is
+   dealt: who is across the table, what the match is worth, and a word of
+   advice while it settles. In 2v2 it is two against two, partners stacked on
+   their own side.
+
+   Everything here is in the app's own colours — brass, cream, baize and
+   walnut. The reference for this was a neon blue-against-red card, which
+   would have looked like a different app bolted onto this one; what carries
+   across is the SHAPE of it, not the palette.
+   ===================================================================== */
+.vsWrap{
+  position:fixed; inset:0; z-index:70; display:none;
+  align-items:center; justify-content:center;
+  background:
+    radial-gradient(120% 90% at 20% 25%, rgba(242,205,126,.10), rgba(0,0,0,0) 55%),
+    radial-gradient(120% 90% at 80% 75%, rgba(43,138,82,.14), rgba(0,0,0,0) 55%),
+    radial-gradient(140% 120% at 50% 50%, rgba(6,34,19,.94), rgba(2,10,6,.985) 70%);
+  -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px);
+}
+.vsWrap.show{ display:flex; animation:vsFade .22s ease-out; }
+@keyframes vsFade{ from{ opacity:0 } to{ opacity:1 } }
+
+.vsCard{
+  position:relative; width:100%; max-width:760px;
+  padding:0 16px; display:flex; flex-direction:column; align-items:center;
+  gap:clamp(6px, 2.2vh, 14px);
+}
+
+/* the two sides, and the mark between them */
+.vsRow{
+  width:100%; display:grid; align-items:center;
+  grid-template-columns:1fr auto 1fr; gap:clamp(6px, 2.4vw, 20px);
+}
+.vsSide{
+  display:flex; flex-direction:column; align-items:center;
+  gap:clamp(5px, 1.6vh, 11px); min-width:0;
+}
+
+/* one player: a medallion, a name and a rank, the same objects the table
+   itself already uses so the card is plainly part of the same app */
+.vsPlayer{
+  display:flex; align-items:center; gap:10px; min-width:0;
+  animation:vsInL .42s cubic-bezier(.2,1,.4,1) both;
+}
+.vsSide.right .vsPlayer{ flex-direction:row-reverse; animation-name:vsInR; }
+.vsPlayer:nth-child(2){ animation-delay:.09s; }
+@keyframes vsInL{ from{ opacity:0; transform:translateX(-26px) } to{ opacity:1; transform:none } }
+@keyframes vsInR{ from{ opacity:0; transform:translateX(26px) }  to{ opacity:1; transform:none } }
+
+.vsFace{
+  position:relative; flex:none;
+  width:clamp(52px, 15vh, 96px); height:clamp(52px, 15vh, 96px);
+  border-radius:50%; display:grid; place-items:center; overflow:hidden;
+  font:700 clamp(22px, 6.6vh, 40px)/1 var(--font-display); color:#2a1a00;
+  background:linear-gradient(180deg, var(--brass-lit), var(--brass) 60%, var(--brass-dim));
+  background-size:cover; background-position:center;
+  box-shadow:
+    0 0 0 2px rgba(0,0,0,.55),
+    0 0 0 4px var(--brass),
+    0 0 18px rgba(242,205,126,.35),
+    inset 0 2px 0 rgba(255,255,255,.4);
+}
+.vsFace.hasPic{ color:transparent; }
+/* the far side wears the darker rim, the way the pieces do */
+.vsSide.right .vsFace{
+  box-shadow:
+    0 0 0 2px rgba(0,0,0,.6),
+    0 0 0 4px #3a3a41,
+    0 0 18px rgba(0,0,0,.5),
+    inset 0 2px 0 rgba(255,255,255,.28);
+}
+.vsRank{
+  position:absolute; left:50%; bottom:-3px; transform:translateX(-50%);
+  min-width:20px; padding:1px 5px; border-radius:999px;
+  font:800 10.5px/1.5 var(--font-ui); color:#1a1206;
+  background:linear-gradient(180deg, var(--brass-lit), var(--brass-dim));
+  box-shadow:0 0 0 1.5px rgba(0,0,0,.6);
+}
+.vsWho{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+.vsSide.right .vsWho{ align-items:flex-end; text-align:right; }
+.vsWho b{
+  font:700 clamp(12px, 2.4vh, 17px)/1.1 var(--font-ui); color:var(--cream);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:26vw;
+}
+.vsWho i{
+  font:600 clamp(10px, 1.7vh, 12px)/1 var(--font-ui); font-style:normal;
+  color:var(--cream-dim); letter-spacing:.02em;
+}
+
+/* VS: cut in the display face, with a hairline rule either side */
+.vsMark{
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  animation:vsPop .5s cubic-bezier(.2,1.5,.4,1) .16s both;
+}
+@keyframes vsPop{ from{ opacity:0; transform:scale(.5) } to{ opacity:1; transform:none } }
+.vsMark b{
+  font:700 clamp(26px, 7.4vh, 52px)/1 var(--font-display); letter-spacing:.04em;
+  background:linear-gradient(180deg, var(--brass-lit), var(--brass) 55%, var(--brass-dim));
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+  filter:drop-shadow(0 2px 0 rgba(0,0,0,.55)) drop-shadow(0 0 14px rgba(242,205,126,.3));
+}
+.vsMark span{
+  width:clamp(34px, 9vw, 70px); height:1px;
+  background:linear-gradient(90deg, rgba(242,205,126,0), var(--brass), rgba(242,205,126,0));
+}
+
+/* what the match is worth */
+.vsStake{
+  display:flex; align-items:center; gap:8px;
+  padding:5px 16px; border-radius:999px;
+  background:rgba(2,14,8,.6); border:1px solid var(--brass-dim);
+  box-shadow:inset 0 1px 0 rgba(242,205,126,.16);
+  animation:vsPop .5s cubic-bezier(.2,1.5,.4,1) .3s both;
+}
+.vsStake em{
+  font:600 clamp(9px, 1.5vh, 11px)/1 var(--font-ui); font-style:normal;
+  letter-spacing:.18em; color:var(--cream-dim);
+}
+.vsStake b{
+  font:700 clamp(15px, 3vh, 22px)/1 var(--font-display); color:var(--brass-lit);
+  font-variant-numeric:tabular-nums;
+}
+.vsStake i{
+  width:clamp(13px, 2.4vh, 18px); height:clamp(13px, 2.4vh, 18px); border-radius:50%; flex:none;
+  background:radial-gradient(circle at 36% 30%, var(--brass-lit), var(--brass) 62%, var(--brass-dim));
+  box-shadow:0 0 0 1px rgba(20,12,4,.8), inset 0 -1px 2px rgba(0,0,0,.35);
+}
+
+.vsTip{
+  max-width:92%; text-align:center;
+  font:600 clamp(10px, 1.8vh, 13px)/1.35 var(--font-ui); color:var(--cream-dim);
+  animation:vsFade .4s ease-out .42s both;
+}
+.vsTip b{ color:var(--brass-lit); font-weight:700; }
+
+/* the wait, drawn rather than counted out loud */
+.vsBar{
+  width:min(420px, 76%); height:4px; border-radius:999px; overflow:hidden;
+  background:rgba(246,239,221,.12);
+}
+.vsBar i{
+  display:block; height:100%; width:0;
+  background:linear-gradient(90deg, var(--brass-dim), var(--brass-lit));
+  box-shadow:0 0 10px rgba(242,205,126,.5);
+  animation:vsFill var(--vsMs, 2600ms) linear both;
+}
+@keyframes vsFill{ from{ width:0 } to{ width:100% } }
+
+/* A landscape phone is short before it is narrow: the card gives up its
+   breathing room first, then the tip, and never the faces. */
+@media (max-height:400px){
+  .vsCard{ gap:5px; }
+  .vsTip{ display:none; }
+}
+@media (prefers-reduced-motion:reduce){
+  .vsPlayer, .vsMark, .vsStake, .vsTip, .vsBar i{ animation-duration:1ms; }
+}

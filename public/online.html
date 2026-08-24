@@ -114,6 +114,7 @@
   <script src="js/ozi.js"></script>
   <script src="js/render.js"></script>
   <script src="js/coins.js"></script>
+  <script src="js/versus.js"></script>
   <script src="js/sound.js"></script>
   <script src="js/fx.js"></script>
   <script>
@@ -265,9 +266,20 @@
       if(pauseTimer){ clearInterval(pauseTimer); pauseTimer = null; }
     }
 
+
+  /* The versus card, once per match and only when there is somebody to be
+     introduced to. It is a Versus.show away, but which state means "the match
+     has begun" is different in every game, so each screen says so itself. */
+  let vsShown = false;
+  function maybeVersus(st, game, started) {
+    if (vsShown || !started || !window.Versus) return;
+    vsShown = true;
+    Versus.show(st, { game });
+  }
     socket.on("state", (st) => {
       S = st;
       seated = true;
+      maybeVersus(st, "domino", st.phase === "play");
       if (st.paused) showPaused(st.waitingFor, st.resumeIn); else hidePaused();
       // waiting room / code
       const wait = document.getElementById("waitOverlay");

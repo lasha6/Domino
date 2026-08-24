@@ -224,6 +224,7 @@ function viewFor(room, seat) {
     paused: !!room.paused,
     waitingFor: room.paused ? room.players.filter((p) => p.online === false).map((p) => p.name) : [],
     resumeIn: room.resumeBy ? Math.max(0, Math.round((room.resumeBy - Date.now()) / 1000)) : null,
+    roster: roster(room, seat), stake: matchStake(room),
   };
   if (!g) {
     // waiting room: who is here, who is paired with whom, what I may do
@@ -599,6 +600,7 @@ function buraView(room, seat) {
     waitingFor: room.paused ? room.players.filter(function (p) { return p.online === false; })
                                           .map(function (p) { return p.name; }) : [],
     resumeIn: room.resumeBy ? Math.max(0, Math.round((room.resumeBy - Date.now()) / 1000)) : null,
+    roster: roster(room, seat), stake: matchStake(room),
   };
   if (!b) {
     base.lobby = room.players.map(function (p) {
@@ -844,6 +846,7 @@ function nardiView(room, seat) {
     paused: !!room.paused,
     waitingFor: room.paused ? room.players.filter((p) => p.online === false).map((p) => p.name) : [],
     resumeIn: room.resumeBy ? Math.max(0, Math.round((room.resumeBy - Date.now()) / 1000)) : null,
+    roster: roster(room, seat), stake: matchStake(room),
   };
   if (!n) {
     base.lobby = room.players.map((p) => ({
@@ -960,6 +963,7 @@ function damkaView(room, seat) {
     paused: !!room.paused,
     waitingFor: room.paused ? room.players.filter((p) => p.online === false).map((p) => p.name) : [],
     resumeIn: room.resumeBy ? Math.max(0, Math.round((room.resumeBy - Date.now()) / 1000)) : null,
+    roster: roster(room, seat), stake: matchStake(room),
   };
   if (!d) {
     base.lobby = room.players.map((p) => ({
@@ -1131,6 +1135,7 @@ function jokerView(room, seat) {
     waitingFor: room.paused ? room.players.filter(function (p) { return p.online === false; })
                                           .map(function (p) { return p.name; }) : [],
     resumeIn: room.resumeBy ? Math.max(0, Math.round((room.resumeBy - Date.now()) / 1000)) : null,
+    roster: roster(room, seat), stake: matchStake(room),
   };
   if (!j) {
     base.lobby = room.players.map(function (p) {
@@ -1335,6 +1340,21 @@ function awardHand(room, winnerSeat) {
 // the browser, where a player could simply hand themselves the winnings.
 const STAKES = { 75: 50, 175: 100, 255: 250, 355: 500 };
 const stakeFor = (target) => STAKES[target] || STAKES[175];
+
+/* Everyone at the table, as the versus card needs them: who they are, which
+   side they are on, and what this match is worth. It is the same shape for all
+   five games so one screen can introduce any of them, and it is only ever
+   right once seats have been dealt — before that there is no side to be on. */
+function roster(room, seat) {
+  return room.players.map((p) => ({
+    seat: p.seat, team: p.team, name: p.name,
+    bot: !!p.bot, verified: !!p.verified,
+    pic: p.profile ? (p.profile.picture || null) : null,
+    level: p.profile ? Progress.levelFromXp(p.profile.xp).level : null,
+    me: p.seat === seat,
+  }));
+}
+const matchStake = (room) => stakeFor(room.target) * (room.stakeMul || 1);
 
 function awardMatch(room, p, won) {
   /* Giving a chair up loses the match, which is what the screen warns

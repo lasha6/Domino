@@ -116,6 +116,7 @@
 
   <script src="js/joker.js"></script>
   <script src="js/coins.js"></script>
+  <script src="js/versus.js"></script>
   <script src="js/sound.js"></script>
   <script src="js/fx.js"></script>
   <script src="js/config.js"></script>
@@ -728,9 +729,20 @@
       document.getElementById("waitText").textContent = m;
     });
 
+
+  /* The versus card, once per match and only when there is somebody to be
+     introduced to. It is a Versus.show away, but which state means "the match
+     has begun" is different in every game, so each screen says so itself. */
+  let vsShown = false;
+  function maybeVersus(st, game, started) {
+    if (vsShown || !started || !window.Versus) return;
+    vsShown = true;
+    Versus.show(st, { game });
+  }
     socket.on("state", (st) => {
       S = st;
       if (st.hand) { seated = true; document.getElementById("waitOverlay").classList.remove("show"); }
+      maybeVersus(st, "joker", !!st.hand);
       else { paintWaiting(st); return; }
       document.getElementById("pauseOverlay").classList.toggle("show", !!st.paused);
       if (st.paused && st.waitingFor && st.waitingFor.length)
