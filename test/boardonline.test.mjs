@@ -19,6 +19,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { io } from "socket.io-client";
 import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
 const N = createRequire(import.meta.url)("../public/js/nardi.js");
 
 const CWD = fileURLToPath(new URL("..", import.meta.url));
@@ -483,4 +484,49 @@ test("dice that cannot be played are thrown away without being asked", async () 
   assert.equal(held, 0,
     "a player was left holding dice the board would not take");
   assert.equal(srv.exited, null, `still up: ${srv.log.slice(-300)}`);
+});
+
+/* ---------------- a turn nobody can take ----------------
+
+   A player photographed a board: two sixes lit up, nothing on it he could
+   play, and a „მზადაა" button he had to press to agree that he was stuck.
+   The rule was right and had been right for a while — it was only ASKED after
+   a move, so a board that arrived in that state any other way sat there.
+   ---------------------------------------------------------------- */
+
+test("the screen asks when it DRAWS, not only after a move", () => {
+  /* Every way a stuck board can come about — a move, an undo, a state pushed
+     by the server, a reconnect — goes through draw(). Hunting for the one path
+     that missed the check was the wrong shape of fix. */
+  const html = readFileSync(path.join(CWD, "public", "nardi.html"), "utf8");
+  const drawAt = html.indexOf("function draw()");
+  const drawEnd = html.indexOf("/* what the player may touch right now */");
+  assert.ok(drawAt > 0 && drawEnd > drawAt, "draw() is not where it was");
+  assert.match(html.slice(drawAt, drawEnd), /giveUpStuck\(\);/,
+    "the board can be drawn stuck and left that way");
+});
+
+test("giving the turn up cannot fire twice for the same throw", () => {
+  /* draw() runs many times a second and the turn stays stuck for the whole
+     900ms the dice are left on the table to be seen. */
+  const html = readFileSync(path.join(CWD, "public", "nardi.html"), "utf8");
+  const at = html.indexOf("function giveUpStuck()");
+  const body = html.slice(at, html.indexOf("\n  }", at));
+  assert.match(body, /if \(stuckKey === key\) return false;/, "it would fire on every draw");
+  assert.match(body, /!g \|\| g\.side !== ME \|\| busy \|\| !Nardi\.stuck\(g\)/,
+    "it would recurse through the draw it asks for");
+});
+
+test("the server never leaves a player on a turn they cannot take", () => {
+  const src = readFileSync(path.join(CWD, "server.js"), "utf8");
+  assert.match(src, /function nardiStuck\(room\)/, "the server has no such check");
+  const adv = src.slice(src.indexOf("function nardiAdvance(room)"),
+                        src.indexOf("function nardiBotTurn"));
+  assert.match(adv, /if \(nardiStuck\(room\)\) return;/,
+    "nardiAdvance can arm a clock on a turn nobody can take");
+  // and the dice are shown BEFORE the turn is given up, or it looks skipped
+  const st = src.slice(src.indexOf("function nardiStuck(room)"),
+                       src.indexOf("function nardiAdvance(room)"));
+  assert.ok(st.indexOf("pushState(room)") < st.indexOf("Nardi.endTurn"),
+    "the dice come off the table before the player has seen them");
 });

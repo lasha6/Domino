@@ -578,6 +578,9 @@
     cs.style.display = stakeMul > 1 ? "" : "none";
     document.getElementById("cubeVal").textContent = "×" + stakeMul;
     highlight();
+    /* Last: a board that has just been drawn with nothing on it to play is a
+       turn nobody can take, whichever way it got here. */
+    giveUpStuck();
   }
 
   /* what the player may touch right now */
@@ -755,6 +758,34 @@
     if (g.side !== ME) setTimeout(cpuTurn, 700);
   }
 
+  /* Dice in hand that the board will not take are thrown away for the player.
+     Nobody should have to press a button to agree that they are stuck — but
+     the dice are left on the table for a moment first, or the turn looks like
+     it was skipped for no reason.
+
+     This is asked from `draw`, which is to say from EVERY way the board can
+     come to be in this state: a roll, a move, an undo, a state pushed by the
+     server, a reconnect. It used to be asked only after a move, and a player
+     was left staring at two sixes he could not play with a button he had to
+     press to agree that he was stuck. Hunting for the one path that missed it
+     was the wrong shape of fix — the check belongs where the board is drawn,
+     because that is the one place every path goes through.
+
+     `stuckKey` is what stops it firing twice while the 900ms is running: draw
+     is called many times a second and the turn is still stuck all the way
+     through it. */
+  let stuckKey = null;
+  function giveUpStuck() {
+    if (!g || g.side !== ME || busy || !Nardi.stuck(g)) return false;
+    const key = g.round + ":" + g.side + ":" + (g.dice || []).join(",") + ":" + g.left.length;
+    if (stuckKey === key) return false;
+    stuckKey = key;
+    say("სვლა აღარ არის");
+    busy = true; draw();
+    setTimeout(() => { busy = false; stuckKey = null; doneTurn(); }, 900);
+    return true;
+  }
+
   /* Tapping the felt throws them, the same as the button does. On a board you
      roll onto the board, and reaching for a button in the corner is not how
      anybody plays. */
@@ -884,13 +915,7 @@
     if (g.phase === "roundOver" || g.phase === "over") { hist = []; finish(); return; }
     // a roll with nothing playable ends the turn inside the engine
     if (g.side !== ME) { hist = []; say(""); clearDice(true); setTimeout(cpuTurn, 620); return; }
-    /* Dice left that the board will not take: they are thrown away for him.
-       Nobody should have to press a button to agree that they are stuck. */
-    if (Nardi.stuck(g)) {
-      say("სვლა აღარ არის");
-      busy = true; draw();
-      setTimeout(() => { busy = false; doneTurn(); }, 900);
-    }
+    // draw() has already asked whether the dice left can be played at all
   }
 
   /* ---------------- the computer ---------------- */

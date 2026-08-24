@@ -626,3 +626,52 @@ test("later rounds are opened by the loser, with no throw at all", () => {
   assert.equal(g.phase, "roll", "straight to the throw, no ceremony");
   assert.equal(g.side, 1, "the loser opens");
 });
+
+/* ---------------- a throw with nowhere to go ----------------
+
+   A player rolled two sixes into a shut board and the turn simply stopped:
+   two dice on the table, nothing to touch, and no way to hand the turn over.
+   The rule for it existed and was right — it was only ever ASKED after a move,
+   and a throw with nothing playable never reaches one.
+   ---------------------------------------------------------------- */
+
+test("a stuck turn can only ever appear after a move, never after a roll", () => {
+  /* The engine gives the turn up inside `roll` itself when nothing at all can
+     be played, so a stuck board is always the result of a move that used up
+     the last playable die. That is what made the bug so easy to miss: the
+     check for it lived on the move path, and looked like it covered
+     everything. It does not cover a board that ARRIVES stuck — from a server,
+     from a reconnect — which is why the screen now asks when it draws. */
+  let afterRoll = 0, afterMove = 0;
+  for (let t = 0; t < 3000; t++) {
+    const g = N.newGame({ variant: "long" });
+    for (let step = 0; step < 400; step++) {
+      if (g.phase === "over" || g.phase === "roundOver") break;
+      if (g.phase === "roll") { N.roll(g); if (N.stuck(g)) afterRoll++; continue; }
+      const ms = N.legalMoves(g);
+      if (!ms.length) { N.endTurn(g); continue; }
+      const m = ms[Math.floor(Math.random() * ms.length)];
+      N.move(g, m.from, m.die, true);
+      if (N.stuck(g)) { afterMove++; break; }
+    }
+  }
+  assert.equal(afterRoll, 0, "a roll left the turn stuck instead of passing it");
+  assert.ok(afterMove > 0, "the position never came up at all — the test is not testing");
+});
+
+test("a double can be stuck with no die looking spent", () => {
+  /* Two dice are on the table and a double is worth four moves, so after one
+     of them neither die dims. That is exactly the board a player photographed:
+     6-6 lit up, nothing playable, and a button he had to press to agree. */
+  const g = N.newGame({ variant: "long" });
+  g.pts = [9, 2, 2, 0, 0, 1, 0, 0, 0, 0, 0, 0, -8, -2, -3, 0, 1, -2, 0, 0, 0, 0, 0, 0];
+  g.bar = [0, 0]; g.off = [0, 0];
+  g.side = 0; g.phase = "roll";
+  rollAs(g, 3, 3);
+  assert.deepEqual(g.dice, [3, 3]);
+  assert.equal(g.left.length, 4, "a double is four moves");
+  N.move(g, 18, 3, true);
+  assert.ok(N.stuck(g), "the position is not the one it is meant to be");
+  assert.ok(g.left.length > g.dice.length,
+    "with more moves left than dice shown, neither die can look spent");
+});

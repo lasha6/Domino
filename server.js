@@ -664,6 +664,7 @@ function buraView(room, seat) {
    ================================================================== */
 const BOARD_MOVE_TIME = 40000;      // a board move is a slower thought than a card
 const BOARD_BOT_PAUSE = 700;        // how long the computer appears to think
+const STUCK_PAUSE = 1200;           // long enough to see WHY the turn ended
 
 function clearBoardClock(room) {
   if (room.moveTimer) { clearTimeout(room.moveTimer); room.moveTimer = null; }
@@ -724,6 +725,29 @@ function resignMatch(room, seat) {
   pushState(room);
 }
 
+/* A throw the board will not take. The dice are shown first and the turn is
+   given up a moment later — ending it the instant they land would take the
+   dice off the table before the player had seen what they rolled, and the
+   turn would appear to have been skipped for no reason.
+
+   The pause is why this is not simply a line inside nardiAdvance: it has to
+   push a state, wait, and then advance. */
+function nardiStuck(room) {
+  const n = room.n;
+  if (!n || !Nardi.stuck(n)) return false;
+  n.log = "სვლა აღარ არის";
+  clearBoardClock(room);            // nobody's clock runs on a turn nobody can take
+  pushState(room);
+  clearTimeout(room.nStuckTimer);
+  room.nStuckTimer = setTimeout(() => {
+    if (!rooms.has(room.id) || room.paused || !room.n) return;
+    if (!Nardi.stuck(room.n)) return;      // a resume or an undo got there first
+    Nardi.endTurn(room.n);
+    nardiAdvance(room);
+  }, STUCK_PAUSE);
+  return true;
+}
+
 function nardiAdvance(room) {
   refreshPause(room);
   clearBoardClock(room);
@@ -738,6 +762,10 @@ function nardiAdvance(room) {
   /* The opening throw is not a turn: it belongs to both players at once, so
      there is no single clock to arm and no side whose move is late. */
   if (n.phase === "opening") { nardiMaybeOpen(room); pushState(room); return; }
+  /* Asked here rather than only after a move, which is where it used to be:
+     a throw with nowhere to go at all never reaches a move, so the turn simply
+     sat there with two dice on the table and no way to give it up. */
+  if (nardiStuck(room)) return;
   armBoardClock(room, n.turn === undefined ? n.side : n.side);
   nardiMaybeBot(room);
   pushState(room);
@@ -758,6 +786,10 @@ function nardiBotTurn(room, force) {
     Nardi.roll(n);
     pushState(room);
     if (n.phase !== "move") { setTimeout(() => nardiAdvance(room), BOARD_BOT_PAUSE); return; }
+    /* The computer gets stuck the same way a person does, and the person on
+       the other side of the table is owed the same moment to see why the turn
+       went past them. */
+    if (nardiStuck(room)) return;
   }
   const plan = Nardi.bestTurn(n);
   const side = n.side;
@@ -1756,7 +1788,7 @@ io.on("connection", (socket) => {
     /* Dice still in hand that the board will not take are thrown away here,
        not left for the player to dismiss. A die you spent is a decision and
        the turn waits for you; a die you could never play is not. */
-    if (Nardi.stuck(n)) { n.log = "სვლა აღარ არის"; Nardi.endTurn(n); nardiAdvance(room); return; }
+    if (nardiStuck(room)) return;
     // still the same turn: send the board and leave the clock where it is
     if (n.phase === "move" && n.side === was) { armBoardClock(room, was); pushState(room); return; }
     nardiAdvance(room);
