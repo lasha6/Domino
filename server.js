@@ -1668,6 +1668,10 @@ io.on("connection", (socket) => {
     if (!Nardi.move(n, from, die, true)) return;
     if (!room.nHist) room.nHist = [];
     room.nHist.push(before);
+    /* Dice still in hand that the board will not take are thrown away here,
+       not left for the player to dismiss. A die you spent is a decision and
+       the turn waits for you; a die you could never play is not. */
+    if (Nardi.stuck(n)) { n.log = "სვლა აღარ არის"; Nardi.endTurn(n); nardiAdvance(room); return; }
     // still the same turn: send the board and leave the clock where it is
     if (n.phase === "move" && n.side === was) { armBoardClock(room, was); pushState(room); return; }
     nardiAdvance(room);

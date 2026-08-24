@@ -18,6 +18,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { io } from "socket.io-client";
+import { createRequire } from "node:module";
+const N = createRequire(import.meta.url)("../public/js/nardi.js");
 
 const CWD = fileURLToPath(new URL("..", import.meta.url));
 const PORT = 3989;
@@ -402,5 +404,55 @@ test("refusing the double gives the match up there and then", async () => {
   assert.ok(await until(() => me.over && you.over), "the match is over for both of them");
   assert.equal(me.over.youWon, true, "the one who offered wins it");
   assert.equal(you.over.youWon, false, "the one who would not pay loses it");
+  assert.equal(srv.exited, null, `still up: ${srv.log.slice(-300)}`);
+});
+
+test("dice that cannot be played are thrown away without being asked", async () => {
+  /* The player's own words: with 5-1 you must not clear the dice, because
+     nobody knows where he means to put the one. With a die the board will not
+     take there is nothing to know — and making him press a button to agree
+     that he is stuck is asking him to confirm a fact.
+
+     This plays a real match out against a real server and watches for the one
+     state that must never appear: his turn, dice still in his hand, and not a
+     single legal move for them. */
+  const cs = await boardTable("nardi", { variant: "short", target: 3 });
+  const view = (st) => ({
+    variant: st.variant, pts: st.pts.slice(), bar: st.bar.slice(), off: st.off.slice(),
+    side: st.side, left: st.left.slice(), dice: st.dice, phase: st.nphase,
+    moved: [], scores: st.scores.slice(), target: st.target, round: st.round,
+  });
+
+  let held = 0, plays = 0;
+  for (let turn = 0; turn < 60; turn++) {
+    const me = cs.find((c) => c.last && c.last.side === c.last.seat &&
+                              c.last.phase === "play");
+    if (!me) break;
+    if (me.last.nphase === "roll") {
+      me.emit("nRoll");
+      if (!(await until(() => me.last.nphase === "move" || me.last.side !== me.last.seat, 4000))) break;
+      continue;
+    }
+    /* Dice all spent is the ordinary end of a turn and he confirms it; the
+       state under test is dice still IN HAND with nothing to do with them. */
+    if (!me.last.left.length) {
+      me.emit("nDone");
+      if (!(await until(() => me.last.side !== me.last.seat, 4000))) break;
+      continue;
+    }
+    const moves = N.legalMoves(view(me.last));
+    if (!moves.length) { held++; break; }
+    const m = moves[0];
+    const before = JSON.stringify(me.last.pts) + "|" + me.last.left.join(",");
+    me.emit("nMove", { from: m.from, die: m.die });
+    plays++;
+    if (!(await until(() => JSON.stringify(me.last.pts) + "|" + me.last.left.join(",") !== before ||
+                            me.last.side !== me.last.seat, 4000))) break;
+
+  }
+
+  assert.ok(plays > 6, "a match was actually played: " + plays + " moves");
+  assert.equal(held, 0,
+    "a player was left holding dice the board would not take");
   assert.equal(srv.exited, null, `still up: ${srv.log.slice(-300)}`);
 });

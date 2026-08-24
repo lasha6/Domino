@@ -858,7 +858,14 @@
     draw();
     if (g.phase === "roundOver" || g.phase === "over") { hist = []; finish(); return; }
     // a roll with nothing playable ends the turn inside the engine
-    if (g.side !== ME) { hist = []; say(""); clearDice(true); setTimeout(cpuTurn, 620); }
+    if (g.side !== ME) { hist = []; say(""); clearDice(true); setTimeout(cpuTurn, 620); return; }
+    /* Dice left that the board will not take: they are thrown away for him.
+       Nobody should have to press a button to agree that they are stuck. */
+    if (Nardi.stuck(g)) {
+      say("სვლა აღარ არის");
+      busy = true; draw();
+      setTimeout(() => { busy = false; doneTurn(); }, 900);
+    }
   }
 
   /* ---------------- the computer ---------------- */

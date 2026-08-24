@@ -498,3 +498,48 @@ test("a board taken back is the board that was there, hit checkers and all", () 
   assert.deepEqual(back.pts, JSON.parse(before).pts);
   assert.equal(JSON.stringify(back), before, "and the board before it is exactly recoverable");
 });
+
+test("a die you could never play is thrown away, a die you spent is not", () => {
+  /* The difference the player drew, and it is the right one. A die you SPENT
+     is a decision: the turn waits so you can look at it and take it back. A die
+     the board will not take is not a decision, and holding the turn open for it
+     only asks a man to press a button to agree that he is stuck.
+
+     Built so that exactly one move exists, and playing it kills the other die:
+     two checkers, at 0 and 5, with the enemy holding 6, 7 and 11. The only
+     move is 0→1 with the one; after it the six has nowhere to go from either
+     1 or 5. */
+  const g = N.newGame({ variant: "short", target: 3 });
+  g.pts = new Array(N.POINTS).fill(0);
+  g.bar = [0, 0]; g.off = [0, 0];
+  const mine = (i) => N.pointAt(g, 0, i);
+  const theirs = (i) => N.pointAt(g, 0, i);   // same board point, seen from 0
+  g.pts[mine(0)] = 1;
+  g.pts[mine(5)] = 1;
+  for (const blocked of [6, 7, 11]) g.pts[theirs(blocked)] = -2;
+  g.side = 0; g.phase = "move"; g.dice = [1, 6]; g.left = [1, 6]; g.moved = [];
+
+  const opening = N.legalMoves(g);
+  assert.deepEqual(opening.map((m) => [m.from, m.die]), [[0, 1]],
+    "one move and one only");
+  assert.equal(N.stuck(g), false, "there is something to play, so he is not stuck");
+
+  assert.equal(N.move(g, 0, 1, true), true);
+  assert.deepEqual(g.left, [6], "the six is still in his hand");
+  assert.equal(N.legalMoves(g).length, 0, "and the board will not take it");
+  assert.equal(N.stuck(g), true, "which is what stuck means");
+  assert.equal(N.turnOver(g), true, "the turn is over either way");
+  assert.equal(g.side, 0, "but the engine still leaves it standing — that is the screen's call");
+});
+
+test("dice you have spent do not count as being stuck", () => {
+  /* Both dice played is the ordinary end of a turn, and the player confirms
+     it. If `stuck` said yes here, მზადაა would never be pressed by anybody. */
+  const g = N.newGame({ variant: "long", target: 3 });
+  g.dice = [3, 3]; g.left = [3, 3]; g.phase = "move"; g.side = 0; g.moved = [];
+  N.move(g, 0, 3, true);
+  N.move(g, 0, 3, true);
+  assert.deepEqual(g.left, [], "nothing left in hand");
+  assert.equal(N.stuck(g), false, "so he is not stuck, he is finished");
+  assert.equal(N.turnOver(g), true);
+});

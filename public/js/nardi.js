@@ -321,6 +321,15 @@
     return g.phase === "move" && (!g.left.length || !legalMoves(g).length);
   }
 
+  /* Dice still in hand that the board will not take. This is not the same as a
+     turn being over, and the difference is the whole of it: a die you SPENT is
+     yours to look at and take back, so the turn waits for you; a die you were
+     never able to play is not a decision, and holding the turn open for it only
+     asks the player to press a button to agree that they are stuck. */
+  function stuck(g) {
+    return g.phase === "move" && g.left.length > 0 && !legalMoves(g).length;
+  }
+
   function endTurn(g) {
     g.side = other(g.side);
     g.left = [];
@@ -435,7 +444,7 @@
 
   return {
     POINTS, CHECKERS, HOME_FROM, BAR, HEAD,
-    newGame, setUp, roll, move, turnOver, legalMoves, targetsFrom, canStep,
+    newGame, setUp, roll, move, turnOver, stuck, legalMoves, targetsFrom, canStep,
     endTurn, nextRound, finishRound, roundWorth,
     pointAt, indexOf, atIndex, countAt, homeReady, canBearOff,
     wallsThemIn, pipCount, view,
