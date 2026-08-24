@@ -76,7 +76,18 @@
       dice: null,               // what was rolled, kept for the screen
       left: [],                 // the dice still to be used this turn
       moved: [],                // what has been played this turn, for undo
-      phase: "roll",
+      /* A match opens the way it does at a real table: one die each, thrown
+         at the same time, and the higher one starts. Equal and they go again.
+         Only the FIRST round — after that the loser of the last one opens,
+         which is the older custom and needs no throw.
+
+         Asked for rather than assumed: the rules tests build a game and roll
+         straight away, and a ceremony in front of every one of them would be
+         forty edits that test nothing. The two places that start a real match
+         pass it, and a test holds them to that. */
+      phase: o.opening ? "opening" : "roll",
+      opening: [null, null],    // the die each side has shown, so far
+      openingTied: false,       // both equal: they stay up to be seen, then go
       round: 1,
       roundWinner: null,
       roundWorth: 0,
@@ -100,6 +111,43 @@
       }
     }
   }
+
+  /* ---------------- the opening throw ----------------
+     One die each. Whoever shows the higher number opens; equal and both are
+     wiped and they throw again, which is what happens at a table and is why
+     this cannot simply be "roll two and compare" — a tie has to be replayable.
+
+     It returns what this side showed, or null if it was not their throw to
+     make, so a screen can animate the die it just caused. */
+  function openRoll(g, side, rnd) {
+    if (g.phase !== "opening") return null;
+    if (side !== 0 && side !== 1) return null;
+    /* A tie is cleared by the NEXT throw, not by the one that made it. Wiping
+       it there left the two equal dice on screen for no time at all — the
+       player was told it was a tie and never got to see the pair that caused
+       it, and nothing watching the state could tell a tie apart from a table
+       where nobody had thrown yet. */
+    if (g.openingTied) { g.opening = [null, null]; g.openingTied = false; g.log = ""; }
+    if (g.opening[side] != null) return null;      // one throw each, not two
+    const r = rnd || Math.random;
+    const v = 1 + Math.floor(r() * 6);
+    g.opening[side] = v;
+
+    const [a, b] = g.opening;
+    if (a == null || b == null) return v;          // still waiting for the other
+    if (a === b) {                                 // equal: they go again
+      g.openingTied = true;
+      g.log = "თანაბარია — თავიდან";
+      return v;
+    }
+    g.side = a > b ? 0 : 1;
+    g.phase = "roll";
+    g.log = "";
+    return v;
+  }
+  // both dice are down and they did not match: the match can begin
+  const openingDone = (g) => g.opening[0] != null && g.opening[1] != null &&
+                             g.opening[0] !== g.opening[1];
 
   /* ---------------- dice ---------------- */
   function roll(g, rnd) {
@@ -444,7 +492,8 @@
 
   return {
     POINTS, CHECKERS, HOME_FROM, BAR, HEAD,
-    newGame, setUp, roll, move, turnOver, stuck, legalMoves, targetsFrom, canStep,
+    newGame, setUp, roll, openRoll, openingDone, move, turnOver, stuck,
+    legalMoves, targetsFrom, canStep,
     endTurn, nextRound, finishRound, roundWorth,
     pointAt, indexOf, atIndex, countAt, homeReady, canBearOff,
     wallsThemIn, pipCount, view,

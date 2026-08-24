@@ -543,3 +543,86 @@ test("dice you have spent do not count as being stuck", () => {
   assert.equal(N.stuck(g), false, "so he is not stuck, he is finished");
   assert.equal(N.turnOver(g), true);
 });
+
+/* ---------------- the opening throw ---------------- */
+
+test("a match opens with one die each, and the higher one starts", () => {
+  /* At a table both players throw a single die and whoever shows more opens.
+     It is asked for rather than assumed, because the rules tests above build a
+     game and roll straight away. */
+  const g = N.newGame({ variant: "long", opening: true });
+  assert.equal(g.phase, "opening");
+  assert.deepEqual(g.opening, [null, null], "neither has thrown");
+
+  assert.equal(N.openRoll(g, 0, () => 0.9), 6, "white shows a six");
+  assert.equal(g.phase, "opening", "and waits for the other one");
+  assert.equal(N.openRoll(g, 1, () => 0.1), 1, "black shows a one");
+
+  assert.equal(g.phase, "roll", "the match can begin");
+  assert.equal(g.side, 0, "and the six opens it");
+  assert.equal(N.openingDone(g), true);
+});
+
+test("the lower die does not open, whichever side threw it", () => {
+  const g = N.newGame({ variant: "short", opening: true });
+  N.openRoll(g, 0, () => 0.1);          // 1
+  N.openRoll(g, 1, () => 0.7);          // 5
+  assert.equal(g.side, 1, "black opens");
+  assert.equal(g.phase, "roll");
+});
+
+test("equal dice are wiped and thrown again", () => {
+  /* The one thing a plain "roll two and compare" cannot do. A tie has to be
+     replayable, so both dice go back to nothing rather than standing there. */
+  const g = N.newGame({ variant: "long", opening: true });
+  N.openRoll(g, 0, () => 0.5);          // 4
+  N.openRoll(g, 1, () => 0.5);          // 4
+  assert.equal(g.phase, "opening", "still nobody's turn");
+  assert.deepEqual(g.opening, [4, 4], "the pair stays up to be looked at");
+  assert.equal(g.openingTied, true);
+  assert.equal(N.openingDone(g), false);
+  assert.match(g.log, /თანაბარი/, "and it says why");
+
+  // the next throw is what clears them
+  N.openRoll(g, 0, () => 0.9);          // 6
+  N.openRoll(g, 1, () => 0.1);          // 1
+  assert.equal(g.phase, "roll");
+  assert.equal(g.side, 0);
+});
+
+test("nobody throws twice, and nothing is thrown once it is decided", () => {
+  const g = N.newGame({ variant: "long", opening: true });
+  assert.equal(N.openRoll(g, 0, () => 0.9), 6);
+  assert.equal(N.openRoll(g, 0, () => 0.1), null, "his die is already down");
+  assert.deepEqual(g.opening, [6, null], "and it did not change");
+
+  N.openRoll(g, 1, () => 0.1);
+  assert.equal(N.openRoll(g, 0, () => 0.5), null, "the match has started");
+  assert.equal(N.openRoll(g, 1, () => 0.5), null);
+});
+
+test("a nonsense seat cannot throw an opening die", () => {
+  const g = N.newGame({ variant: "long", opening: true });
+  for (const seat of [-1, 2, null, undefined, "0"])
+    assert.equal(N.openRoll(g, seat, () => 0.9), null, String(seat));
+  assert.deepEqual(g.opening, [null, null]);
+});
+
+test("no ordinary roll happens while the opening is undecided", () => {
+  const g = N.newGame({ variant: "long", opening: true });
+  assert.equal(N.roll(g, () => 0.5), null, "the turn has not been won yet");
+  assert.equal(g.dice, null);
+  assert.equal(g.left.length, 0);
+});
+
+test("later rounds are opened by the loser, with no throw at all", () => {
+  /* The ceremony is for the start of a MATCH. Between rounds the custom is
+     older and simpler: whoever lost the last one goes first. */
+  const g = N.newGame({ variant: "long", target: 7, opening: true });
+  N.openRoll(g, 0, () => 0.9);
+  N.openRoll(g, 1, () => 0.1);
+  g.phase = "roundOver"; g.roundWinner = 0; g.roundWorth = 1; g.scores = [1, 0];
+  N.nextRound(g);
+  assert.equal(g.phase, "roll", "straight to the throw, no ceremony");
+  assert.equal(g.side, 1, "the loser opens");
+});

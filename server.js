@@ -686,7 +686,7 @@ function armBoardClock(room, whoseTurn) {
 function startNardi(room) {
   room.players.forEach((p, i) => { p.seat = i; p.team = i; p.settled = false; });
   clearAuto(room);
-  room.n = Nardi.newGame({ variant: room.variant, target: room.target });
+  room.n = Nardi.newGame({ variant: room.variant, target: room.target, opening: true });
   room.nHist = [];
   /* The cube starts at one and belongs to nobody, so either player may offer
      the first double; after that only whoever took the last one may offer
@@ -733,6 +733,9 @@ function nardiAdvance(room) {
   if (n.phase === "over") { nardiMatchOver(room); return; }
   if (n.phase === "roundOver") { nardiRoundOver(room); return; }
   if (room.offer) { pushState(room); return; }   // nobody's clock runs on a question
+  /* The opening throw is not a turn: it belongs to both players at once, so
+     there is no single clock to arm and no side whose move is late. */
+  if (n.phase === "opening") { nardiMaybeOpen(room); pushState(room); return; }
   armBoardClock(room, n.turn === undefined ? n.side : n.side);
   nardiMaybeBot(room);
   pushState(room);
@@ -774,6 +777,23 @@ function nardiBotTurn(room, force) {
 function nardiMaybeBot(room) {
   const p = at(room, room.n.side);
   if (p && p.bot) setTimeout(() => nardiBotTurn(room), BOARD_BOT_PAUSE);
+}
+
+/* A seat nobody is filling still has to throw its opening die, or the match
+   never starts. Both seats are checked, because the ceremony is not one
+   player's turn — it is both of them at once. */
+function nardiMaybeOpen(room) {
+  const n = room.n;
+  if (!n || n.phase !== "opening") return;
+  room.players.forEach((p) => {
+    if (!p.bot || n.opening[p.seat] != null) return;
+    setTimeout(() => {
+      if (!rooms.has(room.id) || !room.n || room.n.phase !== "opening") return;
+      if (room.n.opening[p.seat] != null) return;
+      Nardi.openRoll(room.n, p.seat);
+      nardiAdvance(room);
+    }, BOARD_BOT_PAUSE);
+  });
 }
 
 function nardiRoundOver(room) {
@@ -843,6 +863,11 @@ function nardiView(room, seat) {
                (room.cubeOwner === null || room.cubeOwner === seat),
     side: n.side, dice: n.dice ? n.dice.slice() : null, left: n.left.slice(),
     nphase: n.phase,
+    /* One die each to see who opens. Both are public the moment they land —
+       there is nothing secret about them and each player has to watch the
+       other's fall. */
+    opening: n.opening ? n.opening.slice() : [null, null],
+    openingTied: !!n.openingTied,
     myTurn: n.side === seat && (n.phase === "roll" || n.phase === "move") && !room.paused,
     scores: n.scores.slice(), round: n.round,
     oppName: other.name || "მოწინააღმდეგე",
@@ -1667,6 +1692,21 @@ io.on("connection", (socket) => {
     const p = room.players.find((x) => x.id === socket.id);
     return p ? p.seat : -1;
   };
+
+  /* The opening die. Not a turn — both players throw one at the same time and
+     the higher opens — so this is the one throw that is not checked against
+     whose side it is. The engine refuses a second die from the same seat, and
+     wipes both on a tie so they can throw again. */
+  on("nOpen", () => {
+    const room = boardRoom("nardi", "n");
+    if (!room || room.phase !== "play" || room.paused) return;
+    const n = room.n;
+    if (n.phase !== "opening") return;
+    const seat = mySeat(room);
+    if (seat !== 0 && seat !== 1) return;
+    if (Nardi.openRoll(n, seat) == null) return;   // already thrown
+    nardiAdvance(room);
+  });
 
   on("nRoll", () => {
     const room = boardRoom("nardi", "n");

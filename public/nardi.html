@@ -242,10 +242,13 @@
 
   /* Throw `values` onto the board. Resolves when they have settled, so the
      turn can wait for them rather than racing them. */
-  function throwDice(values, mine) {
+  function throwDice(values, mine, opts) {
+    const { keep, quiet } = opts || {};
     return new Promise((done) => {
       const layer = document.getElementById("diceLayer");
-      clearDice(false);
+      // `keep` leaves what is already lying there: the opening throw puts one
+      // die in each half, and the second must not sweep away the first
+      if (!keep) clearDice(false);
       const ds = dieSize();
       layer.style.setProperty("--ds", ds + "px");
       const W = layer.clientWidth, H = layer.clientHeight;
@@ -261,7 +264,7 @@
         (matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
       const running = [];
 
-      if (Sound) Sound.play(still ? "diceLand" : "diceShake", DUR / 1000);
+      if (Sound && !quiet) Sound.play(still ? "diceLand" : "diceShake", DUR / 1000);
       values.forEach((v, i) => {
         const d = makeDie();
         layer.appendChild(d);
@@ -298,12 +301,12 @@
 
       const double = values.length === 2 && values[0] === values[1];
       if (still) {
-        if (double && Sound) Sound.play("diceDouble");
+        if (double && Sound && !quiet) Sound.play("diceDouble");
         setTimeout(done, 60);
         return;
       }
       // the clatter lands with the first die, not with the animation's end
-      setTimeout(() => { if (Sound) Sound.play("diceLand"); }, DUR * 0.72);
+      setTimeout(() => { if (Sound && !quiet) Sound.play("diceLand"); }, DUR * 0.72);
       setTimeout(() => {
         /* And when the throw is over, the animation is taken away — whether it
            ran or not. A browser that never advanced it would otherwise hold the
@@ -312,7 +315,7 @@
            were always going to land. Timers advance where animations sometimes
            do not, so this is the belt to that pair of braces. */
         running.forEach((a) => { try { a.cancel(); } catch (e) { /* already gone */ } });
-        if (double && Sound) Sound.play("diceDouble");
+        if (double && Sound && !quiet) Sound.play("diceDouble");
         done();
       }, DUR + (values.length - 1) * 90 + 160);   // a margin, so a busy main
       // thread never has its animation cut off mid-bounce
@@ -985,14 +988,42 @@
   const hide = () => document.getElementById("resultOverlay").classList.remove("show");
   const say = (t) => { document.getElementById("msg").textContent = t; };
 
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  /* Who opens: one die each, thrown at the same time into their own half, and
+     the higher one starts. Equal and both are swept off and thrown again — the
+     reason this is a loop and not a single comparison. The engine decides; this
+     only shows it happening. */
+  async function openingThrow() {
+    if (!g || g.phase !== "opening") return;
+    say("ვინ იწყებს?");
+    for (let tries = 0; tries < 12 && g.phase === "opening"; tries++) {
+      clearDice(false);
+      const a = Nardi.openRoll(g, ME);
+      const b = Nardi.openRoll(g, CPU);
+      await Promise.all([
+        throwDice([a], true),
+        throwDice([b], false, { keep: true, quiet: true }),
+      ]);
+      if (g.phase !== "opening") break;      // decided
+      say("თანაბარია — თავიდან");
+      await sleep(950);
+    }
+    say(g.side === ME ? "შენ იწყებ" : "კომპიუტერი იწყებს");
+    await sleep(1000);
+    clearDice(true);
+    say("");
+  }
+
   async function startMatch() {
     hide();
-    g = Nardi.newGame({ variant: VARIANT, target: TARGET });
+    g = Nardi.newGame({ variant: VARIANT, target: TARGET, opening: true });
     picked = null;
     busy = true;                    // the board is not yours until it is open
     say("");                 // the bar is for what happens, not for the title
     build(); fit(); clearDice(false); draw();
     await intro(true);
+    await openingThrow();
     busy = false; draw();
     if (g.side === CPU) setTimeout(cpuTurn, 600);
   }
@@ -1017,6 +1048,7 @@
       g.left = st.left ? st.left.slice() : [];
       g.phase = st.nphase; g.scores = st.scores ? st.scores.slice() : g.scores;
       g.round = st.round || g.round; g.target = st.target || g.target;
+      g.opening = st.opening ? st.opening.slice() : [null, null];
     }
     undoLeft = st.undo || 0;
     mayDouble = !!st.mayDouble;
@@ -1051,6 +1083,8 @@
       : st.paused ? "შეჩერებულია"
       : st.side === ME ? (st.nphase === "roll" ? "შენი გაგორებაა" : "შენი სვლა")
       : (st.oppName || "მოწინააღმდეგე");
+    if (st.nphase === "opening") { openingOnline(st); return; }
+    lastOpening = null;
     // the dice are thrown when the server says there are new ones
     const key = st.dice ? st.dice.join(",") + ":" + st.round + ":" + st.side : null;
     if (key && key !== lastDice) {
@@ -1058,6 +1092,42 @@
       shownValues = st.dice.slice();
       throwDice(shownValues, st.side === ME);
     } else if (!st.dice) { lastDice = null; clearDice(true); }
+  }
+
+  /* The opening throw, online. The server owns both dice — it decides who
+     opens and it wipes a tie — so this only asks for mine once and shows
+     whatever has landed. Each die is thrown as it appears, so the two players
+     see the other's fall rather than both arriving at once. */
+  let lastOpening = null, openingAsked = false;
+  function openingOnline(st) {
+    const op = st.opening || [null, null];
+    const tied = !!st.openingTied;
+    const key = JSON.stringify(op) + (tied ? "=" : "");
+    if (key === lastOpening) return;
+    const had = lastOpening ? JSON.parse(lastOpening.replace("=", "")) : [null, null];
+
+    if (op[0] == null && op[1] == null) {
+      clearDice(true);                       // a fresh throw: the felt is swept
+      say("ვინ იწყებს?");
+    } else {
+      [0, 1].forEach((seat) => {
+        if (op[seat] == null || had[seat] != null) return;   // nothing new here
+        throwDice([op[seat]], seat === ME, { keep: true, quiet: seat !== ME });
+      });
+      if (tied) say("თანაბარია — თავიდან");
+      else if (op[ME] == null || op[1 - ME] == null) say("ველოდებით მოწინააღმდეგეს");
+    }
+    lastOpening = key;
+
+    /* One die each, asked for once. A tie puts both back in play, so the ask
+       is owed again — which is why this is not simply "have I thrown yet". */
+    if (tied || op[ME] == null) {
+      if (!openingAsked) {
+        openingAsked = true;
+        setTimeout(() => { openingAsked = false; }, 1200);
+        socket.emit("nOpen");
+      }
+    }
   }
   const show = (el, on) => el.classList.toggle("show", !!on);
 

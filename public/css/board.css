@@ -678,13 +678,17 @@ svg.grain{
   transform:translate(-50%, -50%) scale(1.14);
   filter:drop-shadow(0 10px 12px rgba(0,0,0,.6));
 }
-/* The light piece is made of whatever the player bought; the dark one is
-   ebony, which nothing in the shop changes. */
+/* Fixed ivory and ebony, neither one touched by the shop. A ნარდი checker is
+   not a domino tile: its colour is not decoration, it is how a player tells
+   his own fifteen from the other fifteen, and it broke the moment the light
+   piece started reading the same skin the dice do — a dark tile set turned
+   both colours on the board the same colour. Only the dice follow the shop
+   now; the board never does. */
 .chk.w{
   background:
     radial-gradient(circle at 50% 50%, rgba(125,104,68,0) 63%, rgba(125,104,68,.30) 67%, rgba(125,104,68,0) 74%),
-    radial-gradient(circle at 36% 30%, var(--piece-hi), var(--piece) 58%, var(--piece-lo));
-  --mark:var(--piece-ink);
+    radial-gradient(circle at 36% 30%, var(--ivory-hi), var(--ivory) 58%, var(--ivory-lo));
+  --mark:var(--ivory-ink);
 }
 .chk.b{
   background:
@@ -800,7 +804,7 @@ svg.grain{
 .ntray .off{ width:100%; height:calc(var(--cd) * .28); border-radius:2px; flex:none;
   box-shadow:0 0 0 1px rgba(0,0,0,.45), 0 1px 0 rgba(0,0,0,.5),
              0 2px 4px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.35); }
-.ntray .off.w{ background:linear-gradient(180deg, var(--piece), var(--piece-lo)); }
+.ntray .off.w{ background:linear-gradient(180deg, var(--ivory), var(--ivory-lo)); }
 .ntray .off.b{ background:linear-gradient(180deg, var(--wine-hi), var(--wine-lo)); }
 .ntray.can{ box-shadow:inset 0 0 0 1px var(--br-hi); }
 
@@ -847,8 +851,8 @@ svg.grain{
   box-shadow:0 0 0 max(1px, calc(var(--sqz) * .028)) rgba(201,164,90,.85),
              inset 0 1px 1px rgba(0,0,0,.3);
 }
-.pc.w{ background:radial-gradient(circle at 36% 28%, var(--piece-hi), var(--piece) 58%, var(--piece-lo));
-       --mark:var(--piece-ink); }
+.pc.w{ background:radial-gradient(circle at 36% 28%, var(--ivory-hi), var(--ivory) 58%, var(--ivory-lo));
+       --mark:var(--ivory-ink); }
 .pc.b{ background:radial-gradient(circle at 36% 28%, var(--wine-hi), var(--wine) 58%, var(--wine-lo));
        --mark:var(--br-hi); }
 /* A crowned piece wears a crown, drawn — not a star out of the font, which is

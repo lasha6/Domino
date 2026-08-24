@@ -73,7 +73,35 @@ async function boardTable(game, extra = {}) {
   assert.ok(await until(() => cs.every((c) => c.last && c.last.phase === "play")),
     `both were dealt into ${game}`);
   cs.sort((a, b) => a.last.seat - b.last.seat);
+  if (game === "nardi") await openingThrow(cs);
   return cs;
+}
+
+/* A ნარდი match opens with one die each and the higher one starts, so every
+   test below needs that done before there is a turn to take. A tie wipes both
+   dice and they throw again, which is why this is a loop: the real screen does
+   exactly the same thing when the server hands it back an empty pair. */
+async function openingThrow(cs) {
+  /* Settled means settled for EVERYONE. Returning as soon as one client has
+     seen the match start leaves the other still holding the ceremony, and a
+     test that then asks "whose turn is it" reads a stale answer — which is a
+     coin flip now that the opener is decided by dice rather than always being
+     seat zero. */
+  const settled = () => cs.every((c) => c.last && c.last.nphase !== "opening");
+  for (let tries = 0; tries < 20; tries++) {
+    if (settled()) return true;
+    /* Both are asked every time round, with no guard on what this client last
+       heard: the server refuses a second die from a seat that already has one,
+       so an extra ask costs nothing, while a guard reading a state that has not
+       caught up yet can leave a die nobody ever throws.
+
+       A timeout here is not a failure either — it means go round again. Only
+       running out of tries is. */
+    const tied = cs[0].last.openingTied;
+    cs.forEach((c) => c.emit("nOpen"));
+    await until(() => settled() || (!tied && cs[0].last.openingTied), 3000);
+  }
+  assert.fail("the opening throw never settled");
 }
 
 /* ---------------- ნარდი ---------------- */
