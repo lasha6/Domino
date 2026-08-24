@@ -270,23 +270,27 @@
 .gNardi i:last-child{ transform:rotate(10deg); }
 .gNardi i::before{
   content:""; position:absolute; inset:3px;
-  --pip:radial-gradient(circle, #2a1c10 32%, rgba(0,0,0,0) 34%);
+  /* --pip is the shop's own token — the same one that turns a domino's pips
+     light on a dark tile skin. Reusing it here rather than a fixed dark colour
+     was missed the first time, and on a dark skin the dice went blind: dark
+     dots on a dark face. --dot is a local name so this does not shadow it. */
+  --dot:radial-gradient(circle, var(--pip, #2a1c10) 32%, rgba(0,0,0,0) 34%);
 }
 /* five pips, one in each corner and one in the middle */
 .gNardi i:first-child::before{
   background:
-    var(--pip) 18% 18% / 30% 30% no-repeat,
-    var(--pip) 82% 18% / 30% 30% no-repeat,
-    var(--pip) 50% 50% / 30% 30% no-repeat,
-    var(--pip) 18% 82% / 30% 30% no-repeat,
-    var(--pip) 82% 82% / 30% 30% no-repeat;
+    var(--dot) 18% 18% / 30% 30% no-repeat,
+    var(--dot) 82% 18% / 30% 30% no-repeat,
+    var(--dot) 50% 50% / 30% 30% no-repeat,
+    var(--dot) 18% 82% / 30% 30% no-repeat,
+    var(--dot) 82% 82% / 30% 30% no-repeat;
 }
 /* three pips, on the diagonal */
 .gNardi i:last-child::before{
   background:
-    var(--pip) 18% 18% / 30% 30% no-repeat,
-    var(--pip) 50% 50% / 30% 30% no-repeat,
-    var(--pip) 82% 82% / 30% 30% no-repeat;
+    var(--dot) 18% 18% / 30% 30% no-repeat,
+    var(--dot) 50% 50% / 30% 30% no-repeat,
+    var(--dot) 82% 82% / 30% 30% no-repeat;
 }
 .gDamka{ gap:5px; }
 .gDamka i{ width:22px; height:22px; border-radius:50%;
