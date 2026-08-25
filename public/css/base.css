@@ -492,6 +492,20 @@ body::after{
   .vsCard{ gap:5px; }
   .vsTip{ display:none; }
 }
+/* The turn clock is gone and the BANK is going. Red, and not draining any
+   more: what is being spent now is not this turn's time, it is the match. A
+   ring that kept sweeping would say "you have until it closes", and the truth
+   is that they have until the bank does. */
+.onTurn.spending::after{
+  background:conic-gradient(from -90deg, var(--bad) 360deg, rgba(0,0,0,0) 0);
+  filter:drop-shadow(0 0 6px rgba(226,104,90,.7));
+  animation:spendPulse 1s ease-in-out infinite;
+}
+@keyframes spendPulse{ 0%,100%{ opacity:1 } 50%{ opacity:.45 } }
+@supports not (background:conic-gradient(from -90deg, red calc(var(--x, 1) * 360deg), blue 0)){
+  .onTurn.spending::after{ background:none; box-shadow:0 0 0 2px var(--bad); }
+}
+
 @media (prefers-reduced-motion:reduce){
   .vsPlayer, .vsMark, .vsStake, .vsTip, .vsBar i{ animation-duration:1ms; }
 }
@@ -613,7 +627,7 @@ body::after{
   .onTurn::after{ background:none; box-shadow:0 0 0 2px var(--brass-lit); }
 }
 @media (prefers-reduced-motion:reduce){
-  .onTurn.ticking::after{ animation:none; }
+  .onTurn.ticking::after, .onTurn.spending::after{ animation:none; }
 }
 
 /* =====================================================================

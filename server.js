@@ -270,7 +270,8 @@ function viewFor(room, seat) {
     myTurn: g.turn === seat && (room.phase === "play" || room.phase === "draw"),
     moveLeft: room.moveDeadline ? Math.max(0, Math.ceil((room.moveDeadline - Date.now()) / 1000)) : null,
     overtimeLeft: room.overtimeUntil ? Math.max(0, Math.ceil((room.overtimeUntil - Date.now()) / 1000)) : null,
-    moveTime: Math.round(MOVE_TIME / 1000),
+    bankFull: Math.round(RESERVE_START / 1000),   // so a screen knows what full looks like
+    moveTime: Math.round(moveTimeOf(room) / 1000),
   };
 }
 function pushState(room) {
@@ -291,12 +292,66 @@ const PAIR_GRACE = 15000;      // ms the full 2v2 table gets to finish choosing 
    tests do not have to sit through a minute and a half of it. */
 const RECONNECT_GRACE = +process.env.RECONNECT_GRACE || 90000;
 
-/* The clock. Nobody should be able to freeze the table by putting the phone
-   down — so every turn has a short countdown, and running it out costs you
-   from a bank that lasts the whole match. Empty the bank and you lose. */
-const MOVE_TIME = 25000;        // per turn, restarts every time
-const RESERVE_START = 150000;   // the bank each player starts the match with
-const TIMEOUT_PENALTY = 30000;  // taken from the bank each time a turn times out
+/* The clock, and it is the same clock in all five games.
+
+   Nobody should be able to freeze a table by putting the phone down. Every
+   turn has a short countdown; running it out starts spending a bank that has
+   to last the whole match, and emptying the bank ends your match there and
+   then. So an opponent who never comes back costs you a few minutes, not an
+   evening — which is the whole point of it.
+
+   It began as a domino rule and stayed there for a while, on the reasoning
+   that a bank of thinking time was a domino rule and inventing one for ბურა
+   would be putting words in the player's mouth. The player asked for it
+   everywhere (2026-08-25), for the plain reason that everywhere is where you
+   can be left waiting.
+
+   How long a MOVE is stays per game, because that was never about waiting —
+   a board move is a slower thought than a card. The bank is shared, because
+   patience is. */
+/* Settable so the tests do not have to sit through four real minutes of
+   somebody not playing, the same as RECONNECT_GRACE above. */
+const RESERVE_START = +process.env.RESERVE_START || 150000;
+const TIMEOUT_PENALTY = +process.env.TIMEOUT_PENALTY || 30000;
+const MOVE_TIME_OVERRIDE = +process.env.MOVE_TIME || 0;
+
+/* What the clock needs to know about a game: how long a move is, whose turn
+   it is, whether the clock should be running at all, and who to ask to play
+   the turn when it is not played. */
+const CLOCK = {
+  domino: { time: 25000,
+            seat: (r) => (r.g ? r.g.turn : null),
+            live: (r) => !!r.g && (r.phase === "play" || r.phase === "draw"),
+            bot: (r) => botMove(r, true) },
+  bura:   { time: 30000,
+            seat: (r) => (r.b ? r.b.turn : null),
+            live: (r) => !!r.b && r.phase === "play",
+            bot: (r) => buraBotMove(r, true) },
+  joker:  { time: 30000,                        // there is a lot to read
+            seat: (r) => (r.j ? r.j.turn : null),
+            live: (r) => !!r.j && r.phase === "play",
+            bot: (r) => jokerBotMove(r, true) },
+  nardi:  { time: 40000,                        // a board move is a slower thought
+            seat: (r) => (r.n ? r.n.side : null),
+            live: (r) => !!r.n && r.phase !== "over" && r.phase !== "roundEnd",
+            bot: (r) => nardiBotTurn(r, true) },
+  damka:  { time: 40000,
+            seat: (r) => (r.d ? r.d.side : null),
+            live: (r) => !!r.d && r.phase !== "over" && r.phase !== "roundEnd",
+            bot: (r) => damkaBotMove(r, true) },
+};
+const clockOf = (room) => CLOCK[room.game] || CLOCK.domino;
+const moveTimeOf = (room) => MOVE_TIME_OVERRIDE || clockOf(room).time;
+
+/* Whatever the game does next. `carryOn` inside the connection is the same
+   list; this is the one the clock can reach. */
+function advanceFor(room) {
+  if (room.game === "bura") return buraAdvance(room);
+  if (room.game === "joker") return jokerAdvance(room);
+  if (room.game === "nardi") return nardiAdvance(room);
+  if (room.game === "damka") return damkaAdvance(room);
+  return advance(room);
+}
 
 function closeRoom(room) {
   clearTimeout(room.dropTimer); clearTimeout(room.botTimer);
@@ -318,20 +373,29 @@ function refreshPause(room) {
 // A player is gone for good. In 2v2 their partner keeps playing and the
 // computer takes over the empty seat — the match only ends when a whole side
 // has walked away (in 1v1 that is just the one player).
-function abandonSeat(room, p) {
-  p.bot = true; p.online = false; p.id = null;
-  /* A match is over when there is nobody left to play it FOR — which is not
-     the same question in every game. Domino and ბურა are played by sides, so
-     a side that is all computer ends it. ჯოკერი has no sides: everyone plays
-     for themselves, and a table with three people at it is still a table.
-     Counting seats as sides there ended the match the moment one player
-     walked out, for the three who had not. */
-  const dead = room.game === "joker"
-    ? room.players.every((x) => x.bot)
+/* A match is over when there is nobody left to play it FOR — which is not the
+   same question in every game. Domino and ბურა are played by sides, so a side
+   that is all computer ends it. ჯოკერი has no sides: everyone plays for
+   themselves, and a table with three people at it is still a table. Counting
+   seats as sides there ended the match the moment one player walked out, for
+   the three who had not.
+
+   Asked WITHOUT giving the chair up, because the answer decides whether the
+   chair should be given up at all: emptying it first throws away the socket,
+   and then the player it happened to cannot be told why their match ended. */
+function wouldDie(room, p) {
+  const bot = (x) => x === p || x.bot;
+  return room.game === "joker"
+    ? room.players.every(bot)
     : [0, 1].some((t) => {
         const side = room.players.filter((x) => x.team === t);
-        return side.length > 0 && side.every((x) => x.bot);
+        return side.length > 0 && side.every(bot);
       });
+}
+
+function abandonSeat(room, p) {
+  const dead = wouldDie(room, p);
+  p.bot = true; p.online = false; p.id = null;
   if (dead) return { dead: true };
   say(room, `${p.name} გავიდა — მის ქვებს კომპიუტერი აგრძელებს`);
   refreshPause(room);
@@ -376,21 +440,28 @@ function clearClock(room) {
   if (room.moveTimer) { clearTimeout(room.moveTimer); room.moveTimer = null; }
   room.moveDeadline = null; room.overtimeStart = null; room.overtimeUntil = null;
 }
-function armClock(room) {
+/* Whose clock is running. Board games hand the seat in, because there the turn
+   has already moved on by the time this is called. */
+function onClock(room, seat) {
+  const c = clockOf(room);
+  const s = seat === undefined || seat === null ? c.seat(room) : seat;
+  return s == null ? null : at(room, s);
+}
+function armClock(room, seat) {
   clearClock(room);
-  if (room.paused || !room.g) return;
-  if (room.phase !== "play" && room.phase !== "draw") return;
-  const p = at(room, room.g.turn);
+  if (room.paused || !clockOf(room).live(room)) return;
+  const p = onClock(room, seat);
   if (!p || p.bot) return;                       // the computer needs no clock
-  room.moveDeadline = Date.now() + MOVE_TIME;
-  room.moveTimer = setTimeout(() => startOvertime(room), MOVE_TIME);
+  room.clockSeat = p.seat;
+  room.moveDeadline = Date.now() + moveTimeOf(room);
+  room.moveTimer = setTimeout(() => startOvertime(room), moveTimeOf(room));
 }
 // turn clock spent — start eating the bank, but the player may still move
 function startOvertime(room) {
-  if (!rooms.has(room.id) || room.paused || !room.g) return;
-  const p = at(room, room.g.turn);
+  if (!rooms.has(room.id) || room.paused || !clockOf(room).live(room)) return;
+  const p = onClock(room, room.clockSeat);
   if (!p || p.bot) return;
-  const window = Math.min(TIMEOUT_PENALTY, p.reserve);
+  const window = Math.min(TIMEOUT_PENALTY, p.reserve || 0);
   room.moveDeadline = null;
   room.overtimeStart = Date.now();
   room.overtimeUntil = Date.now() + window;
@@ -398,29 +469,60 @@ function startOvertime(room) {
   pushState(room);
   room.moveTimer = setTimeout(() => onOvertimeEnd(room), window);
 }
-// charge the bank for the overtime actually used (called when they finally move)
+/* Charge the bank for the overtime actually used. A player pays for the time
+   they took, not for the window they were given — which is the difference
+   between a clock and a fine. */
 function spendOvertime(room) {
-  if (!room.overtimeStart || !room.g) return;
-  const p = at(room, room.g.turn);
-  if (p && !p.bot) p.reserve = Math.max(0, p.reserve - (Date.now() - room.overtimeStart));
+  if (!room.overtimeStart) return;
+  const p = onClock(room, room.clockSeat);
+  if (p && !p.bot) p.reserve = Math.max(0, (p.reserve || 0) - (Date.now() - room.overtimeStart));
   room.overtimeStart = null; room.overtimeUntil = null;
 }
+/* A player did something on their turn. They pay for the seconds of the bank
+   they actually used, not for the window they were handed — which is the
+   difference between a clock and a fine. Called at the top of every handler
+   that IS a turn; sending a phrase across the table is not one, and must not
+   stop the drain. */
+function acted(room) {
+  if (room && room.overtimeStart) spendOvertime(room);
+}
+
 function onOvertimeEnd(room) {
-  if (!rooms.has(room.id) || room.paused || !room.g) return;
-  const p = at(room, room.g.turn);
+  if (!rooms.has(room.id) || room.paused || !clockOf(room).live(room)) return;
+  const p = onClock(room, room.clockSeat);
   if (!p || p.bot) return;
   spendOvertime(room);
-  if (p.reserve <= 0) {                          // bank empty — the match is lost
-    say(room, `${p.name} — დრო ამოიწურა`);
-    return endMatchByTimeout(room, p);
-  }
-  say(room, `${p.name} — დრო გავიდა, კომპიუტერმა დადო`);
-  botMove(room, true);
+  if ((p.reserve || 0) <= 0) return outOfTime(room, p);
+  say(room, `${p.name} — დრო გავიდა, კომპიუტერმა ითამაშა`);
+  clockOf(room).bot(room);
 }
+
+/* The bank is empty.
+
+   Running out of time is treated exactly as walking out, and that is on
+   purpose: the consequence a player agreed to when they sat down is the same
+   one, and the machinery for it is already right in every game. The seat goes
+   to the computer, the loss is written down THIS SECOND rather than whenever
+   the others get round to finishing, and whether the match ends depends on
+   whether there is anybody left to play it for — which is not the same
+   question in ჯოკერი, where three people at a table are still a table. */
+function outOfTime(room, p) {
+  say(room, `${p.name} — დრო ამოიწურა`);
+  clearClock(room);
+  awardMatch(room, p, false);
+  /* Asked before the chair is emptied. abandonSeat clears the socket, and a
+     player told nothing about why their match ended is a player who thinks
+     the app broke. */
+  if (wouldDie(room, p)) return endMatchByTimeout(room, p);
+  abandonSeat(room, p);
+  pushState(room);
+  advanceFor(room);
+}
+
 // what a player's bank reads right now, including any overtime ticking away
 function liveReserve(room, p) {
   let r = p.reserve || 0;
-  if (room.overtimeStart && room.g && at(room, room.g.turn) === p) {
+  if (room.overtimeStart && onClock(room, room.clockSeat) === p) {
     r = Math.max(0, r - (Date.now() - room.overtimeStart));
   }
   return Math.max(0, Math.round(r / 1000));
@@ -428,13 +530,22 @@ function liveReserve(room, p) {
 function endMatchByTimeout(room, loser) {
   clearClock(room); clearTimeout(room.botTimer); clearTimeout(room.dropTimer);
   room.phase = "over"; room.paused = false;
-  const g = room.g;
+  const board = room.g || room.b || room.j || room.n || room.d;
   room.players.forEach((o) => {
+    /* Everyone else is settled here; the one who ran out was booked the
+       moment the bank emptied, and awardMatch refuses to write the same
+       match down twice. */
+    const won = room.game === "joker" ? o !== loser : o.team !== loser.team;
+    awardMatch(room, o, won);
     const s = io.sockets.sockets.get(o.id);
     if (s) s.emit("matchOver", {
-      youWon: o.team !== loser.team,
-      scores: g.scores, myTeam: o.team, target: room.target, size: room.size,
+      youWon: won,
+      scores: board ? board.scores : null, myTeam: o.team,
+      target: room.target, size: room.size,
+      progress: o.profile ? summarise(o.profile) : null,
+      settled: o.lastSettle || null, earned: o.lastEarned || [],
       reason: "time", who: loser.name });
+    o.lastEarned = [];
   });
   pushState(room);
 }
@@ -454,15 +565,16 @@ function clearAuto(room) {
  * neither side can count differently, and the hand a player holds is the one
  * thing never sent to anybody else.
  *
- * One clock, not two: thirty seconds a move, and the computer plays for
- * whoever lets it run out. Domino's bank of thinking time is a domino rule,
- * and inventing one here would be putting words in the player's mouth.
+ * The clock is the shared one — see CLOCK near the top. It used to be a
+ * single thirty seconds here, with the computer playing for whoever let it
+ * run out and no bank behind it; that meant a player who walked away was
+ * never actually out, and the table went on being theirs.
  * ------------------------------------------------------------------ */
-const BURA_MOVE_TIME = 30000;
 const BURA_NEXT_ROUND = 4000;
 
 function startBura(room) {
-  room.players.forEach((p) => { p.settled = false; });   // a fresh match to write down
+  // a fresh match to write down, and a full bank of thinking time to spend
+  room.players.forEach((p) => { p.settled = false; p.reserve = RESERVE_START; });
   clearAuto(room);
   // partners sit across, so a side is every other chair round the table
   room.players.forEach((p, i) => { p.seat = i; p.team = i % 2; });
@@ -473,18 +585,8 @@ function startBura(room) {
   buraAdvance(room);
 }
 
-function clearBuraClock(room) {
-  if (room.moveTimer) { clearTimeout(room.moveTimer); room.moveTimer = null; }
-  room.moveDeadline = null;
-}
-function armBuraClock(room) {
-  clearBuraClock(room);
-  if (room.paused || !room.b || room.phase !== "play") return;
-  const p = at(room, room.b.turn);
-  if (!p || p.bot) return;
-  room.moveDeadline = Date.now() + BURA_MOVE_TIME;
-  room.moveTimer = setTimeout(() => buraBotMove(room, true), BURA_MOVE_TIME);
-}
+const clearBuraClock = clearClock;
+const armBuraClock = armClock;
 
 // The computer plays for a seat nobody is filling — someone who left, or who
 // let the clock run out.
@@ -645,7 +747,9 @@ function buraView(room, seat) {
     roundWinner: b.roundWinner,
     reveal: room.reveal || null,      // only ever set once a round has ended
     moveLeft: room.moveDeadline ? Math.max(0, Math.ceil((room.moveDeadline - Date.now()) / 1000)) : null,
-    moveTime: Math.round(BURA_MOVE_TIME / 1000),
+    overtimeLeft: room.overtimeUntil ? Math.max(0, Math.ceil((room.overtimeUntil - Date.now()) / 1000)) : null,
+    bankFull: Math.round(RESERVE_START / 1000),   // so a screen knows what full looks like
+    moveTime: Math.round(moveTimeOf(room) / 1000),
   });
 }
 
@@ -662,32 +766,20 @@ function buraView(room, seat) {
    the dice are thrown here, never by a client that could be asked to throw
    again until it liked the answer.
    ================================================================== */
-const BOARD_MOVE_TIME = 40000;      // a board move is a slower thought than a card
 const BOARD_BOT_PAUSE = 700;        // how long the computer appears to think
 const STUCK_PAUSE = 1200;           // long enough to see WHY the turn ended
 
-function clearBoardClock(room) {
-  if (room.moveTimer) { clearTimeout(room.moveTimer); room.moveTimer = null; }
-  room.moveDeadline = null;
-}
-function armBoardClock(room, whoseTurn) {
-  clearBoardClock(room);
-  if (room.paused || room.phase === "over" || room.phase === "roundEnd") return;
-  const p = at(room, whoseTurn);
-  if (!p || p.bot) return;
-  room.moveDeadline = Date.now() + BOARD_MOVE_TIME;
-  room.moveTimer = setTimeout(() => {
-    if (!rooms.has(room.id) || room.paused) return;
-    // the clock ran out: the computer plays that turn and the game goes on
-    if (room.game === "nardi") nardiBotTurn(room, true);
-    else damkaBotMove(room, true);
-  }, BOARD_MOVE_TIME);
-}
+/* The board games hand the seat in, because by the time the clock is armed
+   the engine's own idea of whose turn it is has already moved on. */
+const clearBoardClock = clearClock;
+const armBoardClock = armClock;
 
 /* ---------------- ნარდი ---------------- */
 
 function startNardi(room) {
-  room.players.forEach((p, i) => { p.seat = i; p.team = i; p.settled = false; });
+  room.players.forEach((p, i) => {
+    p.seat = i; p.team = i; p.settled = false; p.reserve = RESERVE_START;
+  });
   clearAuto(room);
   room.n = Nardi.newGame({ variant: room.variant, target: room.target, opening: true });
   room.nHist = [];
@@ -820,13 +912,22 @@ function nardiMaybeOpen(room) {
   const n = room.n;
   if (!n || n.phase !== "opening") return;
   room.players.forEach((p) => {
-    if (!p.bot || n.opening[p.seat] != null) return;
+    if (!Nardi.owesOpening(n, p.seat)) return;
+    /* The turn clock does not fit here: the opening belongs to both players
+       at once, so there is no single seat whose time is running. It still has
+       to be answered, though — two people who both wait leave the table stuck
+       before the match has begun, which is the very thing the clock is for.
+
+       Throwing it for them costs nobody anything. An opening die has no
+       decision in it: nothing about the game changes depending on when you
+       press it, which is exactly why it can be pressed for you. */
+    const wait = p.bot ? BOARD_BOT_PAUSE : moveTimeOf(room);
     setTimeout(() => {
       if (!rooms.has(room.id) || !room.n || room.n.phase !== "opening") return;
-      if (room.n.opening[p.seat] != null) return;
+      if (room.paused || !Nardi.owesOpening(room.n, p.seat)) return;
       Nardi.openRoll(room.n, p.seat);
       nardiAdvance(room);
-    }, BOARD_BOT_PAUSE);
+    }, wait);
   });
 }
 
@@ -916,14 +1017,18 @@ function nardiView(room, seat) {
     oppLevel: other.profile ? Progress.levelFromXp(other.profile.xp).level : null,
     reveal: room.reveal || null,
     moveLeft: room.moveDeadline ? Math.max(0, Math.ceil((room.moveDeadline - Date.now()) / 1000)) : null,
-    moveTime: Math.round(BOARD_MOVE_TIME / 1000),
+    overtimeLeft: room.overtimeUntil ? Math.max(0, Math.ceil((room.overtimeUntil - Date.now()) / 1000)) : null,
+    bankFull: Math.round(RESERVE_START / 1000),   // so a screen knows what full looks like
+    moveTime: Math.round(moveTimeOf(room) / 1000),
   });
 }
 
 /* ---------------- დამკა ---------------- */
 
 function startDamka(room) {
-  room.players.forEach((p, i) => { p.seat = i; p.team = i; p.settled = false; });
+  room.players.forEach((p, i) => {
+    p.seat = i; p.team = i; p.settled = false; p.reserve = RESERVE_START;
+  });
   clearAuto(room);
   room.d = Damka.newGame({});
   room.phase = "play";
@@ -1019,7 +1124,9 @@ function damkaView(room, seat) {
     oppPic: other.profile ? (other.profile.picture || null) : null,
     oppLevel: other.profile ? Progress.levelFromXp(other.profile.xp).level : null,
     moveLeft: room.moveDeadline ? Math.max(0, Math.ceil((room.moveDeadline - Date.now()) / 1000)) : null,
-    moveTime: Math.round(BOARD_MOVE_TIME / 1000),
+    overtimeLeft: room.overtimeUntil ? Math.max(0, Math.ceil((room.overtimeUntil - Date.now()) / 1000)) : null,
+    bankFull: Math.round(RESERVE_START / 1000),   // so a screen knows what full looks like
+    moveTime: Math.round(moveTimeOf(room) / 1000),
   });
 }
 
@@ -1032,10 +1139,10 @@ function damkaView(room, seat) {
    The engine is the one the practice screen uses, so the rules cannot drift
    between playing a computer and playing people.
    ================================================================== */
-const JOKER_MOVE_TIME = 30000;                 // a while to think; there is a lot to read
 
 function startJoker(room) {
-  room.players.forEach((p) => { p.settled = false; });   // a fresh match to write down
+  // a fresh match to write down, and a full bank of thinking time to spend
+  room.players.forEach((p) => { p.settled = false; p.reserve = RESERVE_START; });
   clearAuto(room);
   /* Alone, a seat is its own team. In pairs the partners sit opposite, 0 and
      2 against 1 and 3, which is where they already are. */
@@ -1051,18 +1158,8 @@ function startJoker(room) {
   jokerAdvance(room);
 }
 
-function clearJokerClock(room) {
-  if (room.moveTimer) { clearTimeout(room.moveTimer); room.moveTimer = null; }
-  room.moveDeadline = null;
-}
-function armJokerClock(room) {
-  clearJokerClock(room);
-  if (room.paused || !room.j || room.phase !== "play") return;
-  const p = at(room, room.j.turn);
-  if (!p || p.bot) return;
-  room.moveDeadline = Date.now() + JOKER_MOVE_TIME;
-  room.moveTimer = setTimeout(() => jokerBotMove(room, true), JOKER_MOVE_TIME);
-}
+const clearJokerClock = clearClock;
+const armJokerClock = armClock;
 
 /* The computer, for an empty chair or for somebody who ran out of time. It
    plays the engine's own choice, which is the same one the practice screen
@@ -1208,7 +1305,9 @@ function jokerView(room, seat) {
     history: j.history, bonuses: j.bonuses,
     reveal: room.reveal || null,
     moveLeft: room.moveDeadline ? Math.max(0, Math.ceil((room.moveDeadline - Date.now()) / 1000)) : null,
-    moveTime: Math.round(JOKER_MOVE_TIME / 1000),
+    overtimeLeft: room.overtimeUntil ? Math.max(0, Math.ceil((room.overtimeUntil - Date.now()) / 1000)) : null,
+    bankFull: Math.round(RESERVE_START / 1000),   // so a screen knows what full looks like
+    moveTime: Math.round(moveTimeOf(room) / 1000),
   });
 }
 
@@ -1233,12 +1332,12 @@ function maybeStart(room) {
 }
 
 function startMatch(room) {
-  room.players.forEach((p) => { p.settled = false; });   // a fresh match to write down
+  // a fresh match to write down, and a full bank of thinking time to spend
+  room.players.forEach((p) => { p.settled = false; p.reserve = RESERVE_START; });
   clearAuto(room);
   assignSeats(room);                 // partners opposite; fills in anyone unpaired
   room.g = Ozi.newGame(room.target, room.size);
   room.lastWinner = 0;
-  room.players.forEach((p) => { p.reserve = RESERVE_START; });
   startRound(room, true);
 }
 const nextSeat = (room, s) => (s + 1) % room.size;
@@ -1384,6 +1483,11 @@ function roster(room, seat) {
     pic: p.profile ? (p.profile.picture || null) : null,
     level: p.profile ? Progress.levelFromXp(p.profile.xp).level : null,
     me: p.seat === seat,
+    /* The bank, in seconds. It rides along with the roster because the roster
+       is the one list every game already sends on every push — a screen that
+       wants to show a clock draining does not have to be taught a new field
+       five times. */
+    bank: liveReserve(room, p),
   }));
 }
 const matchStake = (room) => stakeFor(room.target) * (room.stakeMul || 1);
@@ -1761,6 +1865,7 @@ io.on("connection", (socket) => {
   });
 
   on("nRoll", () => {
+    acted(roomOf(socket));   // pay for the thinking time actually used
     const room = boardRoom("nardi", "n");
     if (!room || room.phase !== "play" || room.offer) return;
     const n = room.n;
@@ -1774,6 +1879,7 @@ io.on("connection", (socket) => {
      than an inverse — there is no arithmetic to get wrong, and a hit checker
      comes back off the bar by itself. */
   on("nMove", (msg) => {
+    acted(roomOf(socket));   // pay for the thinking time actually used
     const room = boardRoom("nardi", "n");
     if (!room || room.phase !== "play") return;
     const n = room.n;
@@ -1836,6 +1942,7 @@ io.on("connection", (socket) => {
   });
 
   on("nUndo", () => {
+    acted(roomOf(socket));   // pay for the thinking time actually used
     const room = boardRoom("nardi", "n");
     if (!room || room.phase !== "play" || room.paused) return;
     const n = room.n;
@@ -1847,6 +1954,7 @@ io.on("connection", (socket) => {
   });
 
   on("nDone", () => {
+    acted(roomOf(socket));   // pay for the thinking time actually used
     const room = boardRoom("nardi", "n");
     if (!room || room.phase !== "play" || room.paused) return;
     const n = room.n;
@@ -1856,6 +1964,7 @@ io.on("connection", (socket) => {
   });
 
   on("dMove", (msg) => {
+    acted(roomOf(socket));   // pay for the thinking time actually used
     const room = boardRoom("damka", "d");
     if (!room || room.phase !== "play") return;
     const d = room.d;
@@ -1893,6 +2002,7 @@ io.on("connection", (socket) => {
   }
 
   on("bLead", ({ cards, unturned }) => {
+    acted(roomOf(socket));   // pay for the thinking time actually used
     const room = buraRoom(); if (!room || room.phase !== "play") return;
     const seat = seatOf(room, socket); if (seat < 0) return;
     if (!Array.isArray(cards) || !cards.length || cards.length > 5) return;
@@ -1902,6 +2012,7 @@ io.on("connection", (socket) => {
   });
 
   on("bAnswer", ({ cards }) => {
+    acted(roomOf(socket));   // pay for the thinking time actually used
     const room = buraRoom(); if (!room || room.phase !== "play" || !room.b.lead) return;
     const seat = seatOf(room, socket); if (seat < 0) return;
     if (!Array.isArray(cards)) return;
@@ -1915,6 +2026,7 @@ io.on("connection", (socket) => {
   });
 
   on("bCall", () => {
+    acted(roomOf(socket));   // pay for the thinking time actually used
     const room = buraRoom(); if (!room || room.phase !== "play") return;
     const seat = seatOf(room, socket); if (seat < 0) return;
     if (!Bura.call(room.b, seat)) return;
@@ -1923,6 +2035,7 @@ io.on("connection", (socket) => {
   });
 
   on("bAccept", () => {
+    acted(roomOf(socket));   // pay for the thinking time actually used
     const room = buraRoom(); if (!room) return;
     const seat = seatOf(room, socket); if (seat < 0) return;
     if (!Bura.acceptCall(room.b, seat)) return;
@@ -1931,6 +2044,7 @@ io.on("connection", (socket) => {
   });
 
   on("bConcede", () => {
+    acted(roomOf(socket));   // pay for the thinking time actually used
     const room = buraRoom(); if (!room) return;
     const seat = seatOf(room, socket); if (seat < 0) return;
     if (!Bura.concede(room.b, seat)) return;
@@ -1942,6 +2056,7 @@ io.on("connection", (socket) => {
      wins the round only by taking the trick, which the engine settles. */
   // the same move as a malutka, announced differently — one code path
   on("bBura", () => {
+    acted(roomOf(socket));   // pay for the thinking time actually used
     const room = buraRoom(); if (!room || room.phase !== "play") return;
     const seat = seatOf(room, socket); if (seat < 0) return;
     buraPutDown(room, seat, null, true, at(room, seat).name + ": ბურა!");
@@ -1958,6 +2073,7 @@ io.on("connection", (socket) => {
   };
 
   on("jChoose", ({ trump }) => {
+    acted(roomOf(socket));   // pay for the thinking time actually used
     const room = jokerRoom(); if (!room || room.phase !== "play") return;
     const seat = seatOf(room, socket); if (seat < 0) return;
     const t = trump === "bez" ? Joker.NOTRUMP : trump;
@@ -1968,6 +2084,7 @@ io.on("connection", (socket) => {
   });
 
   on("jBid", ({ n }) => {
+    acted(roomOf(socket));   // pay for the thinking time actually used
     const room = jokerRoom(); if (!room || room.phase !== "play") return;
     const seat = seatOf(room, socket); if (seat < 0) return;
     if (!Joker.bid(room.j, seat, n)) return;
@@ -1976,6 +2093,7 @@ io.on("connection", (socket) => {
   });
 
   on("jPlay", ({ card, high, suit }) => {
+    acted(roomOf(socket));   // pay for the thinking time actually used
     const room = jokerRoom(); if (!room || room.phase !== "play") return;
     const seat = seatOf(room, socket); if (seat < 0) return;
     if (!Array.isArray(card) || card.length !== 2) return;

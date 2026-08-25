@@ -139,13 +139,58 @@ function scopeOf(dep, at) {
   return [start, end];
 }
 
+/* The helpers every online screen shares, plus the two that hold state the
+   closing card reads. `lastState` is on the list because it was USED and never
+   declared on one screen — the card threw a ReferenceError the moment a match
+   ended there, and nothing in the suite could see it. */
+const NAMES = ["wireEmotes", "emoteAnchor", "hints"];
+// only the board screens keep a last-move tracker: the card tables have no
+// board array to diff, and mark the card that landed instead
+const BOARD_NAMES = ["theirs"];
+const STATE = { "nardi.html": "lastState", "damka.html": "lastState",
+                "online.html": "lastSt", "buraonline.html": "lastSt",
+                "jokeronline.html": "lastSt" };
+
+test("nothing a screen reads is a name it never declared", () => {
+  /* A `const` that is missing does not fail until the line runs, and the line
+     that reads it is the one that runs when a match ENDS — the least tested
+     moment there is, and the worst one to throw in. */
+  for (const [f, name] of Object.entries(STATE)) {
+    const html = readFileSync(path.join(PUB, f), "utf8");
+    const used = html.includes(name + ",") || html.includes(name + ")")
+              || html.includes(name + " ");
+    if (!used) continue;
+    /* Plain string scanning again, for the same reason as below: a backslash
+       that has to survive a string literal on its way into RegExp is what
+       turns a word boundary into a backspace character. */
+    const word = new RegExp("\\b" + name + "\\b");
+    const declared = ["let ", "const ", "var "].some((kw) => {
+      let i = 0;
+      for (;;) {
+        i = html.indexOf(kw, i);
+        if (i < 0) return false;
+        const stmt = html.slice(i, html.indexOf("\n", i)).split(";")[0];
+        i += kw.length;
+        /* Only the NAMES being declared, which is the text before each `=`.
+           Taking the whole statement matched `const full = f(lastState)` and
+           called that a declaration of lastState — a false positive that made
+           the test pass over the exact bug it was written for. */
+        if (stmt.split(",").some((part) => word.test(part.split("=")[0]))) return true;
+      }
+    });
+    assert.ok(declared, f + " reads " + name + " and never declares it");
+  }
+});
+
 test("a shared helper is never declared where the code using it cannot see it", () => {
   const ONLINE = ["online.html", "buraonline.html", "jokeronline.html",
                   "nardi.html", "damka.html"];
   for (const f of ONLINE) {
     const html = readFileSync(path.join(PUB, f), "utf8");
     const dep = depths(html);
-    for (const name of ["wireEmotes", "emoteAnchor", "hints"]) {
+    const names = NAMES.concat(
+      f === "nardi.html" || f === "damka.html" ? BOARD_NAMES : []);
+    for (const name of names) {
       /* Plain string scanning, not a built regex: a backslash that has to
          survive a string literal on its way into RegExp is exactly what
          quietly turns a word boundary into a backspace character, and a test

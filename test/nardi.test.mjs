@@ -675,3 +675,36 @@ test("a double can be stuck with no die looking spent", () => {
   assert.ok(g.left.length > g.dice.length,
     "with more moves left than dice shown, neither die can look spent");
 });
+
+test("after a tie, BOTH players owe another throw", () => {
+  /* A tie leaves both dice on the table to be looked at, and only the next
+     throw wipes them. So `opening[side] != null` is true for both — and
+     anything reading that on its own concludes that nobody owes a throw and
+     waits forever. A table with nobody pressing the button by hand stalled in
+     the opening, before the match had begun, and stayed there. */
+  const g = N.newGame({ variant: "long", opening: true });
+  const fixed = (v) => () => (v - 1) / 6 + 0.01;
+  N.openRoll(g, 0, fixed(4));
+  assert.ok(!N.owesOpening(g, 0), "a side that has thrown owes nothing yet");
+  assert.ok(N.owesOpening(g, 1), "the other side has not thrown");
+
+  N.openRoll(g, 1, fixed(4));                 // equal
+  assert.ok(g.openingTied, "the tie was not recorded");
+  assert.equal(g.phase, "opening", "a tie does not start the match");
+  assert.ok(N.owesOpening(g, 0) && N.owesOpening(g, 1),
+    "after a tie neither side is asked to throw again — the table stalls");
+
+  // and the throw that follows clears the pair, so the players saw why
+  N.openRoll(g, 0, fixed(6));
+  assert.equal(g.opening[1], null, "the tie was not wiped by the next throw");
+  N.openRoll(g, 1, fixed(2));
+  assert.equal(g.phase, "roll", "the match still has not started");
+  assert.equal(g.side, 0, "the higher die does not open");
+});
+
+test("a side that has already thrown is not thrown for twice", () => {
+  const g = N.newGame({ variant: "long", opening: true });
+  N.openRoll(g, 0, () => 0.5);
+  assert.ok(!N.owesOpening(g, 0));
+  assert.equal(N.openRoll(g, 0, () => 0.9), null, "it threw a second time");
+});

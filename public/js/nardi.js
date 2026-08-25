@@ -149,6 +149,15 @@
   const openingDone = (g) => g.opening[0] != null && g.opening[1] != null &&
                              g.opening[0] !== g.opening[1];
 
+  /* Does this side still owe a throw? Not the same question as "has this side
+     thrown", and the difference is a tie: after one, BOTH dice are still on
+     the table to be looked at and both players owe another throw. Anything
+     that reads `opening[side] != null` on its own decides that nobody owes
+     anything and waits forever — which is exactly what a table did when
+     nobody was pressing the button by hand. */
+  const owesOpening = (g, side) =>
+    g.phase === "opening" && (g.openingTied || g.opening[side] == null);
+
   /* ---------------- dice ---------------- */
   function roll(g, rnd) {
     if (g.phase !== "roll") return null;
@@ -492,7 +501,7 @@
 
   return {
     POINTS, CHECKERS, HOME_FROM, BAR, HEAD,
-    newGame, setUp, roll, openRoll, openingDone, move, turnOver, stuck,
+    newGame, setUp, roll, openRoll, openingDone, owesOpening, move, turnOver, stuck,
     legalMoves, targetsFrom, canStep,
     endTurn, nextRound, finishRound, roundWorth,
     pointAt, indexOf, atIndex, countAt, homeReady, canBearOff,

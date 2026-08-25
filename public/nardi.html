@@ -28,7 +28,7 @@
       <div class="seatPlate me" id="seatMe">
         <span class="avatar"><span class="face" id="meFace"></span>
           <span class="rank" id="meLevel">1</span></span>
-        <span class="who"><b id="meName">—</b><i id="meCoins" class="purse"></i></span>
+        <span class="who"><b id="meName">—</b><i id="meCoins" class="purse"></i><i id="meBank" class="bank"></i></span>
       </div>
       <div class="info">
         <span class="stat"><span class="k">ანგარიში</span><b id="scoreLbl">0 : 0</b></span>
@@ -44,7 +44,7 @@
       <div class="msg" id="msg"></div>
       <div class="spacer" style="flex:1 1 auto"></div>
       <div class="seatPlate them" id="seatThem">
-        <span class="who"><b id="themName">—</b><i id="themNote"></i></span>
+        <span class="who"><b id="themName">—</b><i id="themNote"></i><i id="themBank" class="bank"></i></span>
         <span class="avatar"><span class="face" id="themFace"></span>
           <span class="rank" id="themLevel"></span></span>
       </div>
@@ -640,7 +640,29 @@
      server to say who sat down. */
   let opp = { name: "", pic: null, level: null, bot: false };
   let clockLeft = null, clockTotal = null;
+  /* Once the turn clock is gone the BANK is going, and that is a different
+     thing to show: not "hurry up" but "this is costing you the match". */
+  let spending = false, banks = null;
   let mine = { name: "", pic: null, level: null, coins: null };
+  /* The bank, shown only once it has started going.
+
+     A number sitting at its full value the whole match is furniture; a number
+     that appears the first time somebody's thinking time is actually being
+     spent is the answer to "how long can they keep me waiting". It is read
+     off the roster, which every game sends on every push. */
+  const mmssBank = (s) => Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  function bankOf(seat) {
+    const r = (banks || []).find((p) => p.seat === seat);
+    return r && r.bank != null ? r.bank : null;
+  }
+  function paintBank(el, seat, full) {
+    if (!el) return;
+    const b = bankOf(seat);
+    const show = b != null && b < full;
+    el.textContent = show ? "⏱ " + mmssBank(b) : "";
+    el.classList.toggle("low", show && b <= 30);
+  }
+
   function seatPlates() {
     /* Offline this device is the only source there is; online the server is,
        because a level and a purse are its to say and not the browser's. */
@@ -658,6 +680,11 @@
       ONLINE ? (opp.name || "მოწინააღმდეგე") : "კომპიუტერი";
     document.getElementById("themNote").textContent =
       ONLINE && opp.bot ? "ავტომატურად თამაშობს" : "";
+    /* Both banks, so a player can see the other one running down as well as
+       their own — which is the whole reassurance: they cannot keep you here. */
+    const full = Math.round((lastState && lastState.bankFull) || 150);
+    paintBank(document.getElementById("meBank"), ME, full);
+    paintBank(document.getElementById("themBank"), 1 - ME, full);
     rank(document.getElementById("themLevel"), ONLINE ? opp.level : null);
     face(document.getElementById("themFace"), ONLINE ? opp.pic : null,
          ONLINE ? (opp.name || "?") : "\u2699");
@@ -667,9 +694,9 @@
     if (window.TurnRing) {
       const live = !!g && !busy && g.phase !== "over";
       TurnRing.set(document.querySelector("#seatMe .avatar"),
-                   live && g.side === ME, clockLeft, clockTotal);
+                   live && g.side === ME, clockLeft, clockTotal, spending);
       TurnRing.set(document.querySelector("#seatThem .avatar"),
-                   live && g.side !== ME, clockLeft, clockTotal);
+                   live && g.side !== ME, clockLeft, clockTotal, spending);
     }
   }
   // a rank with no number is not a rank: the chip goes away rather than sit empty
@@ -1148,6 +1175,8 @@
     seated = true;
     lastState = st;
     clockLeft = st.moveLeft; clockTotal = st.moveTime;
+    spending = st.overtimeLeft != null;
+    banks = st.roster || null;
     maybeVersus(st, "nardi", !!st.pts && st.phase === "play");
     wireEmotes(st);
     if (!g) g = Nardi.newGame({ variant: st.variant || VARIANT, target: st.target || TARGET });

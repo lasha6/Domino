@@ -559,3 +559,11 @@
 @media (prefers-reduced-motion:reduce){
   .trickRow.justPlayed .card{ transform:none; }
 }
+
+/* The bank of thinking time, beside whoever it belongs to. Only there once it
+   has started going down — a number at its full value all match is furniture. */
+.seatBox .who .bank{
+  display:inline-block; margin-left:5px;
+  font:600 10px/1 var(--font-ui); color:var(--brass-lit); letter-spacing:.02em;
+}
+.seatBox .who .bank.low{ color:#e2685a; }

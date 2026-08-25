@@ -28,10 +28,13 @@
   /* el       the thing wearing the ring (the avatar, or the seat plate)
      active   is it this player's turn
      left     seconds still on their clock, or null if there is no clock
-     total    seconds the clock started at */
-  function set(el, active, left, total) {
+     total    seconds the clock started at
+     spending true once the turn clock is gone and the BANK is going — the
+              ring turns red, because from here on it costs them the match */
+  function set(el, active, left, total, spending) {
     if (!el) return;
     el.classList.toggle("onTurn", !!active);
+    el.classList.toggle("spending", !!(active && spending));
     if (!active || !total || left == null) {
       el.classList.remove("ticking");
       el.style.removeProperty("--tSec");
@@ -58,7 +61,7 @@
   /* Nobody's turn any more: the match is over, or paused. */
   function clear(el) {
     if (!el) return;
-    el.classList.remove("onTurn", "ticking");
+    el.classList.remove("onTurn", "ticking", "spending");
     delete el.dataset.ring;
     delete el.dataset.spent;
   }

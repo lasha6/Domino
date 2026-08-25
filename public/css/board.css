@@ -219,6 +219,14 @@ body{
   background:radial-gradient(circle at 36% 30%, var(--br-hi), var(--br) 62%, var(--br-lo));
   box-shadow:0 0 0 1px rgba(20,12,4,.8), inset 0 -1px 1px rgba(0,0,0,.35);
 }
+/* The bank of thinking time, and it is only here once it has started going
+   down. A number sitting at its full value all match is furniture; one that
+   appears the first time somebody's time is actually being spent is the
+   answer to "how long can they keep me waiting". */
+.seatPlate .who i.bank{ color:var(--br-hi); letter-spacing:.02em; }
+.seatPlate .who i.bank:empty{ display:none; }
+.seatPlate .who i.bank.low{ color:#e2685a; }
+
 .seatPlate .rank{
   position:absolute; left:50%; bottom:calc(var(--avaW, 32px) * -.16);
   transform:translateX(-50%);

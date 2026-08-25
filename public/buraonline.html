@@ -414,11 +414,25 @@
         const onClock = !!q && S.turn === q.seat && S.phase === "play";
         box.classList.toggle("turn", onClock);
         // and the clock they are on, drawn round them rather than written out
-        if (window.TurnRing) TurnRing.set(box, onClock, S.moveLeft, S.moveTime);
+        if (window.TurnRing)
+          TurnRing.set(box, onClock, S.moveLeft, S.moveTime, S.overtimeLeft != null);
         if (!q) continue;
         const who = document.createElement("div");
         who.className = "who";
         who.textContent = q.name + (q.bot ? " 🤖" : "");
+      /* The bank, and only once it has started going down. A number sitting
+         at its full value all match is furniture; one that appears the first
+         time somebody's thinking time is actually being spent answers "how
+         long can they keep me waiting". */
+      const r = (S.roster || []).find((x) => x.seat === q.seat);
+      const full = S.bankFull || 150;
+      if (r && r.bank != null && r.bank < full) {
+        const bk = document.createElement("span");
+        bk.className = "bank" + (r.bank <= 30 ? " low" : "");
+        bk.textContent = "⏱ " + Math.floor(r.bank / 60) + ":"
+          + String(r.bank % 60).padStart(2, "0");
+        who.appendChild(bk);
+      }
         if (q.partner) {
           const m = document.createElement("span");
           m.className = "mate"; m.textContent = " ★";      // your partner
@@ -479,10 +493,11 @@
       document.getElementById("msg").textContent = S.log || "";
       const pill = document.getElementById("turnPill");
       if (S.phase === "over")      pill.textContent = "დასრულდა";
-      else if (S.myTurn)           pill.textContent = "შენი სვლა" + (S.moveLeft != null ? " · " + S.moveLeft : "");
-      else if (S.size === 4)       pill.textContent = nameAt(S.turn) + " ფიქრობს";
-      else                         pill.textContent = "მოწინააღმდეგე ფიქრობს";
+      else if (S.myTurn)           pill.textContent = clockWords("შენი სვლა");
+      else if (S.size === 4)       pill.textContent = clockWords(nameAt(S.turn) + " ფიქრობს");
+      else                         pill.textContent = clockWords("მოწინააღმდეგე ფიქრობს");
       pill.classList.toggle("mine", !!S.myTurn);
+      pill.classList.toggle("overtime", S.overtimeLeft != null);
 
       paintBar();
 
@@ -501,6 +516,22 @@
        down and the answer laid across it. With four it goes round the table, so
        each answer is added as it arrives — otherwise a player would stare at a
        bare lead while two others had already played into it. */
+    /* Whose clock is running, and what it says.
+
+       The seat boxes carry a bank each, but in 1v1 there are no seat boxes —
+       and 1v1 is exactly where being left waiting hurts most. The pill is on
+       every screen and always describes whoever is on the clock, so that is
+       where the bank goes: the turn clock while there is one, and the BANK
+       once the turn clock is gone, because from then on what is running out
+       is the match rather than the move. */
+    const mmssBank = (s) => Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+    function clockWords(who) {
+      if (S.overtimeLeft == null) return S.moveLeft != null ? who + " · " + S.moveLeft : who;
+      const r = (S.roster || []).find((p) => p.seat === S.turn);
+      const bank = r && r.bank != null ? r.bank : S.overtimeLeft;
+      return who + " · მარაგი " + mmssBank(bank);
+    }
+
     function paintTrick(){
       const box = document.getElementById("trick");
       const lbl = document.getElementById("pileLbl");
