@@ -603,7 +603,7 @@
         <h2 style="margin:0">რეიტინგი</h2>
         <span class="shopPurse" id="boardWeek"></span>
       </div>
-      <p class="roomSub">კვირის მოგებები — ორშაბათს თავიდან იწყება</p>
+      <p class="roomSub">მოგება უმატებს, წაგება აკლებს — უვრელესი ოთახი მეტს წონის</p>
       <!-- where the player is, before the list of people who are above them -->
       <div class="myRank" id="myRank"></div>
       <div class="boardList" id="boardList"></div>
@@ -1222,12 +1222,12 @@
          the twenty rows underneath. */
       if (!r.me) {
         mine.innerHTML = "";
-      } else if (!r.me.wins) {
-        mine.innerHTML = '<b>ჯერ არ მოგიგია ამ კვირაში</b>'
+      } else if (!r.me.rating) {
+        mine.innerHTML = '<b>რეიტინგი — 0</b>'
           + '<i>ონლაინ მოგება რეიტინგში გხდის</i>';
       } else {
-        mine.innerHTML = '<b>შენ — #' + r.me.rank + "</b>"
-          + "<i>" + r.me.wins + " მოგება · " + r.me.played + " მატჩი</i>";
+        mine.innerHTML = '<b>#' + r.me.rank + " · " + r.me.rating + "</b>"
+          + "<i>" + r.me.wins + " მოგება · " + r.me.played + " მატჩი ამ კვირაში</i>";
       }
 
       list.innerHTML = "";
@@ -1255,9 +1255,17 @@
         who.setAttribute("data-raw", "");   // a name is not a word to look up
         who.textContent = row.name || "მოთამაშე";
         el.appendChild(who);
+        /* The rating is what the list is sorted by, so it is the number on
+           the right. The week's wins go underneath it in small, because they
+           are what the rating is MADE of and a player wants to see both. */
         const n = document.createElement("span");
         n.className = "bwins";
-        n.textContent = row.wins;
+        n.innerHTML = "<b>" + row.rating + "</b>";
+        if (row.wins) {
+          const w = document.createElement("i");
+          w.textContent = row.wins + "გ";       // g for გამარჯვება
+          n.appendChild(w);
+        }
         el.appendChild(n);
         list.appendChild(el);
       });

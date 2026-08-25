@@ -203,6 +203,10 @@
       '    <div class="vsSide right"></div>' +
       '  </div>' +
       '  <div class="vsPurse"><i></i><b>0</b><em></em></div>' +
+      /* The rating gets the same treatment as the coins, and stands next to
+         them: they are the two things a match moved, and a player should see
+         both move rather than read one and be told the other. */
+      '  <div class="vsRate"><i></i><b>0</b><em></em></div>' +
       '  <div class="vsXp"><span class="vsXpBar"><i></i></span><em></em></div>' +
       "</div>";
     document.body.appendChild(rWrap);
@@ -257,6 +261,21 @@
       b.textContent = before.toLocaleString("en-US");
       setTimeout(() => count(b, before, settled.after, 1100), 620);
     } else purse.style.display = "none";
+
+    /* And the rating, counted the same way and a beat later, so the two
+       numbers move one after the other rather than together — two things
+       climbing at once is a slot machine, not a result. */
+    const rate = el.querySelector(".vsRate");
+    const rt = o.rating;
+    if (rt && typeof rt.after === "number" && rt.move) {
+      const from = Math.max(0, rt.after - rt.move);
+      rate.style.display = "";
+      rate.classList.toggle("lost", rt.move < 0);
+      rate.querySelector("em").textContent = (rt.move > 0 ? "+" : "") + rt.move;
+      const rb = rate.querySelector("b");
+      rb.textContent = String(from);
+      setTimeout(() => count(rb, from, rt.after, 900), 1000);
+    } else rate.style.display = "none";
 
     const xp = el.querySelector(".vsXp");
     const p = o.progress;

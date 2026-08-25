@@ -555,7 +555,7 @@ function endMatchByTimeout(room, loser) {
       scores: board ? board.scores : null, myTeam: o.team,
       target: room.target, size: room.size,
       progress: o.profile ? summarise(o.profile) : null,
-      settled: o.lastSettle || null, earned: o.lastEarned || [],
+      settled: o.lastSettle || null, rating: o.lastRating || null, earned: o.lastEarned || [],
       reason: "time", who: loser.name });
     o.lastEarned = [];
   });
@@ -680,7 +680,7 @@ function buraRoundOver(room) {
       if (s) s.emit("matchOver", {
         youWon: won, scores: b.scores, myTeam: p.team, target: b.target, size: room.size,
         progress: p.profile ? summarise(p.profile) : null,
-        settled: p.lastSettle || null, earned: p.lastEarned || [],
+        settled: p.lastSettle || null, rating: p.lastRating || null, earned: p.lastEarned || [],
       });
       p.lastEarned = [];
     });
@@ -823,7 +823,7 @@ function resignMatch(room, seat) {
       youWon: won, scores: room.n ? room.n.scores.slice() : null,
       myTeam: o.team, target: room.target, size: room.size,
       progress: o.profile ? summarise(o.profile) : null,
-      settled: o.lastSettle || null, earned: o.lastEarned || [], resigned: true,
+      settled: o.lastSettle || null, rating: o.lastRating || null, earned: o.lastEarned || [], resigned: true,
     });
     o.lastEarned = [];
   });
@@ -973,7 +973,7 @@ function nardiMatchOver(room) {
     if (s) s.emit("matchOver", {
       youWon: won, scores: n.scores, myTeam: p.seat, target: n.target, size: room.size,
       progress: p.profile ? summarise(p.profile) : null,
-      settled: p.lastSettle || null, earned: p.lastEarned || [],
+      settled: p.lastSettle || null, rating: p.lastRating || null, earned: p.lastEarned || [],
     });
     p.lastEarned = [];
   });
@@ -1097,7 +1097,7 @@ function damkaOver(room) {
       youWon: won, scores: null, myTeam: p.seat, target: 0, size: room.size,
       draw: d.winner === null,
       progress: p.profile ? summarise(p.profile) : null,
-      settled: p.lastSettle || null, earned: p.lastEarned || [],
+      settled: p.lastSettle || null, rating: p.lastRating || null, earned: p.lastEarned || [],
     });
     p.lastEarned = [];
   });
@@ -1258,7 +1258,7 @@ function jokerMatchOver(room) {
       teams: !!room.teams, teamScores: room.teams ? Joker.teamScores(j) : null,
       target: 0, size: room.size,
       progress: p.profile ? summarise(p.profile) : null,
-      settled: p.lastSettle || null, earned: p.lastEarned || [],
+      settled: p.lastSettle || null, rating: p.lastRating || null, earned: p.lastEarned || [],
     });
     p.lastEarned = [];
   });
@@ -1522,6 +1522,36 @@ function lookOf(room, seat) {
   return p && p.profile ? Progress.equipped(p.profile) : null;
 }
 
+/* ---------------- the rating ----------------
+
+   One number, moved after every online match: up on a win, down by the SAME
+   on a loss. Symmetric on purpose, and it is what makes this a rating rather
+   than a tally — with losses costing nothing, volume beats quality and a
+   player who wins twenty of forty outranks one who wins five of six.
+   Symmetric means the board answers one question: are you better than even.
+
+   Weighted by what the room is worth, because a win in the master room should
+   not be worth the same as a win in a blitz. The weight cuts BOTH ways — a
+   loss up there costs four times as much — which is the whole point of
+   choosing a room.
+
+   Floored at zero. A beginner should be unranked, not buried, and nobody
+   should be able to dig a hole they cannot climb out of.
+
+   Deliberately NOT scored: coins held (that is a rich list, and the daily
+   bonus and the top-up are in it), whether the cube was doubled (that rewards
+   gambling, and the cube already multiplies the stake), and how "good" the
+   moves were (judging that needs an engine stronger than our bots, and
+   measuring players against our own bot would rank whoever imitates it). */
+const RATING_WIN = 10;
+const ROOM_WEIGHT = { 50: 1, 100: 1.5, 250: 2.5, 500: 4 };
+const weightOf = (stake) => ROOM_WEIGHT[stake] || 1.5;
+
+/* Bumped by hand to wipe every board and every rating at once. There is no
+   other way to clear them on a host whose database we cannot reach from here,
+   and a season that can be reset on purpose is worth having anyway. */
+const BOARD_EPOCH = 1;
+
 /* ---------------- the table of honour ----------------
 
    Which week it is, as a number that sorts. Monday-based UTC, because a
@@ -1545,7 +1575,14 @@ function seasonOf(when) {
    say what they once did. */
 function freshBoard(pr) {
   const now = seasonOf();
-  if (!pr.board) pr.board = { week: now, wins: 0, played: 0, best: 0 };
+  if (!pr.board) pr.board = { week: now, wins: 0, played: 0, best: 0, epoch: BOARD_EPOCH };
+  /* A wipe asked for by hand: everything the board is made of goes, the
+     rating included, because a rating carried across a reset is not a reset. */
+  if ((pr.board.epoch || 0) !== BOARD_EPOCH) {
+    pr.board = { week: now, wins: 0, played: 0, best: 0, epoch: BOARD_EPOCH };
+    pr.rating = 0;
+    return pr.board;
+  }
   if (pr.board.week !== now) {
     pr.board.best = Math.max(pr.board.best || 0, pr.board.wins || 0);
     pr.board.week = now;
@@ -1584,6 +1621,12 @@ function awardMatch(room, p, won) {
     if (real) {
       const b = freshBoard(pr);
       b.played++;
+      /* The rating moves here and nowhere else, on the same line as the coins
+         and by the same rule: what the room is worth decides how much. */
+      const w = weightOf(stakeFor(room.target));
+      const move = Math.round(RATING_WIN * w) * (won ? 1 : -1);
+      pr.rating = Math.max(0, Math.round((pr.rating || 0) + move));
+      p.lastRating = { move, after: pr.rating };
       if (won) {
         b.wins++;
         // kept per game from the first day, so five boards later is a query
@@ -1652,7 +1695,7 @@ function endRound(room, winnerSeat) {
         youWon: won,
         scores: g.scores, myTeam: Ozi.teamOf(g, p.seat), target: g.target, size: room.size,
         progress: p.profile ? summarise(p.profile) : null,
-        settled: p.lastSettle || null,
+        settled: p.lastSettle || null, rating: p.lastRating || null,
         earned: p.lastEarned || [] });
       p.lastEarned = [];
     });
@@ -2337,7 +2380,8 @@ io.on("connection", (socket) => {
          in 340th place still gets to see 340. */
       const all = await store.top(5000);
       const at = all.findIndex((x) => x.id === pr.id);
-      me = { name: pr.name || "", wins: b.wins || 0, played: b.played || 0,
+      me = { name: pr.name || "", rating: Math.round(pr.rating || 0),
+             wins: b.wins || 0, played: b.played || 0,
              best: b.best || 0, rank: at < 0 ? null : at + 1, of: all.length };
     }
     socket.emit("board", { season: seasonOf(), top, me });
@@ -2568,7 +2612,7 @@ io.on("connection", (socket) => {
       if (s2) s2.emit("matchOver", {
         youWon: stayed, scores: null, myTeam: o.team, target: room.target, size: room.size,
         progress: o.profile ? summarise(o.profile) : null,
-        settled: o.lastSettle || null, earned: o.lastEarned || [], early: true,
+        settled: o.lastSettle || null, rating: o.lastRating || null, earned: o.lastEarned || [], early: true,
       });
       o.lastEarned = [];
     });

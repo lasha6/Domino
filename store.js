@@ -45,7 +45,11 @@ export function blankProfile(id, kind, name) {
        itself when the week turns; `wins` is per game, kept from the first day
        so that splitting one board into five later is a change to a query and
        not a migration. */
-    board: { week: null, wins: 0, played: 0, best: 0 },
+    /* The rating: one number that moves after every online match, up on a win
+       and down by the same on a loss. Floored at 0, so a beginner is unranked
+       rather than buried. `board` is the week's record kept alongside it. */
+    rating: 0,
+    board: { week: null, wins: 0, played: 0, best: 0, epoch: 0 },
     wins: {},                        // game -> matches won, all time
     achievements: {},
     redeemed: {},                    // promo codes already used, so none twice
@@ -157,8 +161,8 @@ async function pgStore(url) {
     async top(n, pick) {
       const r = await pool.query(
         `SELECT data FROM profiles
-          WHERE (data->'board'->>'wins')::int > 0
-          ORDER BY (data->'board'->>'wins')::int DESC
+          WHERE (data->>'rating')::numeric > 0
+          ORDER BY (data->>'rating')::numeric DESC
           LIMIT $1`, [Math.max(n * 3, 60)]);
       return rank(r.rows.map((x) => x.data), n, pick);
     },
@@ -175,7 +179,7 @@ async function pgStore(url) {
    who does not belong on it: a player with no wins this season is not last,
    they are simply not playing; and a name is needed to show a row at all. */
 function rank(profiles, n, pick) {
-  const get = pick || ((p) => (p.board && p.board.wins) || 0);
+  const get = pick || ((p) => p.rating || 0);
   return profiles
     .filter((p) => p && get(p) > 0)
     /* Equal wins are broken by FEWER matches, not more: two wins out of four
@@ -190,7 +194,8 @@ function rank(profiles, n, pick) {
       name: p.name || "",
       picture: p.picture || null,
       xp: p.xp || 0,
-      wins: get(p),
+      rating: Math.round(p.rating || 0),
+      wins: (p.board && p.board.wins) || 0,
       played: (p.board && p.board.played) || 0,
     }));
 }

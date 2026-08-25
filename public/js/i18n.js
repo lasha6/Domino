@@ -179,10 +179,10 @@
 
     // --- the table of honour ---
     "რეიტინგი": "Leaderboard",
-    "კვირის მოგებები — ორშაბათს თავიდან იწყება":
-      "This week's wins — it starts again on Monday",
+    "მოგება უმატებს, წაგება აკლებს — უვრელესი ოთახი მეტს წონის":
+      "A win adds, a loss takes away — and the bigger the room, the more it weighs",
+    "რეიტინგი — 0": "Rating — 0",
     "ვტვირთავს…": "Loading…",
-    "ჯერ არ მოგიგია ამ კვირაში": "No wins yet this week",
     "ონლაინ მოგება რეიტინგში გხდის": "An online win puts you on it",
     "ამ კვირაში ჯერ არავის მოუგია — პირველი შენ იყავი":
       "Nobody has won yet this week — be the first",
@@ -608,9 +608,10 @@
      one is put through the dictionary too: the three computer players have
      names, and half-translating a sentence is worse than not touching it. */
   const PATTERNS = [
-    [/^შენ — #(\d+)$/, (m) => `You — #${m[1]}`],
-    [/^(\d+) მოგება · (\d+) მატჩი$/,
-      (m) => `${m[1]} win${m[1] === "1" ? "" : "s"} · ${m[2]} match${m[2] === "1" ? "" : "es"}`],
+    [/^#(\d+) · (\d+)$/, (m) => `#${m[1]} · ${m[2]}`],
+    [/^(\d+) მოგება · (\d+) მატჩი ამ კვირაში$/,
+      (m) => `${m[1]} win${m[1] === "1" ? "" : "s"} · ${m[2]} match${m[2] === "1" ? "" : "es"} this week`],
+    [/^(\d+)გ$/, (m) => `${m[1]}w`],
     /* Sentences a screen builds around a number or a name. The whole of what
        lands on screen is what gets looked up, so a fragment in the dictionary
        would never match anything — it has to be the shape of the finished

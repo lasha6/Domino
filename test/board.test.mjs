@@ -210,3 +210,38 @@ test("the board is read from the store, not from who happens to be playing", () 
       kind + " cannot produce a board, so it would be empty there");
   }
 });
+
+test("every way a match can end tells the player what the rating did", () => {
+  /* There are eight places a matchOver goes out — five games, plus the ways a
+     match ends early. One of them wrote `settled` and `earned` on separate
+     lines and was missed by a sweep that matched them together, so დომინო
+     alone said nothing about the rating. Counted rather than eyeballed. */
+  const outs = [...server.matchAll(/emit\("matchOver", \{/g)].map((m) => m.index);
+  assert.ok(outs.length >= 7, "found only " + outs.length + " ways a match ends");
+  const silent = [];
+  for (const at of outs) {
+    const block = server.slice(at, server.indexOf("});", at));
+    if (!/rating:/.test(block)) silent.push(server.slice(at - 60, at + 40));
+  }
+  assert.deepEqual(silent, [], "these end a match without saying what the rating did");
+});
+
+test("the rating moves by the same amount either way", () => {
+  /* Symmetric is what makes it a rating rather than a tally. With losses
+     costing nothing, twenty wins from forty outranks five from six. */
+  const at = server.indexOf("const move = Math.round(RATING_WIN * w)");
+  assert.notEqual(at, -1, "the rating never moves");
+  assert.match(server.slice(at, at + 120), /\* \(won \? 1 : -1\)/,
+    "a loss is worth something other than a win, so volume can still climb");
+  assert.match(server, /pr\.rating = Math\.max\(0,/, "a rating can go below zero");
+});
+
+test("a wipe can be asked for, and it takes the rating with it", () => {
+  /* There is no other way to clear a board on a host whose database we cannot
+     reach from here — and a rating carried across a reset is not a reset. */
+  assert.match(server, /const BOARD_EPOCH = \d+;/, "there is no way to wipe");
+  const at = server.indexOf("if ((pr.board.epoch || 0) !== BOARD_EPOCH)");
+  assert.notEqual(at, -1, "the epoch is never checked");
+  assert.match(server.slice(at, at + 260), /pr\.rating = 0;/,
+    "a wipe leaves the ratings standing");
+});
