@@ -9,7 +9,12 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <!-- A path that has never been fetched, on purpose. Safari cached the old
+       art under icons/icon-192.png, and iOS takes the home-screen icon ONCE,
+       when the page is added — so re-adding it would have handed the player
+       the cached domino again and looked like the whole thing was broken.
+       180 is Apple's own size; the corners are theirs to round. -->
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png" />
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="stylesheet" href="css/base.css" />
   <link rel="stylesheet" href="css/table.css" />

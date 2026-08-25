@@ -72,6 +72,13 @@
   const s = +p.get("s") || 512;
   const art = document.getElementById("art");
   art.setAttribute("width", s); art.setAttribute("height", s);
+  /* Apple masks the corners itself, so the brass frame would be cut into by
+     the rounding. It comes off, and the tile grows to fill the room. */
+  if (p.get("apple")) {
+    art.querySelector('rect[stroke-width="5"]').remove();
+    const g = art.querySelector("g[filter]");
+    g.setAttribute("transform", "translate(256 256) scale(.94) translate(-256 -256)");
+  }
   if (p.get("mask")) {
     // 80% safe zone: the tile shrinks, the ground fills the whole square
     art.querySelector('rect[stroke-width="5"]').remove();

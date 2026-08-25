@@ -12,7 +12,7 @@
    ===================================================================== */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -126,7 +126,8 @@ test("the icon is the app's own, at every size a home screen asks for", () => {
   assert.ok(man.icons.some((i) => i.purpose === "maskable"),
     "Android crops a non-maskable icon into a circle and takes the corners with it");
   for (const i of man.icons) {
-    const png = readFileSync(path.join(ROOT, "public", i.src));
+    // the src carries a cache-busting version; the file behind it does not
+    const png = readFileSync(path.join(ROOT, "public", i.src.split("?")[0]));
     assert.equal(png.slice(1, 4).toString(), "PNG", i.src + " is not a PNG");
     // the width lives in the IHDR, bytes 16..20
     assert.equal(png.readUInt32BE(16), +i.sizes.split("x")[0],
@@ -144,4 +145,37 @@ test("the brand is on the front page, and it is not translated", () => {
   const i18n = readFileSync(path.join(ROOT, "public", "js", "i18n.js"), "utf8");
   assert.ok(!i18n.includes('"' + man.short_name + '":'),
     "the brand is in the dictionary, so it would change language under the player");
+});
+
+test("iPhone is given an icon at a path it has never cached", () => {
+  /* iOS takes the home-screen icon ONCE, when the page is added, and never
+     looks again — no header, no API, nothing in a page can change an icon that
+     is already sitting on somebody's home screen. Removing and re-adding is
+     the only way, and that is the platform's rule, not ours.
+
+     Which is exactly why the path matters. Safari had already cached the old
+     art under icons/icon-192.png, so pointing the touch icon there would have
+     handed a player re-adding the app the very same domino again — and made
+     re-adding look like it did not work either. A path that has never been
+     fetched cannot be served from a cache. */
+  const icon = "icons/apple-touch-icon-180.png";
+  const png = readFileSync(path.join(ROOT, "public", icon));
+  assert.equal(png.readUInt32BE(16), 180, "Apple's own size is 180");
+  assert.equal(png.readUInt32BE(20), 180, "and it has to be square");
+
+  const screens = readdirSync(path.join(ROOT, "public")).filter((f) => f.endsWith(".html"));
+  for (const f of screens) {
+    const html = readFileSync(path.join(ROOT, "public", f), "utf8");
+    assert.match(html, new RegExp('rel="apple-touch-icon" href="' + icon.replace(/[.]/g, "[.]") + '"'),
+      f + " points iOS at an icon path that is already in Safari's cache");
+  }
+});
+
+test("the manifest's icons are versioned, so a cached manifest cannot serve stale art", () => {
+  const man = JSON.parse(readFileSync(path.join(ROOT, "public", "manifest.webmanifest"), "utf8"));
+  for (const i of man.icons) {
+    assert.match(i.src, /\?v=\d+$/, i.src + " can be served from a cache forever");
+    // ...and the file behind it still has to exist, query string stripped
+    readFileSync(path.join(ROOT, "public", i.src.split("?")[0]));
+  }
 });
