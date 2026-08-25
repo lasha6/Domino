@@ -16,8 +16,17 @@
    attempt did not take. It doubles as the way back in after the player leaves
    fullscreen themselves.
 
-   All of this is best-effort — desktop and the packaged app skip it entirely,
-   and a browser without the API (iPhone Safari) simply carries on.
+   iPhone is a different problem and gets a different answer. Every browser on
+   iOS is Safari underneath — Chrome and Firefox there are the same engine with
+   a different badge — so when Safari will not do something, none of them will,
+   and the Fullscreen API is one of those things: on iPhone it is either absent
+   or behind a setting the player has to have found for themselves. There is
+   nothing to ask for and no button worth showing.
+
+   What DOES work on iPhone is "Add to Home Screen": launched from the icon,
+   the page runs with no address bar and no toolbar, which is the fullscreen
+   the player was after. So on iPhone this file stops trying and says that
+   instead — once, and never again after they have read it.
    ===================================================================== */
 (function () {
   "use strict";
@@ -27,9 +36,22 @@
   const touch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
   if (native || !touch) return;
 
+  /* Already launched from the home screen: there are no bars to be rid of.
+     iOS answers `navigator.standalone`; everyone else answers the media
+     query, and both are asked because neither covers the other. */
+  const standalone = !!(window.navigator.standalone) ||
+    (window.matchMedia && (window.matchMedia("(display-mode: standalone)").matches ||
+                           window.matchMedia("(display-mode: fullscreen)").matches));
+  if (standalone) return;
+
+  const nav = window.navigator;
+  const iOS = /iPad|iPhone|iPod/.test(nav.userAgent) ||
+    // an iPad on iPadOS 13+ says it is a Mac, and only the touch points give it away
+    (nav.platform === "MacIntel" && nav.maxTouchPoints > 1);
+
   const el = document.documentElement;
   const req = el.requestFullscreen || el.webkitRequestFullscreen;
-  if (!req) return;
+  if (iOS || !req) { if (iOS) tellIPhone(); return; }
 
   const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
 
@@ -94,4 +116,58 @@
     showButton(!isFull());          // gone while fullscreen, back if they leave it
     if (isFull()) listen(false);
   });
+
+  /* ---------- the one thing that works on iPhone ----------
+
+     Said on the front page only. A note like this in the middle of a hand is
+     an interruption, and by then it is too late to act on anyway. Said once:
+     a player who has read it and decided not to bother should not be asked
+     again every time they open the game. */
+  function tellIPhone() {
+    const KEY = "iosHomeHint";
+    try { if (localStorage.getItem(KEY)) return; } catch (e) {}
+    const path = location.pathname.replace(/\/+$/, "");
+    const lobby = path === "" || /\/index\.html$/.test(path);
+    if (!lobby) return;
+
+    const css = document.createElement("style");
+    css.textContent =
+      /* A width, not a max-width: a flex box with neither shrinks to fit its
+         longest WORD, and the note came out as a narrow column of wrapped
+         Georgian with the button squeezed alongside it. */
+      ".iosTip{position:fixed;z-index:62;left:50%;transform:translateX(-50%);" +
+      "bottom:calc(10px + var(--safeB,0px));width:min(92vw,430px);" +
+      "box-sizing:border-box;" +
+      "display:flex;align-items:center;gap:10px;padding:9px 12px;" +
+      "border-radius:12px;border:1px solid var(--brass-dim,#8a6524);" +
+      "background:rgba(6,30,17,.96);color:var(--cream,#f6efdd);" +
+      "font:13px/1.35 var(--font-ui,sans-serif);" +
+      "box-shadow:0 8px 26px rgba(0,0,0,.5);}" +
+      ".iosTip b{color:var(--brass-lit,#f2cd7e);font-weight:700;}" +
+      ".iosTip span{flex:1 1 auto;min-width:0;}" +
+      ".iosTip button{flex:0 0 auto;margin-left:auto;border:0;background:transparent;cursor:pointer;" +
+      "color:var(--brass-lit,#f2cd7e);font:700 12px/1 var(--font-ui,sans-serif);" +
+      "padding:6px 4px;}";
+    document.head.appendChild(css);
+
+    const tip = document.createElement("div");
+    tip.className = "iosTip";
+    const text = document.createElement("span");
+    /* Written as the two taps it actually is, in the order they happen. */
+    text.innerHTML = "სრული ეკრანი iPhone-ზე: " +
+      "<b>გადაგზავნა</b> → " +
+      "<b>მთავარ ეკრანზე დამატება</b>";
+    const ok = document.createElement("button");
+    ok.type = "button";
+    ok.textContent = "გავიგე";
+    ok.addEventListener("click", function () {
+      try { localStorage.setItem(KEY, "1"); } catch (e) {}
+      tip.remove();
+    });
+    tip.appendChild(text); tip.appendChild(ok);
+
+    const put = function () { document.body.appendChild(tip); };
+    if (document.body) put();
+    else document.addEventListener("DOMContentLoaded", put);
+  }
 })();

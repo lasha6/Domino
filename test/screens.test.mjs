@@ -221,3 +221,57 @@ test("a shared helper is never declared where the code using it cannot see it", 
     }
   }
 });
+
+/* =====================================================================
+   iPhone.
+
+   Every browser on iOS is Safari underneath — Chrome and Firefox there are the
+   same engine wearing a different badge — so when Safari will not do a thing,
+   none of them will. The Fullscreen API is one of those things: on iPhone it
+   is either absent or behind a setting the player would have had to find for
+   themselves. There is nothing to ask for.
+
+   What works is "Add to Home Screen", and that needs two things from us: the
+   meta tags that make the launch a real app window, and somebody telling the
+   player it exists.
+   ===================================================================== */
+
+test("every screen can be launched from an iPhone home screen", () => {
+  /* Without this meta the icon opens a Safari tab with all its bars, which is
+     the very thing the player was trying to get rid of. It was on three
+     screens out of eleven. */
+  for (const f of screens) {
+    const html = readFileSync(path.join(PUB, f), "utf8");
+    assert.match(html, /<meta name="apple-mobile-web-app-capable" content="yes"/,
+      f + " opens with Safari's bars when launched from the home screen");
+    assert.match(html, /viewport-fit=cover/,
+      f + " leaves the notch and the home bar cutting into the table");
+  }
+});
+
+test("iPhone is told the one thing that works, once, and on the front page only", () => {
+  const fs = readFileSync(path.join(PUB, "js", "fullscreen.js"), "utf8");
+  assert.match(fs, /iPad\|iPhone\|iPod/, "iOS is never recognised");
+  assert.match(fs, /nav\.platform === "MacIntel" && nav\.maxTouchPoints > 1/,
+    "an iPad claiming to be a Mac is not recognised");
+  assert.match(fs, /function tellIPhone\(\)/, "nothing is ever said");
+  const tip = fs.slice(fs.indexOf("function tellIPhone()"));
+  assert.match(tip, /localStorage\.getItem\(KEY\)/, "it would be said every single time");
+  assert.match(tip, /index\?\.html\$|index\\.html/, "it would interrupt a hand");
+});
+
+test("a phone already launched from the home screen is left alone", () => {
+  /* There are no bars to be rid of, so there is nothing to say and nothing to
+     ask for. `navigator.standalone` is iOS's answer and the media query is
+     everyone else's — neither covers the other. */
+  const fs = readFileSync(path.join(PUB, "js", "fullscreen.js"), "utf8");
+  assert.match(fs, /window\.navigator\.standalone/, "iOS standalone is not noticed");
+  assert.match(fs, /display-mode: standalone/, "nobody else's standalone is noticed");
+  const guard = fs.indexOf("if (standalone) return;");
+  /* Checked for BEFORE it is compared: a missing line indexOf's to -1, which
+     is less than everything, so the comparison on its own passed happily with
+     the guard deleted. */
+  assert.notEqual(guard, -1, "there is no guard at all");
+  assert.ok(guard < fs.indexOf("function ask("),
+    "it would still be asking for fullscreen inside a home-screen launch");
+});

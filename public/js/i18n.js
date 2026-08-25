@@ -67,6 +67,12 @@
     "ჯოკერით შესვლა ორნაირია: „იღებს“ — ყველა ვალდებულია უმაღლესი ჩამოაგდოს; „წაიღოს“ — არა.": "A joker leads two ways: “takes” — everyone must play their highest; “let it go” — nobody must.",
     "კარგი": "Got it",
 
+    // --- iPhone has no fullscreen button; it has a home screen ---
+    "სრული ეკრანი iPhone-ზე: ": "Fullscreen on iPhone: ",
+    "გადაგზავნა": "Share",
+    "მთავარ ეკრანზე დამატება": "Add to Home Screen",
+    "გავიგე": "Got it",
+
     // --- rooms and tables ---
     "აირჩიე ოთახი": "Choose a table",
     "ბლიც": "Blitz", "სწრაფი": "Quick", "კლასიკური": "Classic", "ოსტატი": "Master",
