@@ -24,7 +24,7 @@
   /* ---------------- what each string is in English ---------------- */
   const EN = {
     // --- the games, and the front page ---
-    "დომინო": "Domino", "ბურა": "Bura", "ჯოკერი": "Joker",
+    "დომინო": "Dominoes", "ბურა": "Bura", "ჯოკერი": "Joker",
     "აირჩიე თამაში": "Choose a game",
     "სამაგიდო თამაშები": "Classic table games",
     "ქართული წესებით": "Georgian rules",
@@ -76,6 +76,106 @@
     "ეს ბრაუზერის მენიუში კეთდება — თამაშიდან ვერ ჩაირთვება.":
       "This is done in the browser's own menu — a game cannot switch it on.",
     "დახურვა": "Close",
+
+    // --- achievements: the name, then what it asks of you ---
+    "პირველი მოგება": "First win",
+    "მოიგე მატჩი": "Win a match",
+    "ათი მოგება": "Ten wins",
+    "მოიგე 10 მატჩი": "Win 10 matches",
+    "ორმოცდაათი": "Fifty",
+    "მოიგე 50 მატჩი": "Win 50 matches",
+    "ასი ხელი": "A hundred hands",
+    "ითამაშე 100 ხელი": "Play 100 hands",
+    "დიდი ხელი": "Big hand",
+    "აიღე 30 ქულა ერთ ხელში": "Take 30 points in one hand",
+    "უზარმაზარი": "Enormous",
+    "აიღე 50 ქულა ერთ ხელში": "Take 50 points in one hand",
+    "სამი ზედიზედ": "Three in a row",
+    "მოიგე 3 მატჩი ზედიზედ": "Win 3 matches in a row",
+    "ხუთი ზედიზედ": "Five in a row",
+    "მოიგე 5 მატჩი ზედიზედ": "Win 5 matches in a row",
+    "მთელი კვირა": "A whole week",
+    "შემოდი 7 დღე ზედიზედ": "Come back 7 days running",
+    "ათასი ქულა": "A thousand points",
+    "დააგროვე 1000 ქულა": "Gather 1000 points",
+    "მეხუთე დონე": "Level five",
+    "მიაღწიე მე-5 დონეს": "Reach level 5",
+    "მეათე დონე": "Level ten",
+    "მიაღწიე მე-10 დონეს": "Reach level 10",
+
+    // --- the shop: tables and pieces ---
+    "სამეფო ლურჯი": "Royal blue",
+    "შინდისფერი": "Crimson",
+    "ზურმუხტი": "Emerald",
+    "ქვიშისფერი": "Sand",
+    "შუაღამე": "Midnight",
+    "ღვინისფერი": "Wine",
+    "ჩვეულებრივი ქვები": "Plain pieces",
+    "სპილენძის წერტილები": "Copper pips",
+    "მარმარილო": "Marble",
+    "შავი ქვები": "Black pieces",
+    "ოქროსფერი": "Gold",
+
+    // --- the one line of advice on the match card ---
+    "მაგიდის ღია ბოლოები დათვალე სვლამდე — ხუთზე გაყოფადი ჯამი ქულაა.": "Count the open ends before you play — a total divisible by five scores.",
+    "დუბლი ბოლოს არ შეინახო: ბაზარი გამოილევა და ხელში დაგრჩება.": "Do not save a double for last: the boneyard runs out and you are left holding it.",
+    "თუ მოწინააღმდეგე ბაზრიდან იღებს, ის ფერი აღარ აქვს — დაიმახსოვრე.": "When they draw, they have none of that number — remember it.",
+    "ოცდაერთი ქულა ერთ ხელში: ტუზი და ათიანი ერთ ფერშია ყველაზე ძვირი.": "Twenty-one in a hand: an ace and a ten of the same suit are the dearest.",
+    "კოზირს ნუ დახარჯავ ადრე — ბოლო ხელები კოზირით იგება.": "Do not spend trumps early — the last tricks are won with them.",
+    "მოწინააღმდეგის კოზირები დათვალე — რამდენი გავიდა, იმდენი აღარ დარჩა.": "Count the trumps that have gone — that many fewer are left.",
+    "ბიდი დათვალე ხელის ნახვის შემდეგ, არა იმედით — ხიშტი ძვირია.": "Bid on the hand you were dealt, not on hope — the penalty is expensive.",
+    "ჯოკერი შენახვას ღირს: ბოლო ხელებში ის წყვეტს.": "A joker is worth keeping: it decides the last tricks.",
+    "ცხრიან ხელში კოზირის სიგრძე უფრო მნიშვნელოვანია, ვიდრე ტუზები.": "In a nine-card hand, length in trumps matters more than aces.",
+    "ექვსი პუნქტი ზედიზედ კედელია: მოწინააღმდეგე ვერსად გაივლის.": "Six points in a row is a wall: nothing of theirs can get past.",
+    "მარტო მდგომი ქვა იჭმევა — წყვილად დააყენე, სადაც შეგიძლია.": "A lone checker gets hit — pair them up wherever you can.",
+    "სახლში შესვლა ააჩქარე — გატანა მხოლოდ მაშინ დაიწყება.": "Get them all home first — nothing bears off until they are.",
+    "ჭამა სავალდებულოა — მოწინააღმდეგეს აჭმევინე ის, რაც შენ გინდა.": "Taking is compulsory — so make them take what suits you.",
+    "უკანა რიგი ბოლომდე შეინახე: სწორედ ის აჩერებს დამკად გასვლას.": "Hold your back row: it is what stops them being crowned.",
+    "ქვები ერთად ატარე — მარტო დარჩენილი ქვა იჭმევა.": "Keep your pieces together — one left alone is one taken.",
+
+    // --- the tables, and the rooms ---
+    "👤 თითოეული": "👤 Each on their own",
+    "16 ხელი · მხოლოდ ცხრები": "16 hands · nines only",
+    "24 ხელი": "24 hands",
+    "გრძელი": "Long",
+    "ცხრიანები": "Nines",
+    "ქართული": "Georgian",
+
+    // --- ნარდი: the cube, and the opening throw ---
+    "ფსონის გაორმაგება": "Doubling the stake",
+    "დათანხმება": "Accept",
+    "ვინ იწყებს?": "Who opens?",
+    "თანაბარია — თავიდან": "A tie — throw again",
+    "ველოდებით მოწინააღმდეგეს": "Waiting for an opponent",
+    "ავტომატურად თამაშობს": "Played by the computer",
+
+    // --- ბურა and ჯოკერი ---
+    "დათმობა": "Concede",
+    "რაუნდი": "Round",
+    "შემდეგი რაუნდი": "Next round",
+    "ვარ — სწორი": "Var — right",
+    "ზუსტად": "Exactly",
+    "კომპიუტერმა მიიღო": "The computer accepted",
+    "შედეგი": "Result",
+    "პარტნიორი": "Partner",
+    "🏆 თქვენმა წყვილმა მოიგო!": "🏆 Your pair won!",
+
+    // --- დომინო ---
+    "ბლოკი — ფრე": "Blocked — a draw",
+    "კომპიუტერს": "the computer",
+
+    // --- and the rest ---
+    "სრული ეკრანი": "Fullscreen",
+    "წუთში": "in a minute",
+    "დღე": "days",
+
+    // --- what a browser tab says ---
+    "დომინო — კომპიუტერთან": "Dominoes — against the computer",
+    "დომინო — ონლაინ": "Dominoes — online",
+    "ბურა — კომპიუტერთან": "Bura — against the computer",
+    "ბურა — ონლაინ": "Bura — online",
+    "ჯოკერი — კომპიუტერთან": "Joker — against the computer",
+    "ჯოკერი — ონლაინ": "Joker — online",
 
     // --- rooms and tables ---
     "აირჩიე ოთახი": "Choose a table",
@@ -179,7 +279,11 @@
     "ასე არ შეიძლება": "That move is not allowed",
 
     // --- domino ---
-    "ქვა": "tile", "ქვები": "tiles", "ქვით": "tiles",
+    "ქვა": "tile", "ქვით": "tiles",
+    /* “Pieces” and not “tiles”: the shop dresses domino tiles, backgammon
+       checkers and draughts men, and only the first of the three is a tile.
+       The word appears on its own exactly once, as the shop’s second tab. */
+    "ქვები": "Pieces",
     "ბლოკი!": "Blocked!", "ბლოკი.": "Blocked.",
     "რიბა! 🔄": "Riba! 🔄", "რიბა": "riba", "რიბა.": "riba.",
     "შენ იწყებ": "You start", "კომპიუტერი იწყებს": "The computer starts",
@@ -345,19 +449,24 @@
     "~8 წთ · 7 ხელი": "~8 min · 7 hands",
     "~11 წთ · 10 ხელი": "~11 min · 10 hands",
     /* --- the board games: ნარდი and დამკა --- */
-    "ნარდი": "Nardi",
-    "დამკა": "Damka",
-    "გრძელი ნარდი": "Long Nardi",
-    "კლასიკური ნარდი": "Classic Nardi",
-    "გრძელი, კლასიკური · დამკა": "Long, classic · damka",
+    /* The English names are the ones an English speaker would look for, not
+       transliterations of the Georgian. "Nardi" and "Damka" told somebody
+       reading English nothing at all — and these two are the app's biggest
+       searched words in any market outside Georgia. ბურა and ჯოკერი keep
+       their own names because they have no English ones to keep instead. */
+    "ნარდი": "Backgammon",
+    "დამკა": "Checkers",
+    "გრძელი ნარდი": "Long backgammon",
+    "კლასიკური ნარდი": "Short backgammon",
+    "გრძელი, კლასიკური · დამკა": "Long, short · checkers",
     "თავიდან, ჭამის გარეშე": "From the head, nothing is hit",
     "ჭამით და ბარიდან შემოსვლით": "Hitting, and coming back off the bar",
     "8×8 · ჭამა სავალდებულოა": "8×8 · taking is compulsory",
     "კომპიუტერთან — ონლაინი მოგვიანებით": "Against the computer — online later",
-    "ნარდი — კომპიუტერთან": "Nardi — against the computer",
-    "დამკა — კომპიუტერთან": "Damka — against the computer",
-    "გრძელი ნარდი — კომპიუტერთან": "Long Nardi — against the computer",
-    "კლასიკური ნარდი — კომპიუტერთან": "Classic Nardi — against the computer",
+    "ნარდი — კომპიუტერთან": "Backgammon — against the computer",
+    "დამკა — კომპიუტერთან": "Checkers — against the computer",
+    "გრძელი ნარდი — კომპიუტერთან": "Long backgammon — against the computer",
+    "კლასიკური ნარდი — კომპიუტერთან": "Short backgammon — against the computer",
     "ანგარიში": "Score",
     "გზა": "Pips",
     "გააგორე": "Roll",
@@ -489,6 +598,28 @@
      one is put through the dictionary too: the three computer players have
      names, and half-translating a sentence is worse than not touching it. */
   const PATTERNS = [
+    /* Sentences a screen builds around a number or a name. The whole of what
+       lands on screen is what gets looked up, so a fragment in the dictionary
+       would never match anything — it has to be the shape of the finished
+       line. */
+    [/^კომპიუტერმა ითამაშა \[(.+)\]$/, (m) => `The computer played [${m[1]}]`],
+    [/^კომპიუტერმა ითამაშა \[(.+)\] — ახლა შენი სვლაა$/,
+      (m) => `The computer played [${m[1]}] — your turn`],
+    [/^შენ ითამაშე \[(.+)\]$/, (m) => `You played [${m[1]}]`],
+    [/^სვლა არ გაქვს\. აირჩიე ქვა \((\d+) ასაღები, ბოლო 2 რჩება\)\.$/,
+      (m) => `Nothing to play. Pick a tile (${m[1]} to draw, the last 2 stay).`],
+    [/^კომპიუტერმა აიღო ქვა \((\d+) ასაღები დარჩა\)…$/,
+      (m) => `The computer drew a tile (${m[1]} left to draw)…`],
+    [/^მოწინააღმდეგე ×(\d+) ფსონს გთავაზობს\. თუ არ დათანხმდი, მატჩს კარგავ\.$/,
+      (m) => `They offer to play for ×${m[1]}. Refuse and you give up the match.`],
+    [/^შეთავაზება გაგზავნილია — ×(\d+)\. ველოდებით პასუხს\.$/,
+      (m) => `Offered — ×${m[1]}. Waiting for an answer.`],
+    [/^მაღალი — (.+)$/, (m) => `Highest — ${one(m[1])}`],
+    [/^წაიღოს — (.+)$/, (m) => `Let it go — ${one(m[1])}`],
+    [/^ველოდებით — (.+)$/, (m) => `Waiting for ${one(m[1])}`],
+    [/^გაუზიარე კოდი — (.+)$/, (m) => `Share the code — ${one(m[1])}`],
+    [/^ახალი ხელი — (.+)$/, (m) => `New hand — ${one(m[1])}`],
+
     [/^(.+) ჩამოვიდა (\d+) ქვით$/, (m) => `${one(m[1])} led ${m[2]} card${m[2] === "1" ? "" : "s"}`],
     [/^(.+) ჩამოვიდა$/, (m) => `${one(m[1])} led`],
     [/^(.+) ფიქრობს$/, (m) => `${one(m[1])} is thinking`],
@@ -645,6 +776,10 @@
 
   function start() {
     document.documentElement.setAttribute("lang", lang);
+    /* The title is in the HEAD, which `walk` never reaches — it is given the
+       body. So a player reading English had Georgian in the browser tab, in
+       their bookmarks and in the app switcher, on every screen. */
+    if (lang === "en" && document.title) document.title = one(document.title);
     apply(document.body);
     watch();
   }

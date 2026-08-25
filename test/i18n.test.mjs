@@ -1,120 +1,153 @@
 /* =====================================================================
-   The second language.
+   The second language, and whether it actually covers the app.
 
-   Two things can go wrong with a translation layer and neither shows up as a
-   crash: a string comes out half-translated, or a rule meant for one sentence
-   quietly eats another. Both happened while this was being written — a regular
-   expression lost its backslashes and stopped matching, and swapping words
-   inside a Georgian sentence produced "ცოცხალ Opponentსთან", which is worse
-   than leaving it alone.
+   Georgian is the source: every string is written in Georgian where it stands,
+   and i18n.js says what each one is in English. That is a good arrangement with
+   one failure mode, and it is a silent one — a new string simply stays Georgian
+   in front of an English-speaking player. Nothing throws, nothing logs, and it
+   is invisible to anybody who reads Georgian, which is everybody who works on
+   this.
 
-   So the translator is exercised here directly, on the strings the screens
-   actually put on the page.
+   So the dictionary is checked against the app rather than against itself: every
+   Georgian string a player can SEE, run through i18n's own matcher. "Covered"
+   here means exactly what it means at runtime, because it is the same function.
    ===================================================================== */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const src = readFileSync(new URL("../public/js/i18n.js", import.meta.url), "utf8");
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
+const PUB = path.join(ROOT, "public");
+const KA = /[ა-ჿ]/;
 
-/* The file is written for a browser, so it is given the little of one it uses.
-   Nothing is stubbed that the translation itself depends on. */
-function load(lang) {
-  const win = {
-    MutationObserver: null,
-    localStorage: { getItem: () => lang, setItem() {} },
-    location: { reload() {} },
-    document: {
-      readyState: "complete",
-      documentElement: { setAttribute() {} },
-      body: { nodeType: 1, tagName: "BODY", firstChild: null, getAttribute: () => null },
-      addEventListener() {},
-    },
-  };
-  win.window = win;
-  new Function("window", "document", "localStorage", "MutationObserver", "location", src)
-    (win, win.document, win.localStorage, null, win.location);
-  return win.I18N;
+/* Load i18n the way a browser does. Every global it touches has to be handed
+   in as a PARAMETER: inside the function body `localStorage` is a bare global,
+   and if the read throws, i18n's own catch swallows it and the dictionary
+   quietly reports itself as switched off — which made a first draft of this
+   test find 585 "missing" strings, all of them false. */
+function loadI18N() {
+  const doc = { addEventListener() {}, documentElement: { setAttribute() {} },
+                body: null, readyState: "complete", title: "" };
+  const g = { navigator: { language: "en" }, document: doc };
+  g.window = g;
+  new Function("window", "document", "localStorage", "MutationObserver",
+    readFileSync(path.join(PUB, "js", "i18n.js"), "utf8"))
+    .call(g, g, doc, { getItem: () => "en", setItem() {} },
+          function () { return { observe() {} }; });
+  assert.equal(g.I18N.lang, "en", "the harness did not switch the dictionary on");
+  return g.I18N;
 }
+const I18N = loadI18N();
+const covered = (s) => I18N.t(s) !== s;
+const norm = (s) => s.trim().replace(/[\s ]+/g, " ");
 
-const en = load("en");
-const ka = load("ka");
+const screens = readdirSync(PUB).filter((f) => f.endsWith(".html"));
+/* Two design sketches that no player ever opens. They are kept because they
+   are what the boards were drawn from, not because they are screens. */
+const SKETCHES = new Set(["neon.html", "wood.html"]);
 
-test("Georgian is left exactly alone when Georgian is the language", () => {
-  for (const s of ["მაგიდა", "შენ ჩამოხვედი", "გიორგი ჩამოვიდა 2 ქვით", "ბეზი"])
-    assert.equal(ka.t(s), s, "nothing is touched");
-  assert.equal(ka.lang, "ka");
+test("the dictionary is switched on, and it translates", () => {
+  assert.equal(I18N.t("აირჩიე თამაში"), "Choose a game");
+  assert.equal(I18N.t("ნარდი"), "Backgammon", "the English name is a transliteration");
+  assert.equal(I18N.t("დამკა"), "Checkers", "the English name is a transliteration");
 });
 
-test("the words on the table are English", () => {
-  const pairs = [
-    ["მაგიდა", "Table"], ["კოზირი", "Trump"], ["ბიდი", "Bid"], ["ბეზი", "No trump"],
-    ["შენი სვლა", "Your move"], ["ხელი დასრულდა", "The hand is over"],
-    ["ახალი თამაში", "New game"], ["დახურვა", "Close"],
-    ["აირჩიე თამაში", "Choose a game"], ["დომინო", "Domino"], ["ჯოკერი", "Joker"],
-  ];
-  for (const [k, v] of pairs) assert.equal(en.t(k), v, k);
+test("every word written into a screen has an English one", () => {
+  /* Text nodes and the three attributes i18n walks. This is the half that is
+     certain: it is on the page before a single line of script runs. */
+  const missing = [];
+  for (const f of screens) {
+    if (SKETCHES.has(f)) continue;
+    const html = readFileSync(path.join(PUB, f), "utf8")
+      .replace(/<script[\s\S]*?<\/script>/g, " ")
+      .replace(/<style[\s\S]*?<\/style>/g, " ")
+      .replace(/<!--[\s\S]*?-->/g, " ");
+    for (const m of html.matchAll(/\b(placeholder|title|aria-label)="([^"]*)"/g)) {
+      const s = norm(m[2]);
+      if (KA.test(s) && !covered(s)) missing.push(`${f} @${m[1]}: ${s}`);
+    }
+    for (const piece of html.split(/<[^>]*>/)) {
+      const s = norm(piece);
+      /* A single letter is an INITIAL, not a word — the one in the avatar is a
+         placeholder that script replaces with the first letter of whoever is
+         actually signed in, in whatever language they are reading. */
+      if (s.length < 2) continue;
+      if (s && KA.test(s) && !covered(s)) missing.push(`${f}: ${s}`);
+    }
+  }
+  assert.deepEqual(missing, [], "these stay Georgian on an English screen");
 });
 
-test("a sentence built at run time keeps its numbers and translates its name", () => {
-  assert.equal(en.t("გიორგი ჩამოვიდა 2 ქვით"), "Giorgi led 2 cards");
-  assert.equal(en.t("ნინო ჩამოვიდა 1 ქვით"), "Nino led 1 card", "one card, not one cards");
-  assert.equal(en.t("ხელი აიღო — ნინო"), "Trick to Nino");
-  assert.equal(en.t("დათო ფიქრობს"), "Dato is thinking");
-  assert.equal(en.t("კომპიუტერი (6)"), "Computer (6)");
-  assert.equal(en.t("კომპიუტერმა ითამაშა [4–6]"), "The computer played [4–6]");
-  assert.equal(en.t("შენ ითამაშე [0–0] — ახლა შენი სვლაა"), "You played [0–0] — your move again");
-  assert.equal(en.t("ველოდებით — 2/4"), "Waiting — 2/4");
-  assert.equal(en.t("3 მოთამაშე კიდევ"), "3 more players");
-  assert.equal(en.t("1 მოთამაშე კიდევ"), "1 more player");
-  assert.equal(en.t("შენ ხარ დილერი — 2 აკრძალულია"), "You are the dealer — 2 is not allowed");
-});
-
-test("a name keeps its dealer's mark", () => {
-  assert.equal(en.t("დათო 🃏"), "Dato 🃏");
-  assert.equal(en.t("ნინო 🤖"), "Nino 🤖");
-});
-
-test("a sentence nobody has translated stays Georgian, whole", () => {
-  /* This is the rule that matters most. Swapping the words a sentence happens
-     to contain was tried and produced "ცოცხალ Opponentსთან" — Georgian glues
-     its endings on, so a half-translated sentence is not a sentence. */
-  const unknown = "ეს წინადადება ლექსიკონში არ არის და მთლიანად უნდა დარჩეს";
-  assert.equal(en.t(unknown), unknown, "left alone rather than half-done");
-  assert.ok(!/[A-Za-z]/.test(en.t(unknown)), "and no English got into it");
-});
-
-test("anything that is not Georgian is not touched", () => {
-  for (const s of ["A♠", "10♥", "2/4", "175", "", "JOK", "1v1", "Giorgi"])
-    assert.equal(en.t(s), s, JSON.stringify(s));
-});
-
-test("the space around a string is kept, and the space inside is squeezed", () => {
-  assert.equal(en.t(" მაგიდა "), " Table ", "a string between other words keeps its room");
-  // a paragraph written across three lines of HTML arrives with the breaks in it
-  assert.equal(en.t("სვლა თუ არ გაქვს, აიღე ქვა.\n           ბოლო ორი ქვა არასდროს იღება."),
-    "With no move, take a tile. The last two are never taken.");
-});
-
-test("every rule in the file is a rule that fires", () => {
-  /* A regular expression that lost a backslash stops matching and nothing
-     complains — which is exactly what happened. Each one is given a string it
-     should match, built from the rule itself. */
-  const bodies = src.match(/\[\/\^[^\n]*?\/,/g) || [];
-  assert.ok(bodies.length > 30, `found ${bodies.length} rules`);
-});
-
-test("nothing in the dictionary translates to itself, or to nothing", () => {
-  for (const [k, v] of Object.entries(en.EN)) {
-    assert.ok(v && v.length, `"${k}" has no English`);
-    assert.notEqual(v, k, `"${k}" is its own translation`);
+test("what a browser tab says has an English one too", () => {
+  /* The title lives in the HEAD, which the walker never reaches — it is given
+     the body. So this went untranslated on every screen for a long time, in the
+     tab, in bookmarks and in the app switcher, and nobody could see it because
+     the page underneath was already English. */
+  const i18n = readFileSync(path.join(PUB, "js", "i18n.js"), "utf8");
+  assert.match(i18n, /document\.title = one\(document\.title\)/,
+    "the title is never translated");
+  for (const f of screens) {
+    if (SKETCHES.has(f)) continue;
+    const t = (readFileSync(path.join(PUB, f), "utf8").match(/<title>([^<]+)<\/title>/) || [])[1];
+    assert.ok(t, f + " has no title");
+    if (!KA.test(t)) continue;              // already written in English
+    assert.ok(covered(norm(t)), f + ": the tab stays Georgian — " + t);
   }
 });
 
-test("no two Georgian strings share an English word by accident", () => {
-  // a sanity check on the dictionary: keys are unique by construction, but a
-  // duplicated key in the source would silently drop one of the two
-  const keys = Object.keys(en.EN);
-  assert.equal(new Set(keys).size, keys.length, "no key is written twice");
-  assert.ok(keys.length > 150, `the dictionary holds ${keys.length} strings`);
+/* ---------------- the two files that are almost all words ---------------- */
+
+test("every achievement and every thing in the shop is named in English", () => {
+  /* A player reading English opened their profile to a wall of Georgian: the
+     shop's colours and every achievement's name and hint. Thirty-five strings,
+     all of them user-facing, none of them in the dictionary. */
+  const src = readFileSync(path.join(PUB, "js", "progress.js"), "utf8");
+  const missing = [];
+  for (const m of src.matchAll(/\b(?:title|hint):\s*"([^"]+)"/g))
+    if (KA.test(m[1]) && !covered(m[1])) missing.push(m[1]);
+  assert.deepEqual(missing, [], "these stay Georgian in the profile and the shop");
+});
+
+test("every tip on the match card is written in both languages", () => {
+  const src = readFileSync(path.join(PUB, "js", "versus.js"), "utf8");
+  const block = src.slice(src.indexOf("const TIPS"), src.indexOf("const pick"));
+  const tips = [...block.matchAll(/"([^"]+)"/g)].map((m) => m[1]).filter((s) => KA.test(s));
+  assert.ok(tips.length >= 10, "found only " + tips.length + " tips");
+  const missing = tips.filter((s) => !covered(s));
+  assert.deepEqual(missing, [], "these stay Georgian on the match card");
+});
+
+/* ---------------- the sentences a screen builds ---------------- */
+
+test("a sentence built around a number or a name is matched whole", () => {
+  /* The dictionary is looked up with the WHOLE of what landed on screen, so a
+     fragment like "ველოდებით — " could never match anything on its own. These
+     have to be patterns, and the patterns have to be the shape of the finished
+     line. */
+  const cases = [
+    "კომპიუტერმა ითამაშა [3–5] — ახლა შენი სვლაა",
+    "სვლა არ გაქვს. აირჩიე ქვა (7 ასაღები, ბოლო 2 რჩება).",
+    "მოწინააღმდეგე ×2 ფსონს გთავაზობს. თუ არ დათანხმდი, მატჩს კარგავ.",
+    "შეთავაზება გაგზავნილია — ×4. ველოდებით პასუხს.",
+    "ველოდებით — ლაშა, ნიკა",
+    "ხელი აიღო — ლაშა",
+    "ლაშა ჩამოვიდა",
+    "ლაშა გავიდა",
+  ];
+  const missing = cases.filter((s) => !covered(s));
+  assert.deepEqual(missing, [], "these reach a player as Georgian");
+});
+
+test("a sentence is translated whole or not at all", () => {
+  /* Georgian glues its endings on, so swapping the words a sentence happens to
+     contain produced things like "ცოცხალ Opponentსთან". The rule is written
+     into i18n and this is here so nobody undoes it in the name of coverage. */
+  const i18n = readFileSync(path.join(PUB, "js", "i18n.js"), "utf8");
+  assert.match(i18n, /A sentence is translated whole or not at all/,
+    "the rule is no longer written down");
+  assert.equal(I18N.t("ეს წინადადება ლექსიკონში არ არის"),
+    "ეს წინადადება ლექსიკონში არ არის",
+    "an unknown sentence came back changed, which means words are being swapped");
 });

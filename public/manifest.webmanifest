@@ -1,7 +1,7 @@
 {
-  "name": "Pips — Backgammon, Dominoes & Cards",
+  "name": "Pips — Backgammon, Dominoes & Checkers",
   "short_name": "Pips",
-  "description": "Backgammon, dominoes, draughts and Georgian card games — online against real people or against the computer.",
+  "description": "Backgammon, dominoes, checkers and Georgian card games — online against real people or against the computer.",
   "lang": "en",
   "dir": "ltr",
   "start_url": "./index.html",
