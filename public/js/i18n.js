@@ -68,10 +68,13 @@
     "კარგი": "Got it",
 
     // --- iPhone has no fullscreen button; it has a home screen ---
-    "სრული ეკრანი iPhone-ზე: ": "Fullscreen on iPhone: ",
-    "გადაგზავნა": "Share",
+    "სრული ეკრანი iPhone-ზე": "Fullscreen on iPhone",
     "მთავარ ეკრანზე დამატება": "Add to Home Screen",
-    "გავიგე": "Got it",
+    "გახსენი ხატულადან — ზოლების გარეშე":
+      "Open it from the icon — no bars",
+    "ეს ბრაუზერის მენიუში კეთდება — თამაშიდან ვერ ჩაირთვება.":
+      "This is done in the browser's own menu — a game cannot switch it on.",
+    "დახურვა": "Close",
 
     // --- rooms and tables ---
     "აირჩიე ოთახი": "Choose a table",

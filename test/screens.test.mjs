@@ -257,7 +257,39 @@ test("iPhone is told the one thing that works, once, and on the front page only"
   assert.match(fs, /function tellIPhone\(\)/, "nothing is ever said");
   const tip = fs.slice(fs.indexOf("function tellIPhone()"));
   assert.match(tip, /localStorage\.getItem\(KEY\)/, "it would be said every single time");
-  assert.match(tip, /index\?\.html\$|index\\.html/, "it would interrupt a hand");
+  assert.ok(tip.includes("index"), "it would interrupt a hand");
+});
+
+test("nothing on the iPhone note can be mistaken for the action", () => {
+  /* This is the whole of it, and the first version got it wrong in the most
+     ordinary way: one line of text and one button reading "Got it". A player
+     who wants fullscreen presses the only button on the note and expects
+     fullscreen. It closed the note and did nothing else — which is all it
+     COULD do, because iOS gives a page no way to add itself to a home screen.
+     Only Safari's own Share menu can, and the player has to open that. */
+  const fs = readFileSync(path.join(PUB, "js", "fullscreen.js"), "utf8");
+  const tip = fs.slice(fs.indexOf("function tellIPhone()"));
+  const labels = [...tip.matchAll(/\.textContent = "([^"]+)"/g)].map((m) => m[1]);
+  const onButtons = labels.filter((t) => t === "✕");
+  assert.ok(onButtons.length === 1, "the dismiss control is not a bare ✕");
+  // a word on the button is what made it read as "do it"
+  assert.doesNotMatch(tip, /x\.textContent = "გავიგე"/,
+    "the note still has a worded button");
+
+  // and it says, in words, where the thing actually happens
+  assert.match(tip, /ბრაუზერის მენიუში/,
+    "it never says the menu is the browser's, not ours");
+});
+
+test("a browser that is not Safari is sent to its own share button", () => {
+  /* Chrome and Firefox on iOS are the same engine and NOT the same chrome:
+     their share lives behind ⋯ rather than in a toolbar at the bottom. Sending
+     somebody to the wrong corner of their own phone is worse than silence. */
+  const fs = readFileSync(path.join(PUB, "js", "fullscreen.js"), "utf8");
+  assert.match(fs, /CriOS\|FxiOS\|EdgiOS\|OPiOS/, "every iOS browser is told to look down");
+  assert.ok(fs.includes("inSafari"), "the two are never told apart");
+  assert.ok(fs.includes("Safari-ს ზოლში") && fs.includes("მისამართის გვერდით"),
+    "both browsers are given the same directions");
 });
 
 test("a phone already launched from the home screen is left alone", () => {

@@ -119,10 +119,24 @@
 
   /* ---------- the one thing that works on iPhone ----------
 
-     Said on the front page only. A note like this in the middle of a hand is
-     an interruption, and by then it is too late to act on anyway. Said once:
-     a player who has read it and decided not to bother should not be asked
-     again every time they open the game. */
+     iOS gives a page NO way to add itself to the home screen. There is no API
+     and there is no permission to ask for: only Safari's own Share menu can do
+     it, and the player has to open that menu themselves. So everything here is
+     an instruction, and the whole design problem is making that obvious.
+
+     The first version got it wrong in the most ordinary way. It was one line
+     of text with one button, and the button said "Got it". A player who wants
+     fullscreen presses the only button on the note and expects fullscreen —
+     which is exactly what happened, and it did nothing but close the note.
+
+     So: no button that could be mistaken for the action. A plain ✕ to dismiss,
+     numbered steps, the Share glyph drawn so it can be RECOGNISED in the
+     toolbar rather than looked for by name, and one line saying in as many
+     words that this happens in Safari's menu and not here.
+
+     Said on the front page only — a note like this in the middle of a hand is
+     an interruption, and by then it is too late to act on anyway — and said
+     once. */
   function tellIPhone() {
     const KEY = "iosHomeHint";
     try { if (localStorage.getItem(KEY)) return; } catch (e) {}
@@ -130,41 +144,82 @@
     const lobby = path === "" || /\/index\.html$/.test(path);
     if (!lobby) return;
 
+    /* Chrome and Firefox on iOS are the same engine, but not the same chrome:
+       their share button lives in the menu behind ⋯ rather than in a toolbar
+       at the bottom. Sending somebody to the wrong corner of their own phone
+       is worse than saying nothing. */
+    const ua = nav.userAgent;
+    const inSafari = !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+
     const css = document.createElement("style");
     css.textContent =
       /* A width, not a max-width: a flex box with neither shrinks to fit its
-         longest WORD, and the note came out as a narrow column of wrapped
-         Georgian with the button squeezed alongside it. */
+         longest WORD, and the note first came out as a narrow column of
+         wrapped Georgian. */
       ".iosTip{position:fixed;z-index:62;left:50%;transform:translateX(-50%);" +
-      "bottom:calc(10px + var(--safeB,0px));width:min(92vw,430px);" +
-      "box-sizing:border-box;" +
-      "display:flex;align-items:center;gap:10px;padding:9px 12px;" +
-      "border-radius:12px;border:1px solid var(--brass-dim,#8a6524);" +
-      "background:rgba(6,30,17,.96);color:var(--cream,#f6efdd);" +
-      "font:13px/1.35 var(--font-ui,sans-serif);" +
-      "box-shadow:0 8px 26px rgba(0,0,0,.5);}" +
+      "bottom:calc(10px + var(--safeB,0px));width:min(94vw,430px);" +
+      "box-sizing:border-box;padding:11px 13px 12px;" +
+      "border-radius:14px;border:1px solid var(--brass-dim,#8a6524);" +
+      "background:rgba(6,30,17,.97);color:var(--cream,#f6efdd);" +
+      "font:13px/1.4 var(--font-ui,sans-serif);" +
+      "box-shadow:0 10px 30px rgba(0,0,0,.55);}" +
+      ".iosTip h4{margin:0 26px 7px 0;font:700 13.5px/1.2 var(--font-ui,sans-serif);" +
+      "color:var(--brass-lit,#f2cd7e);}" +
+      ".iosTip ol{margin:0;padding:0 0 0 18px;}" +
+      ".iosTip li{margin:0 0 4px;}" +
       ".iosTip b{color:var(--brass-lit,#f2cd7e);font-weight:700;}" +
-      ".iosTip span{flex:1 1 auto;min-width:0;}" +
-      ".iosTip button{flex:0 0 auto;margin-left:auto;border:0;background:transparent;cursor:pointer;" +
-      "color:var(--brass-lit,#f2cd7e);font:700 12px/1 var(--font-ui,sans-serif);" +
-      "padding:6px 4px;}";
+      /* the Share glyph, inline with the words, so it is recognised rather
+         than hunted for by name */
+      ".iosTip svg{width:13px;height:16px;vertical-align:-3px;margin:0 2px;" +
+      "fill:none;stroke:var(--brass-lit,#f2cd7e);stroke-width:1.7;" +
+      "stroke-linecap:round;stroke-linejoin:round;}" +
+      ".iosTip .note{margin:8px 0 0;color:var(--cream-dim,rgba(246,239,221,.62));" +
+      "font-size:11.5px;line-height:1.35;}" +
+      /* A ✕ and nothing else. Anything with a word on it reads as the action. */
+      ".iosTip .x{position:absolute;top:6px;right:8px;width:26px;height:26px;" +
+      "display:grid;place-items:center;border:0;background:transparent;" +
+      "cursor:pointer;color:var(--cream-dim,rgba(246,239,221,.62));" +
+      "font:400 17px/1 var(--font-ui,sans-serif);padding:0;}";
     document.head.appendChild(css);
+
+    const SHARE =
+      '<svg viewBox="0 0 14 17" aria-hidden="true">' +
+      '<path d="M7 1.6v9"/><path d="M4.1 4.4 7 1.4l2.9 3"/>' +
+      '<path d="M3.2 7.2H1.8v8.2h10.4V7.2h-1.4"/></svg>';
 
     const tip = document.createElement("div");
     tip.className = "iosTip";
-    const text = document.createElement("span");
-    /* Written as the two taps it actually is, in the order they happen. */
-    text.innerHTML = "სრული ეკრანი iPhone-ზე: " +
-      "<b>გადაგზავნა</b> → " +
-      "<b>მთავარ ეკრანზე დამატება</b>";
-    const ok = document.createElement("button");
-    ok.type = "button";
-    ok.textContent = "გავიგე";
-    ok.addEventListener("click", function () {
+    tip.style.position = "fixed";
+
+    const h = document.createElement("h4");
+    h.textContent = "სრული ეკრანი iPhone-ზე";
+
+    const ol = document.createElement("ol");
+    ol.innerHTML = inSafari
+      ? "<li>ქვემოთ, Safari-ს ზოლში დააჭირე " + SHARE + "</li>" +
+        "<li>ჩამონათვალში აირჩიე <b>მთავარ ეკრანზე დამატება</b></li>" +
+        "<li>გახსენი ხატულადან — ზოლების გარეშე</li>"
+      : "<li>ზემოთ, მისამართის გვერდით დააჭირე " + SHARE + " ან <b>⋯</b></li>" +
+        "<li>ჩამონათვალში აირჩიე <b>მთავარ ეკრანზე დამატება</b></li>" +
+        "<li>გახსენი ხატულადან — ზოლების გარეშე</li>";
+
+    const note = document.createElement("p");
+    note.className = "note";
+    /* The sentence the first version was missing, and the only one that
+       explains why nothing on this note is a button. */
+    note.textContent = "ეს ბრაუზერის მენიუში კეთდება — თამაშიდან ვერ ჩაირთვება.";
+
+    const x = document.createElement("button");
+    x.type = "button";
+    x.className = "x";
+    x.textContent = "✕";
+    x.setAttribute("aria-label", "დახურვა");
+    x.addEventListener("click", function () {
       try { localStorage.setItem(KEY, "1"); } catch (e) {}
       tip.remove();
     });
-    tip.appendChild(text); tip.appendChild(ok);
+
+    tip.appendChild(x); tip.appendChild(h); tip.appendChild(ol); tip.appendChild(note);
 
     const put = function () { document.body.appendChild(tip); };
     if (document.body) put();
