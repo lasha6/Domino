@@ -41,6 +41,12 @@ export function blankProfile(id, kind, name) {
       streak: 0, bestStreak: 0,
     },
     daily: { lastClaim: null, streak: 0 },
+    /* The table of honour. `week` is the season being played now and resets
+       itself when the week turns; `wins` is per game, kept from the first day
+       so that splitting one board into five later is a change to a query and
+       not a migration. */
+    board: { week: null, wins: 0, played: 0, best: 0 },
+    wins: {},                        // game -> matches won, all time
     achievements: {},
     redeemed: {},                    // promo codes already used, so none twice
     created: now, seen: now,
@@ -56,6 +62,8 @@ function complete(p, id, kind, name) {
     ...base, ...p,
     stats: { ...base.stats, ...(p.stats || {}) },
     daily: { ...base.daily, ...(p.daily || {}) },
+    board: { ...base.board, ...(p.board || {}) },
+    wins: { ...(p.wins || {}) },
     achievements: { ...(p.achievements || {}) },
     redeemed: { ...(p.redeemed || {}) },
     owned: { ...(p.owned || {}) },
@@ -71,6 +79,7 @@ function memoryStore() {
     kind: "memory",
     async get(id) { return map.get(id) || null; },
     async set(id, data) { map.set(id, data); },
+    async top(n, pick) { return rank([...map.values()], n, pick); },
     async close() {},
   };
 }
@@ -109,6 +118,7 @@ async function fileStore(dir) {
       chain = chain.then(flush, flush);
       return chain;
     },
+    async top(n, pick) { return rank(Object.values(all), n, pick); },
     async close() { await chain; },
   };
 }
@@ -140,8 +150,49 @@ async function pgStore(url) {
          ON CONFLICT (id) DO UPDATE SET data = $2, updated = now()`,
         [id, data]);
     },
+    /* Sorted by the database rather than in Node: the whole point of a top
+       twenty is not reading the other ten thousand rows. The rows that come
+       back still go through `rank`, so one function decides what a board
+       looks like no matter which store is underneath. */
+    async top(n, pick) {
+      const r = await pool.query(
+        `SELECT data FROM profiles
+          WHERE (data->'board'->>'wins')::int > 0
+          ORDER BY (data->'board'->>'wins')::int DESC
+          LIMIT $1`, [Math.max(n * 3, 60)]);
+      return rank(r.rows.map((x) => x.data), n, pick);
+    },
     async close() { await pool.end(); },
   };
+}
+
+/* ---------------- what a table of honour looks like ----------------
+
+   One function, whichever store is underneath, so a board cannot mean one
+   thing on a laptop and another on the host.
+
+   `pick` reads the number a player is ranked BY. Everything else here is about
+   who does not belong on it: a player with no wins this season is not last,
+   they are simply not playing; and a name is needed to show a row at all. */
+function rank(profiles, n, pick) {
+  const get = pick || ((p) => (p.board && p.board.wins) || 0);
+  return profiles
+    .filter((p) => p && get(p) > 0)
+    /* Equal wins are broken by FEWER matches, not more: two wins out of four
+       is a better week than two out of nine, and the other way round rewards
+       sitting at a table all day. */
+    .sort((a, b) => get(b) - get(a) ||
+                    ((a.board && a.board.played) || 0) - ((b.board && b.board.played) || 0) ||
+                    String(a.name || "").localeCompare(String(b.name || "")))
+    .slice(0, n)
+    .map((p) => ({
+      id: p.id,
+      name: p.name || "",
+      picture: p.picture || null,
+      xp: p.xp || 0,
+      wins: get(p),
+      played: (p.board && p.board.played) || 0,
+    }));
 }
 
 /* ---------------- pick one and get going ---------------- */
@@ -191,6 +242,14 @@ function wrap(store) {
       try { await store.set(p.id, p); } catch (err) { console.error("[store] write failed:", err.message); }
     },
     forget(id) { cache.delete(id); },
+    /* The board is read from the STORE and not from the cache: the cache only
+       holds whoever happens to be playing right now, which is the one group a
+       leaderboard must not be limited to. Anything still unsaved is at most a
+       few seconds behind, and a table of honour does not need the second. */
+    async top(n, pick) {
+      try { return await store.top(n || 20, pick); }
+      catch (err) { console.error("[store] board failed:", err.message); return []; }
+    },
     async close() { try { await store.close(); } catch (err) {} },
   };
 }

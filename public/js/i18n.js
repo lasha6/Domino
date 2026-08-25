@@ -177,6 +177,16 @@
     "ჯოკერი — კომპიუტერთან": "Joker — against the computer",
     "ჯოკერი — ონლაინ": "Joker — online",
 
+    // --- the table of honour ---
+    "რეიტინგი": "Leaderboard",
+    "კვირის მოგებები — ორშაბათს თავიდან იწყება":
+      "This week's wins — it starts again on Monday",
+    "ვტვირთავს…": "Loading…",
+    "ჯერ არ მოგიგია ამ კვირაში": "No wins yet this week",
+    "ონლაინ მოგება რეიტინგში გხდის": "An online win puts you on it",
+    "ამ კვირაში ჯერ არავის მოუგია — პირველი შენ იყავი":
+      "Nobody has won yet this week — be the first",
+
     // --- rooms and tables ---
     "აირჩიე ოთახი": "Choose a table",
     "ბლიც": "Blitz", "სწრაფი": "Quick", "კლასიკური": "Classic", "ოსტატი": "Master",
@@ -598,6 +608,9 @@
      one is put through the dictionary too: the three computer players have
      names, and half-translating a sentence is worse than not touching it. */
   const PATTERNS = [
+    [/^შენ — #(\d+)$/, (m) => `You — #${m[1]}`],
+    [/^(\d+) მოგება · (\d+) მატჩი$/,
+      (m) => `${m[1]} win${m[1] === "1" ? "" : "s"} · ${m[2]} match${m[2] === "1" ? "" : "es"}`],
     /* Sentences a screen builds around a number or a name. The whole of what
        lands on screen is what gets looked up, so a fragment in the dictionary
        would never match anything — it has to be the shape of the finished
@@ -732,8 +745,18 @@
   }
 
   const SKIP = { SCRIPT: 1, STYLE: 1, TEXTAREA: 1, SVG: 1 };
+  /* Text a PLAYER wrote is never translated, and `data-raw` is how an element
+     says so for itself and everything inside it.
+
+     This is not a nicety. Names go through the same walker as labels do, and
+     the computer's opponents are called გიორგი, დათო and ნინო — which are in
+     the dictionary so an English reader can say them. A real player with one
+     of those names had it rewritten in front of them, and a player who called
+     themselves ერთი was shown to everybody as "One". A name is not a word to
+     be looked up; it is somebody's answer to "who are you". */
   function walk(node) {
     if (!node) return;
+    if (node.nodeType === 1 && node.hasAttribute && node.hasAttribute("data-raw")) return;
     if (node.nodeType === 3) {
       const t = one(node.nodeValue);
       if (t !== node.nodeValue) node.nodeValue = t;

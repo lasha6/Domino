@@ -75,6 +75,7 @@
     const who = document.createElement("span");
     who.className = "vsWho";
     const name = document.createElement("b");
+    name.setAttribute("data-raw", "");   // a name is not a word to look up
     name.textContent = p.name || "მოთამაშე";
     who.appendChild(name);
     if (p.bot) {

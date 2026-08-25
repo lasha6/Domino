@@ -579,3 +579,62 @@
   .backTable .btText{ font-size:11px; }
   .backTable .btGo, .backTable .btDrop{ padding:6px 10px; font-size:11.5px; }
 }
+
+/* =====================================================================
+   The table of honour.
+
+   A week of wins, one board for all five games. The rows are read down the
+   left — number, face, name — with the count on the right, so a player can
+   find their own line by shape before they read a word of it.
+   ===================================================================== */
+.iconbtn.cup{ font-size:17px; }
+
+.boardModal{ max-width:min(94vw, 460px); }
+.boardList{
+  display:flex; flex-direction:column; gap:4px;
+  max-height:min(46vh, 320px); overflow:auto; padding:2px 1px;
+}
+.brow{
+  display:flex; align-items:center; gap:9px; padding:6px 10px;
+  border-radius:10px; background:rgba(0,0,0,.26);
+  border:1px solid transparent;
+}
+.brow .bno{
+  flex:0 0 22px; text-align:right;
+  font:700 12px/1 var(--font-ui); color:var(--cream-dim);
+  font-variant-numeric:tabular-nums;
+}
+/* the first three wear the brass; below that a number is enough */
+.brow.top1 .bno{ color:#ffd970; }
+.brow.top2 .bno{ color:#dfe3ea; }
+.brow.top3 .bno{ color:#e2a978; }
+.brow.top1{ border-color:rgba(242,205,126,.45); background:rgba(242,205,126,.10); }
+.brow.me{ border-color:var(--good); background:rgba(74,208,125,.12); }
+
+.brow .bface{
+  flex:0 0 24px; width:24px; height:24px; border-radius:50%;
+  display:grid; place-items:center; overflow:hidden;
+  background:linear-gradient(160deg,#1c5a37,#0b2f1b);
+  border:1px solid var(--brass-dim);
+  font:700 11px/1 var(--font-ui); color:var(--brass-lit);
+}
+.brow .bface img{ width:100%; height:100%; object-fit:cover; }
+.brow .bwho{
+  flex:1 1 auto; min-width:0; font-size:13px; color:var(--cream);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.brow .bwins{
+  flex:0 0 auto; font:700 13px/1 var(--font-ui); color:var(--brass-lit);
+  font-variant-numeric:tabular-nums;
+}
+
+/* Where the asker stands, above the list rather than lost inside it — it is
+   the one thing somebody opens a leaderboard to find out. */
+.myRank{
+  display:flex; flex-direction:column; gap:1px; align-items:center;
+  margin:0 0 9px; padding:8px 12px; border-radius:12px;
+  background:rgba(0,0,0,.3); border:1px solid var(--line);
+}
+.myRank:empty{ display:none; }
+.myRank b{ font:700 15px/1.2 var(--font-ui); color:var(--brass-lit); }
+.myRank i{ font-style:normal; font-size:11.5px; color:var(--cream-dim); }

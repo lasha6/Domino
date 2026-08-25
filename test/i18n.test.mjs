@@ -151,3 +151,35 @@ test("a sentence is translated whole or not at all", () => {
     "ეს წინადადება ლექსიკონში არ არის",
     "an unknown sentence came back changed, which means words are being swapped");
 });
+
+/* ---------------- what a player wrote is not ours to change ---------------- */
+
+test("a player's own name is never looked up in the dictionary", () => {
+  /* The computer's opponents are called გიორგი, დათო and ნინო, and those ARE
+     in the dictionary so an English reader can say them. Names go through the
+     same walker as labels, so a real player with one of those names had it
+     rewritten in front of them — and somebody who called themselves ერთი was
+     shown to everybody as "One".
+
+     `data-raw` is how an element says "this subtree is somebody's text, leave
+     it alone". */
+  const i18n = readFileSync(path.join(PUB, "js", "i18n.js"), "utf8");
+  assert.match(i18n, /node\.hasAttribute\("data-raw"\)\) return;/,
+    "nothing can opt out of being translated");
+  // it has to be checked BEFORE the text node is touched, or it does nothing
+  const at = i18n.indexOf("function walk(node)");
+  const body = i18n.slice(at, i18n.indexOf("\n  }", at));
+  assert.ok(body.indexOf("data-raw") < body.indexOf("nodeType === 3"),
+    "the guard is read after the text has already been swapped");
+
+  // and it is actually used where a real name is shown
+  assert.match(readFileSync(path.join(PUB, "index.html"), "utf8"),
+    /who\.setAttribute\("data-raw", ""\)/, "the leaderboard translates names");
+  assert.match(readFileSync(path.join(PUB, "js", "versus.js"), "utf8"),
+    /name\.setAttribute\("data-raw", ""\)/, "the match card translates names");
+  for (const f of ["nardi.html", "damka.html"]) {
+    const html = readFileSync(path.join(PUB, f), "utf8");
+    assert.match(html, /<b id="meName" data-raw>/, f + " translates my own name");
+    assert.match(html, /<b id="themName" data-raw>/, f + " translates their name");
+  }
+});

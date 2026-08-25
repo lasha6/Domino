@@ -45,6 +45,7 @@
       <div class="spacer"></div>
       <div class="cur">🪙 <span id="coinLabel">0</span><button class="plus" onclick="openFree()">+</button></div>
       <div class="cur">💎 <span id="gemLabel">0</span><button class="plus" onclick="openShop()">+</button></div>
+      <button class="iconbtn cup" onclick="openBoard()" title="რეიტინგი">🏆</button>
       <button class="store" onclick="openShop()">🛒 მაღაზია</button>
     </div>
 
@@ -592,6 +593,21 @@
       <div class="shopGrid" id="shopGrid"></div>
       <p class="roomSub" id="gemHint">💎 გროვდება დონეებით — ყოველ დონეზე 2</p>
       <button class="roomClose" onclick="closeShop()">დახურვა</button>
+    </div>
+  </div>
+
+  <!-- the table of honour: one board for all five games, a week at a time -->
+  <div class="roomOverlay" id="boardOverlay">
+    <div class="roomModal boardModal">
+      <div class="shopHead">
+        <h2 style="margin:0">რეიტინგი</h2>
+        <span class="shopPurse" id="boardWeek"></span>
+      </div>
+      <p class="roomSub">კვირის მოგებები — ორშაბათს თავიდან იწყება</p>
+      <!-- where the player is, before the list of people who are above them -->
+      <div class="myRank" id="myRank"></div>
+      <div class="boardList" id="boardList"></div>
+      <button class="roomClose" onclick="closeBoard()">დახურვა</button>
     </div>
   </div>
 
@@ -1176,6 +1192,75 @@
                        : why === "none"  ? "კოდები ამჟამად არ მუშაობს"
                        : "ვერ მოხერხდა";
       note.style.display = "block";
+    });
+
+    /* ---------------- the table of honour ----------------
+
+       One board for all five games. Five boards would divide a small crowd by
+       five, and a leaderboard with four names on it is worse than none — but
+       wins are recorded per game from the first day, so splitting it later is
+       a change to a query rather than a migration.
+
+       A WEEK at a time, because with an all-time board the first player ever
+       sits on top and nobody who joins later can catch up. */
+    function openBoard(){
+      socket.emit("board", { auth: Auth.credentials().auth, name: Auth.name() });
+      document.getElementById("boardOverlay").classList.add("show");
+      document.getElementById("boardList").innerHTML =
+        '<p class="roomSub">ვტვირთავ…</p>';
+    }
+    function closeBoard(){ document.getElementById("boardOverlay").classList.remove("show"); }
+
+    socket.on("board", (r) => {
+      if (!r) return;
+      const list = document.getElementById("boardList");
+      const mine = document.getElementById("myRank");
+      document.getElementById("boardWeek").textContent = "";
+
+      /* Where the asker stands, said first and plainly. It is the one thing
+         somebody opens a leaderboard to find out, and it is almost never in
+         the twenty rows underneath. */
+      if (!r.me) {
+        mine.innerHTML = "";
+      } else if (!r.me.wins) {
+        mine.innerHTML = '<b>ჯერ არ მოგიგია ამ კვირაში</b>'
+          + '<i>ონლაინ მოგება რეიტინგში გხდის</i>';
+      } else {
+        mine.innerHTML = '<b>შენ — #' + r.me.rank + "</b>"
+          + "<i>" + r.me.wins + " მოგება · " + r.me.played + " მატჩი</i>";
+      }
+
+      list.innerHTML = "";
+      if (!r.top || !r.top.length) {
+        list.innerHTML = '<p class="roomSub">ამ კვირაში ჯერ არავის მოუგია — პირველი შენ იყავი</p>';
+        return;
+      }
+      r.top.forEach((row, i) => {
+        const el = document.createElement("div");
+        el.className = "brow" + (r.me && row.name === r.me.name ? " me" : "")
+          + (i < 3 ? " top" + (i + 1) : "");
+        const face = document.createElement("span");
+        face.className = "bface";
+        if (row.picture) {
+          const img = document.createElement("img");
+          img.src = row.picture; img.alt = ""; img.referrerPolicy = "no-referrer";
+          face.appendChild(img);
+        } else {
+          face.textContent = (row.name || "?").trim().charAt(0) || "?";
+        }
+        el.innerHTML = '<b class="bno">' + (i + 1) + "</b>";
+        el.appendChild(face);
+        const who = document.createElement("span");
+        who.className = "bwho";
+        who.setAttribute("data-raw", "");   // a name is not a word to look up
+        who.textContent = row.name || "მოთამაშე";
+        el.appendChild(who);
+        const n = document.createElement("span");
+        n.className = "bwins";
+        n.textContent = row.wins;
+        el.appendChild(n);
+        list.appendChild(el);
+      });
     });
 
     /* ---------------- shop ----------------

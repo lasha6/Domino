@@ -1522,6 +1522,39 @@ function lookOf(room, seat) {
   return p && p.profile ? Progress.equipped(p.profile) : null;
 }
 
+/* ---------------- the table of honour ----------------
+
+   Which week it is, as a number that sorts. Monday-based UTC, because a
+   season boundary that moves with the reader is a season two people disagree
+   about — and the only thing this number has to do is be the same for
+   everybody and change once a week.
+
+   A SEASON, and not all time, on purpose: with all-time wins the first player
+   ever sits at the top and nobody who joins later can ever catch up. That
+   kills a board within a month at this size. A week is short enough that the
+   list is worth looking at again, and long enough to be worth winning. */
+function seasonOf(when) {
+  const d = new Date(when || Date.now());
+  const day = (d.getUTCDay() + 6) % 7;                     // Monday = 0
+  const monday = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day);
+  return Math.floor(monday / 86400000);                    // days since epoch
+}
+
+/* Roll the season over if the week has turned. The best week a player ever had
+   is kept, because a board nobody is topping any more should still be able to
+   say what they once did. */
+function freshBoard(pr) {
+  const now = seasonOf();
+  if (!pr.board) pr.board = { week: now, wins: 0, played: 0, best: 0 };
+  if (pr.board.week !== now) {
+    pr.board.best = Math.max(pr.board.best || 0, pr.board.wins || 0);
+    pr.board.week = now;
+    pr.board.wins = 0;
+    pr.board.played = 0;
+  }
+  return pr.board;
+}
+
 function awardMatch(room, p, won) {
   /* Giving a chair up loses the match, which is what the screen warns
      before it asks. Without this the computer could go on and win with the
@@ -1541,6 +1574,23 @@ function awardMatch(room, p, won) {
       pr.stats.streak = 0;
     }
     pr.xp += Progress.matchXp(won);
+
+    /* The board counts ONLINE matches only. A practice game against the
+       computer already pays no coins, and it must not pay rank either — a
+       leaderboard a player can farm against a bot is a list of who left their
+       phone on longest. `room.players` holds a human other than this one
+       exactly when there was somebody to beat. */
+    const real = room.players.some((o) => o !== p && !o.bot);
+    if (real) {
+      const b = freshBoard(pr);
+      b.played++;
+      if (won) {
+        b.wins++;
+        // kept per game from the first day, so five boards later is a query
+        pr.wins = pr.wins || {};
+        pr.wins[room.game || "domino"] = (pr.wins[room.game || "domino"] || 0) + 1;
+      }
+    }
 
     /* The cube multiplies what the match is worth. It lives on the room, and
        it is applied here, where the only settling happens. */
@@ -2267,6 +2317,30 @@ io.on("connection", (socket) => {
     pr.lastTopup = Date.now();
     const r = settle(pr, () => { pr.coins += added; });
     socket.emit("topupResult", { ok: true, added, earned: r.earned, ...summarise(pr) });
+  });
+
+  /* ---------------- the table of honour ----------------
+
+     Read straight out of the store rather than kept in memory: the board has
+     to include everybody, and memory only holds whoever is playing at this
+     second. Sent with the asker's own row worked out separately, because the
+     answer somebody actually wants from a leaderboard is where THEY are, and
+     that is usually not in the top twenty. */
+  on("board", async ({ auth, name }) => {
+    const top = await store.top(20);
+    const who = await whoIs(auth, clean(name));
+    const pr = who.stale ? null : who.profile;
+    let me = null;
+    if (pr) {
+      const b = freshBoard(pr);
+      /* The rank is counted rather than looked up in the top twenty: a player
+         in 340th place still gets to see 340. */
+      const all = await store.top(5000);
+      const at = all.findIndex((x) => x.id === pr.id);
+      me = { name: pr.name || "", wins: b.wins || 0, played: b.played || 0,
+             best: b.best || 0, rank: at < 0 ? null : at + 1, of: all.length };
+    }
+    socket.emit("board", { season: seasonOf(), top, me });
   });
 
   on("leaveRoom", () => leave(socket, true));   // deliberate exit
