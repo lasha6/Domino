@@ -131,10 +131,30 @@ test("the app can read the sign-in settings from its own origin", async () => {
   assert.equal(cfg.google, true, "and the app sees that Google is available");
 });
 
-test("a signed-in player whose token went stale is never left with nothing", async () => {
-  // Google tokens last about an hour. When one ages out the player must keep
-  // playing under this device's own progress — for a while they were left with
-  // no profile at all, which is worse than never having signed in.
+test("a stale token can still SIT DOWN — nobody is turned away from a game", async () => {
+  /* Google tokens last about an hour. When one ages out mid-evening the
+     player must still be able to play, under this device's own progress and
+     without the tick by their name. That half of the fallback is the half
+     worth keeping. */
+  const c = client(WITH_GOOGLE);
+  c.emit("createTable", { target: 175, size: 2, name: "ლაშა",
+                          auth: { kind: "google", idToken: FORGED, id: "stale-device" } });
+  assert.ok(await until(() => c.last && c.last.lobby && c.last.lobby.length),
+    "an expired token could not sit down at all");
+  assert.equal(c.last.lobby[0].verified, false, "but the name loses its tick");
+});
+
+test("a stale token is NOT told the guest's progress is theirs", async () => {
+  /* This is the other half, and it used to be wrong. Reading a profile with a
+     token that did not check out handed back the DEVICE's guest progress —
+     silently, with no way to tell. A signed-in player was shown the coins of
+     the guest they used to be, and only sometimes: whenever Google's
+     certificates were already cached the real answer came, and whenever they
+     had to be fetched and the fetch was slow or refused, the wrong one did.
+
+     Null is the right answer. The browser knows what to do with it — renew
+     the token once and ask again — and a moment of "loading" beats a number
+     that is confidently wrong. */
   const c = client(WITH_GOOGLE);
   const asGuest = await new Promise((r) => {
     c.once("profile", r);
@@ -147,9 +167,14 @@ test("a signed-in player whose token went stale is never left with nothing", asy
     // exactly what the browser sends: an expired token, plus the device id
     c.emit("profile", { auth: { kind: "google", idToken: FORGED, id: "stale-device" }, name: "ლაშა" });
   });
-  assert.ok(asStale, "and it is still handed back when the token fails");
-  assert.equal(asStale.coins, asGuest.coins, "the same progress, not a blank one");
-  assert.equal(asStale.verified, false, "but the name loses its tick");
+  assert.equal(asStale, null, "the guest's progress was handed back as the account's");
+
+  // and the shop follows the same rule: the wrong shelf is worse than no shelf
+  const shop = await new Promise((r) => {
+    c.once("shop", r);
+    c.emit("shop", { auth: { kind: "google", idToken: FORGED, id: "stale-device" }, name: "ლაშა" });
+  });
+  assert.equal(shop, null, "the guest's shop was handed back as the account's");
 });
 
 test("a claim to be signed in is worthless without a token", async () => {
@@ -157,4 +182,128 @@ test("a claim to be signed in is worthless without a token", async () => {
   c.emit("createTable", { target: 355, size: 4, name: "ვითომ", auth: { kind: "google" } });
   assert.ok(await until(() => c.last && c.last.lobby && c.last.lobby.length));
   assert.equal(c.last.lobby[0].verified, false, "saying it does not make it so");
+});
+
+/* ---------------- the lobby, and when it asks ---------------- */
+
+test("signing in asks the server again", async () => {
+  /* The bug a player reported: coins and the table they had bought arrived
+     late, or not at all, after signing in with Google. Everything on the front
+     page belongs to an ACCOUNT — coins, level, streak, the skin they bought —
+     and none of it was asked for a second time when the account changed. The
+     page went on showing the progress of the guest they had been a moment
+     before, until something else happened to ask: opening the profile pane,
+     or a reconnect. Sometimes that was seconds, sometimes it never came. */
+  const { readFileSync } = await import("node:fs");
+  const path = (await import("node:path")).default;
+  const html = readFileSync(path.join(CWD, "public", "index.html"), "utf8");
+  assert.match(html, /Auth\.onChange\(\(\) => \{/,
+    "nothing notices that the player is now somebody else");
+  const at = html.indexOf("Auth.onChange(() => {");
+  const body = html.slice(at, html.indexOf("});", at));
+  assert.match(body, /askProfile\(\);/, "the profile is not asked for again");
+  assert.match(body, /emit\("shop"/, "the shop is left showing another account's shelf");
+  assert.match(body, /retried = false;/,
+    "a new identity inherits the old one's spent retry");
+});
+
+test("asking does not wait for the socket to be up", async () => {
+  /* socket.io holds an emit and sends it the moment it connects, so refusing
+     to ask while disconnected saves nothing — it turns "in a second" into
+     "never". On the hosted server, which sleeps and takes up to a minute to
+     wake, that was most of the time somebody first opened the page. */
+  const { readFileSync } = await import("node:fs");
+  const path = (await import("node:path")).default;
+  const html = readFileSync(path.join(CWD, "public", "index.html"), "utf8");
+  const at = html.indexOf("function askProfile()");
+  assert.notEqual(at, -1, "there is no askProfile");
+  assert.doesNotMatch(html.slice(at, html.indexOf("}", at)), /socket\.connected/,
+    "the request is dropped instead of being held");
+  const t = html.indexOf("function askTable()");
+  assert.doesNotMatch(html.slice(t, html.indexOf("}", t)), /socket\.connected/,
+    "the held-chair question is dropped instead of being held");
+});
+
+test("Auth tells anyone who asks when the player changes", async () => {
+  /* Both ways: signing in and signing out. A player who signs out and is still
+     shown the account's coins is the same bug with the sign reversed. */
+  const { readFileSync } = await import("node:fs");
+  const path = (await import("node:path")).default;
+  const auth = readFileSync(path.join(CWD, "public", "js", "auth.js"), "utf8");
+  for (const fn of ["function save(me)", "function signOut()"]) {
+    const at = auth.indexOf(fn);
+    assert.notEqual(at, -1, "no " + fn);
+    assert.match(auth.slice(at, auth.indexOf("\n  }", at)), /listeners\.forEach/,
+      fn + " changes who the player is and tells nobody");
+  }
+  assert.match(auth, /onChange: \(fn\) => listeners\.push\(fn\)/,
+    "there is no way to be told");
+});
+
+test("a game wears the skin the ACCOUNT bought, not the one this device has", async () => {
+  /* The look is kept on the device so a table is the right colour before the
+     server has answered — but the copy is written by the LOBBY. On a phone
+     that had not been back to the front page since signing in, a game opened
+     in the default colours, or in the ones the guest on that device had
+     bought, and stayed that way. */
+  const { readFileSync } = await import("node:fs");
+  const path = (await import("node:path")).default;
+  const src = readFileSync(path.join(CWD, "server.js"), "utf8");
+  assert.match(src, /function lookOf\(room, seat\)/, "the server never says what to wear");
+  assert.equal((src.match(/myLook: lookOf\(room, seat\)/g) || []).length, 5,
+    "not every game sends it");
+  for (const f of ["online.html", "buraonline.html", "jokeronline.html",
+                   "nardi.html", "damka.html"]) {
+    const html = readFileSync(path.join(CWD, "public", f), "utf8");
+    assert.match(html, /if \(st\.myLook && window\.Look\) Look\.remember\(st\.myLook\);/,
+      f + " never puts on what the account is wearing");
+    assert.match(html, /src="js\/theme\.js"/, f + " has no way to wear anything");
+  }
+});
+
+test("no screen calls an Auth function that does not exist", async () => {
+  /* ნარდი and დამკა called `Auth.me()`, guarded as `Auth && Auth.me ? ... :
+     null`. The guard read as caution and WAS the bug: `me` has never been
+     exported, so the null branch was taken every single time and both games
+     joined with no identity at all. The server had nothing to look the player
+     up by, so those two had no profile behind them — no level on the plate,
+     no purse, no coins won or lost, and none of the table they had bought.
+
+     Nothing failed, nothing threw, and the optional-chaining shape made it
+     look deliberate. That is why this is checked by name. */
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const path = (await import("node:path")).default;
+  const PUB = path.join(CWD, "public");
+  const auth = readFileSync(path.join(PUB, "js", "auth.js"), "utf8");
+
+  const block = auth.slice(auth.indexOf("global.Auth = {"), auth.indexOf("})(window)"));
+  const exported = new Set();
+  for (const m of block.matchAll(/(?:^|[\s,{])([A-Za-z_$][\w$]*)\s*(?:,|:)/g)) exported.add(m[1]);
+  assert.ok(exported.has("credentials") && exported.has("name"),
+    "the export list was not read properly: " + [...exported].join(","));
+
+  /* Comments stripped first — the note explaining this very bug names the
+     thing it is about, and a checker that reads prose finds problems in it. */
+  const code = (t) => t
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/^[ \t]*\/\/.*$/gm, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ");
+  const bad = [];
+  for (const f of readdirSync(PUB).filter((x) => x.endsWith(".html"))) {
+    const html = code(readFileSync(path.join(PUB, f), "utf8"));
+    for (const m of html.matchAll(/\bAuth\.([A-Za-z_$][\w$]*)/g))
+      if (!exported.has(m[1])) bad.push(f + " → Auth." + m[1]);
+  }
+  assert.deepEqual([...new Set(bad)], [], "these do not exist and quietly do nothing");
+});
+
+test("every online screen sends who it is when it sits down", async () => {
+  const { readFileSync } = await import("node:fs");
+  const path = (await import("node:path")).default;
+  for (const f of ["online.html", "buraonline.html", "jokeronline.html",
+                   "nardi.html", "damka.html"]) {
+    const html = readFileSync(path.join(CWD, "public", f), "utf8");
+    assert.match(html, /Auth\.credentials\(\)/, f + " never asks who the player is");
+    assert.match(html, /auth: WHO\.auth/, f + " sits down without an identity");
+  }
 });

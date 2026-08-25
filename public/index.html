@@ -714,7 +714,7 @@
     let myTable = null;
     function askTable(){
       const t = localStorage.getItem("dominoToken");
-      if (t && socket.connected) socket.emit("whereAmI", { token: t });
+      if (t) socket.emit("whereAmI", { token: t });   // held until connected
     }
     socket.on("atTable", (t) => {
       myTable = t;
@@ -862,17 +862,37 @@
        the same rules file the server counts with, so the bar the player watches
        and the number that was recorded cannot disagree. */
     let ME = null;                    // the last profile the server sent
+    /* One retry, and it belongs up here because the identity listener below
+       resets it. */
+    let retried = false;
 
+    /* Asked whether or not the socket is up yet. socket.io holds an emit and
+       sends it the moment it connects, so refusing to ask while disconnected
+       does not save anything — it turns "in a second" into "never", which is
+       what a player saw when the hosted server was still waking up. */
     function askProfile(){
-      if (!socket.connected) return;
       socket.emit("profile", { auth: Auth.credentials().auth, name: Auth.name() });
     }
+
+    /* Who the player IS has changed — they signed in, signed out, or their
+       Google token was renewed. Everything on this page is that account's:
+       coins, level, streak, and the table they bought. None of it was asked
+       for again, so somebody who signed in went on being shown the progress
+       of the guest they had been a moment before, until something else
+       happened to ask — opening the profile, or a reconnect. Sometimes that
+       came seconds later, sometimes not at all. */
+    Auth.onChange(() => {
+      retried = false;                       // a new identity gets a fresh go
+      askProfile();
+      // ...and the shop, if they are standing in it
+      if (document.getElementById("shopOverlay").classList.contains("show"))
+        socket.emit("shop", { auth: Auth.credentials().auth, name: Auth.name() });
+    });
     /* The server answers with null when it has nothing to look the player up
        by. For someone signed in that almost always means the Google token has
        aged out (they last about an hour), so try once to renew it quietly and
        ask again. If that fails too they carry on under this device's own
        progress — never with an empty screen. */
-    let retried = false;
     socket.on("profile", (p) => {
       if (!p) {
         if (retried) { profileUnavailable(); return; }

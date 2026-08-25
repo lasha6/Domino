@@ -338,6 +338,10 @@
       lastSt = st;
       if (st.hand) { seated = true; document.getElementById("waitOverlay").classList.remove("show"); }
       else paintWaiting(st);
+      /* Wear what this ACCOUNT bought. The copy on the device is written by
+         the lobby, so on a phone that had not been back to the front page
+         since signing in, a game opened in the wrong colours. */
+      if (st.myLook && window.Look) Look.remember(st.myLook);
       maybeVersus(st, "bura", !!st.hand);
       wireEmotes(st);
       document.getElementById("pauseOverlay").classList.toggle("show", !!st.paused);

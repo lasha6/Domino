@@ -56,6 +56,17 @@ if (GOOGLE_CLIENT_ID) {
   const { OAuth2Client } = require("google-auth-library");
   googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
   console.log("🔐 Google sign-in is on");
+  /* Fetch Google's signing certificates now rather than when the first player
+     needs them. Checking a token is local arithmetic once they are in hand,
+     but getting them is a round trip to Google — and on a host that sleeps,
+     that round trip landed on the first person to sign in after every wake.
+     It is why signing in was sometimes quick and sometimes not.
+
+     Nothing depends on this working: if it fails the certificates are fetched
+     the old way, on demand. */
+  googleClient.getFederatedSignonCertsAsync()
+    .then(() => console.log("🔐 Google certificates ready"))
+    .catch(() => {});
 } else {
   console.log("👤 guests only — set GOOGLE_CLIENT_ID to offer Google sign-in");
 }
@@ -225,6 +236,7 @@ function viewFor(room, seat) {
     waitingFor: room.paused ? room.players.filter((p) => p.online === false).map((p) => p.name) : [],
     resumeIn: room.resumeBy ? Math.max(0, Math.round((room.resumeBy - Date.now()) / 1000)) : null,
     roster: roster(room, seat), stake: matchStake(room),
+    myLook: lookOf(room, seat),
   };
   if (!g) {
     // waiting room: who is here, who is paired with whom, what I may do
@@ -703,6 +715,7 @@ function buraView(room, seat) {
                                           .map(function (p) { return p.name; }) : [],
     resumeIn: room.resumeBy ? Math.max(0, Math.round((room.resumeBy - Date.now()) / 1000)) : null,
     roster: roster(room, seat), stake: matchStake(room),
+    myLook: lookOf(room, seat),
   };
   if (!b) {
     base.lobby = room.players.map(function (p) {
@@ -980,6 +993,7 @@ function nardiView(room, seat) {
     waitingFor: room.paused ? room.players.filter((p) => p.online === false).map((p) => p.name) : [],
     resumeIn: room.resumeBy ? Math.max(0, Math.round((room.resumeBy - Date.now()) / 1000)) : null,
     roster: roster(room, seat), stake: matchStake(room),
+    myLook: lookOf(room, seat),
   };
   if (!n) {
     base.lobby = room.players.map((p) => ({
@@ -1101,6 +1115,7 @@ function damkaView(room, seat) {
     waitingFor: room.paused ? room.players.filter((p) => p.online === false).map((p) => p.name) : [],
     resumeIn: room.resumeBy ? Math.max(0, Math.round((room.resumeBy - Date.now()) / 1000)) : null,
     roster: roster(room, seat), stake: matchStake(room),
+    myLook: lookOf(room, seat),
   };
   if (!d) {
     base.lobby = room.players.map((p) => ({
@@ -1265,6 +1280,7 @@ function jokerView(room, seat) {
                                           .map(function (p) { return p.name; }) : [],
     resumeIn: room.resumeBy ? Math.max(0, Math.round((room.resumeBy - Date.now()) / 1000)) : null,
     roster: roster(room, seat), stake: matchStake(room),
+    myLook: lookOf(room, seat),
   };
   if (!j) {
     base.lobby = room.players.map(function (p) {
@@ -1492,6 +1508,20 @@ function roster(room, seat) {
 }
 const matchStake = (room) => stakeFor(room.target) * (room.stakeMul || 1);
 
+/* The look this player's ACCOUNT is wearing.
+
+   Every screen keeps a copy on the device so a table is the right colour
+   before the server has answered — but that copy is written by the LOBBY. On
+   a phone where the lobby had not fetched the signed-in profile yet, a game
+   opened in the default colours, or in the ones the guest on that device had
+   bought, and stayed that way until the player went back to the front page.
+   It rides with the roster line for the same reason the bank does: it is the
+   one line every game already sends. */
+function lookOf(room, seat) {
+  const p = room.players.find((x) => x.seat === seat);
+  return p && p.profile ? Progress.equipped(p.profile) : null;
+}
+
 function awardMatch(room, p, won) {
   /* Giving a chair up loses the match, which is what the screen warns
      before it asks. Without this the computer could go on and win with the
@@ -1617,18 +1647,29 @@ io.on("connection", (socket) => {
   // Google; anything else is a guest, taken at their word — which is exactly
   // why only a signed-in name is ever marked verified.
   async function identify(auth, name) {
+    let stale = false;
     if (auth && auth.kind === "google" && auth.idToken) {
       const ok = await verifyGoogle(auth.idToken);
       if (ok) return { name: ok.name || name, account: ok.account, picture: ok.picture, verified: true };
-      // The token did not check out — usually just old, since Google's last
-      // about an hour. They keep playing under the device's own progress
-      // rather than being left with nothing, and the name loses its tick.
+      /* The token did not check out — usually just old, since Google's last
+         about an hour. For SITTING DOWN that is not a reason to turn anybody
+         away: they keep playing under the device's own progress rather than
+         being left with nothing, and the name loses its tick.
+
+         For READING A PROFILE it is a different matter, and `stale` is how
+         the two are told apart. Handing back the guest's coins to somebody
+         who asked as themselves is not a fallback, it is a wrong answer — and
+         a silent one, which is why it looked intermittent: whenever Google's
+         certificates had to be fetched and the fetch was slow or refused, a
+         signed-in player was quietly shown the progress of the guest they
+         used to be. */
+      stale = true;
     }
     // A guest still gets progress, kept against the id their device made. It
     // stays with the device rather than the person — signing in is what
     // carries a level to a new phone.
     const id = auth && typeof auth.id === "string" && auth.id.length <= 64 ? auth.id : null;
-    return { name, account: id ? "guest:" + id : null, verified: false };
+    return { name, account: id ? "guest:" + id : null, verified: false, stale };
   }
 
   // identify(), then fetch what we already know about them
@@ -2113,6 +2154,11 @@ io.on("connection", (socket) => {
   /* ---------------- profile: level, coins, streaks ---------------- */
   on("profile", async ({ auth, name }) => {
     const who = await whoIs(auth, clean(name));
+    /* Asked as themselves and could not be checked: say nothing rather than
+       something wrong. The browser knows what to do with a null — it renews
+       the token once and asks again — and that is a great deal better than
+       showing a signed-in player the coins of the guest they used to be. */
+    if (who.stale) return socket.emit("profile", null);
     if (!who.profile) return socket.emit("profile", null);
     if (who.name && who.profile.name !== who.name) {
       who.profile.name = clean(who.name);
@@ -2145,7 +2191,8 @@ io.on("connection", (socket) => {
      be free to anyone willing to edit a number. */
   on("shop", async ({ auth, name }) => {
     const who = await whoIs(auth, clean(name));
-    if (!who.profile) return socket.emit("shop", null);
+    // the same rule as the profile: the wrong shelf is worse than no shelf
+    if (who.stale || !who.profile) return socket.emit("shop", null);
     socket.emit("shop", { items: Progress.shopState(who.profile), ...summarise(who.profile) });
   });
 

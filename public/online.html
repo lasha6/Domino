@@ -325,6 +325,10 @@
       S = st;
       lastSt = st;
       seated = true;
+      /* Wear what this ACCOUNT bought. The copy on the device is written by
+         the lobby, so on a phone that had not been back to the front page
+         since signing in, a game opened in the wrong colours. */
+      if (st.myLook && window.Look) Look.remember(st.myLook);
       maybeVersus(st, "domino", st.phase === "play");
       wireEmotes(st);
       if (st.paused) showPaused(st.waitingFor, st.resumeIn); else hidePaused();

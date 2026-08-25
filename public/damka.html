@@ -426,6 +426,10 @@
     clockLeft = st.moveLeft; clockTotal = st.moveTime;
     spending = st.overtimeLeft != null;
     banks = st.roster || null;
+    /* Wear what this ACCOUNT bought. The copy on the device is written by
+       the lobby, so on a phone that had not been back to the front page
+       since signing in, a game opened in the wrong colours. */
+    if (st.myLook && window.Look) Look.remember(st.myLook);
     maybeVersus(st, "damka", !!st.cells && st.phase === "play");
     wireEmotes(st);
     if (!g) g = Damka.newGame({});
@@ -480,11 +484,17 @@
 
   function startOnline() {
     socket = io(window.SERVER_URL || undefined, { transports: ["websocket", "polling"] });
-    const who = Auth && Auth.me ? Auth.me() : null;
+    /* `Auth.me` has never existed — the guard read as caution and was in fact
+       the bug: it always took the null branch, so ნარდი and დამკა joined with
+       no identity at all. The server had nothing to look the player up by, so
+       these two games had no profile behind them: no level on the plate, no
+       purse, no coins won or lost, and none of the table a player had bought.
+       `credentials()` is what the other three screens have always sent. */
+    const WHO = Auth.credentials();
     const join = () => {
       const p = { game: "damka", size: 2,
-                  name: (Auth && Auth.name && Auth.name()) || "მოთამაშე",
-                  token: TOKEN, auth: who };
+                  name: WHO.name || "მოთამაშე",
+                  token: TOKEN, auth: WHO.auth };
       if (MODE === "quick") socket.emit("quickJoin", p);
       else if (MODE === "friend") socket.emit("createTable", p);
       else if (MODE === "join") socket.emit("joinTable", Object.assign({ code: (P.get("code") || "").toUpperCase() }, p));
