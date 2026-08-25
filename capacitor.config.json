@@ -1,6 +1,6 @@
 {
   "appId": "ge.domino.ozi",
-  "appName": "Domino",
+  "appName": "Pips",
   "webDir": "public",
   "android": {
     "allowMixedContent": false

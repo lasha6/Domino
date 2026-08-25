@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">დომინო</string>
-    <string name="title_activity_main">დომინო</string>
+    <string name="app_name">Pips</string>
+    <string name="title_activity_main">Pips</string>
     <string name="package_name">ge.domino.ozi</string>
     <string name="custom_url_scheme">ge.domino.ozi</string>
 </resources>

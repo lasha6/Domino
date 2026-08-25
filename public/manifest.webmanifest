@@ -1,8 +1,8 @@
 {
-  "name": "დომინო — ონლაინ",
-  "short_name": "დომინო",
-  "description": "ქართული \"ოზი\" — ონლაინ დომინო მეგობრებთან ან კომპიუტერთან.",
-  "lang": "ka",
+  "name": "Pips — Backgammon, Dominoes & Cards",
+  "short_name": "Pips",
+  "description": "Backgammon, dominoes, draughts and Georgian card games — online against real people or against the computer.",
+  "lang": "en",
   "dir": "ltr",
   "start_url": "./index.html",
   "scope": "./",
@@ -11,7 +11,7 @@
   "orientation": "landscape",
   "background_color": "#07301c",
   "theme_color": "#0f5230",
-  "categories": ["games", "board"],
+  "categories": ["games", "board", "card"],
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },

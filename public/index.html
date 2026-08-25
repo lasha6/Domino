@@ -3,7 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>დომინო</title>
+  <!-- The brand is on the icon; the words people actually type are here. No
+       one word can be both ownable and searched, so the short name owns the
+       home screen and the long one carries backgammon, dominoes and draughts —
+       which is what a search engine and an app store read. -->
+  <title>Pips — Backgammon, Dominoes, Draughts &amp; Cards Online</title>
+  <meta name="description" content="Play backgammon, dominoes, draughts and Georgian card games online against real people or the computer. Free, in the browser, no install. ნარდი, დომინო, დამკა, ბურა და ჯოკერი ონლაინ." />
   <!-- "მთავარ ეკრანზე დამატება" გვაძლევს მუდმივ სრულ ეკრანს — ბრაუზერის ზოლების გარეშე -->
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#0f5230" />
@@ -79,6 +84,10 @@
 
       <!-- ---- which game ---- -->
       <div class="center" id="pickGame">
+        <!-- The name of the place, above the list of what is played in it. It
+             is not translated: a brand keeps its spelling in both languages,
+             the way brands do. What IS translated is the line under it. -->
+        <div class="brand"><b>Pips</b><i>სამაგიდო თამაშები</i></div>
         <h1 class="logo-title">აირჩიე თამაში</h1>
         <div class="games">
           <button class="game" onclick="chooseGame('domino')">

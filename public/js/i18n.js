@@ -26,6 +26,7 @@
     // --- the games, and the front page ---
     "დომინო": "Domino", "ბურა": "Bura", "ჯოკერი": "Joker",
     "აირჩიე თამაში": "Choose a game",
+    "სამაგიდო თამაშები": "Classic table games",
     "ქართული წესებით": "Georgian rules",
     "3 და 5 კარტა": "3 and 5 card",
     "24 ხელი · 4 მოთამაშე": "24 hands · 4 players",

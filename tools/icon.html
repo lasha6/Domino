@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+  html,body{margin:0;padding:0;background:#000;}
+  svg{display:block;}
+</style></head><body>
+<!-- The mark. One tile, split the way a domino is split, saying the two halves
+     of what the app holds: the pips of dominoes and dice above, a card suit
+     below. Walnut and brass, the same materials as the boards. -->
+<svg id="art" width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="38%" cy="30%" r="78%">
+      <stop offset="0"   stop-color="#1c5a37"/>
+      <stop offset="55%" stop-color="#0d3d23"/>
+      <stop offset="1"   stop-color="#05230f"/>
+    </radialGradient>
+    <linearGradient id="bone" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#fffdf6"/>
+      <stop offset="52%" stop-color="#f4eeda"/>
+      <stop offset="1"   stop-color="#ded2b3"/>
+    </linearGradient>
+    <linearGradient id="brass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0"   stop-color="#f2cd7e"/>
+      <stop offset="50%" stop-color="#c2913c"/>
+      <stop offset="1"   stop-color="#8a6524"/>
+    </linearGradient>
+    <filter id="drop" x="-30%" y="-30%" width="160%" height="160%"
+            color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000" flood-opacity=".55"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="0" fill="url(#bg)"/>
+
+  <!-- a thin brass rule round the edge, the way the boards are edged -->
+  <rect x="26" y="26" width="460" height="460" rx="76"
+        fill="none" stroke="url(#brass)" stroke-width="5" opacity=".55"/>
+
+  <g filter="url(#drop)">
+    <!-- the tile -->
+    <rect x="146" y="86" width="220" height="340" rx="26"
+          fill="url(#bone)" stroke="#b9ac89" stroke-width="3"/>
+    <!-- the split -->
+    <rect x="164" y="250" width="184" height="9" rx="4.5" fill="url(#brass)"/>
+
+    <!-- above: five pips, the face of a die and the head of a domino -->
+    <g fill="#15150f">
+      <circle cx="196" cy="136" r="17"/>
+      <circle cx="316" cy="136" r="17"/>
+      <circle cx="256" cy="176" r="17"/>
+      <circle cx="196" cy="216" r="17"/>
+      <circle cx="316" cy="216" r="17"/>
+    </g>
+
+    <!-- below: a spade, so the cards are in the mark too -->
+    <path d="M256 288
+             c -32 34 -62 52 -62 82
+             c 0 20 16 32 32 32
+             c 12 0 21 -6 26 -14
+             c -2 22 -8 32 -16 40
+             h 40
+             c -8 -8 -14 -18 -16 -40
+             c 5 8 14 14 26 14
+             c 16 0 32 -12 32 -32
+             c 0 -30 -30 -48 -62 -82 z"
+          fill="#15150f"/>
+  </g>
+</svg>
+<script>
+  // the renderer passes ?s=192 etc; the maskable one is drawn smaller inside
+  // the same square so nothing important is lost to a circular crop
+  const p = new URLSearchParams(location.search);
+  const s = +p.get("s") || 512;
+  const art = document.getElementById("art");
+  art.setAttribute("width", s); art.setAttribute("height", s);
+  if (p.get("mask")) {
+    // 80% safe zone: the tile shrinks, the ground fills the whole square
+    art.querySelector('rect[stroke-width="5"]').remove();
+    const g = art.querySelector("g[filter]");
+    g.setAttribute("transform", "translate(256 256) scale(.78) translate(-256 -256)");
+  }
+  document.body.style.width = s + "px";
+  document.body.style.height = s + "px";
+</script>
+</body></html>
