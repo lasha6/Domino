@@ -494,3 +494,57 @@ test("the player who took the trick draws first", () => {
   assert.ok(g.hands[took].some((c) => c.join("-") === one),
     "the last card went to somebody other than the player who won the trick");
 });
+
+/* =====================================================================
+   Between one ROUND and the next.
+
+   A round ending is not a trick ending, and the two do opposite things. After
+   a trick a hand is topped up from the deck. After a round every card comes
+   back in, the deck is shuffled, and all of it is dealt again — a new trump
+   turned, the taken piles emptied, nothing carried over at all.
+
+   And the side that WON the round leads the new one. The engine had the loser
+   leading, which is the ნარდი rule and the ozi one, not the ბურა one.
+   ===================================================================== */
+
+for (const players of [2, 4]) {
+  const label = players === 2 ? "1v1" : "2v2";
+
+  test(`ბურა ${label}: a new round is dealt from a fresh shuffled deck`, () => {
+    const g = B.newGame({ variant: "5", players, rnd: fixed(3) });
+    const key = (c) => c.join("-");
+    const oldHands = g.hands.map((h) => h.map(key));
+    const oldTrump = g.trumpCard && key(g.trumpCard);
+    const full = g.deck.length;
+
+    // spend some of the round, so there is something to NOT carry over
+    playTrick(g);
+    g.taken[0].push(g.hands[0].pop());
+    g.phase = "roundOver"; g.roundWinner = 0;
+    assert.ok(B.nextRound(g), "the round would not turn over");
+
+    for (let p = 0; p < players; p++) {
+      assert.equal(g.hands[p].length, g.handSize, `seat ${p} was not dealt a full hand`);
+      const carried = g.hands[p].map(key).filter((c) => oldHands[p].includes(c));
+      /* A card CAN come round again — it is the same deck reshuffled — but a
+         whole hand coming back would mean it was never collected. */
+      assert.ok(carried.length < g.handSize,
+        `seat ${p} kept its entire old hand — the cards were never taken in`);
+    }
+    assert.equal(g.deck.length, full, "the deck did not come back whole");
+    assert.deepEqual(g.taken.map((t) => t.length), g.taken.map(() => 0),
+      "what somebody took last round is still sitting in front of them");
+    assert.ok(g.trumpCard, "no trump was turned for the new round");
+    assert.equal(g.round, 2, "the round number did not move on");
+  });
+
+  test(`ბურა ${label}: the side that won the round leads the next one`, () => {
+    for (const winner of [0, 1]) {
+      const g = B.newGame({ variant: "5", players, rnd: fixed(9) });
+      g.phase = "roundOver"; g.roundWinner = winner;
+      B.nextRound(g);
+      assert.equal(B.teamOf(g, g.turn), winner,
+        `team ${winner} won and the other side was given the lead`);
+    }
+  });
+}

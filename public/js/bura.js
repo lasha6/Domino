@@ -423,11 +423,19 @@
   }
 
   // Deal again for the next round; the side that lost the last one leads.
+  /* A new round is a NEW DEAL: every card comes back in, the deck is shuffled
+     and all of it is dealt again. Nothing carries over — not a hand, not the
+     turned trump, not what anybody took. Topping a hand up from the deck is
+     what happens between TRICKS; between rounds there is nothing to top up.
+
+     And the side that WON the round leads it. This had the loser leading,
+     which is the ნარდი rule and the ozi one — it is not the ბურა one, and the
+     player said so plainly. */
   function nextRound(g) {
     if (g.phase !== "roundOver") return false;
     const starter = g.roundWinner == null
       ? g.turn
-      : teamSeats(g, 1 - g.roundWinner)[0];
+      : teamSeats(g, g.roundWinner)[0];
     const fresh = newGame({ variant: g.variant, target: g.target, players: g.players,
                             openMalutka: g.openMalutka });
     Object.assign(g, {
