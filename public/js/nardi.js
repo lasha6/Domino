@@ -423,7 +423,14 @@
   function nextRound(g) {
     if (g.phase !== "roundOver") return false;
     g.round++;
-    g.side = other(g.roundWinner);        // the loser opens the next one
+    /* The winner of a round opens the next one — the same rule as ოზი and
+       ბურა, so all three answer "who starts?" the same way.
+
+       The opening THROW belongs to a new table and not to a new round: two
+       players carrying on at the same table have already settled who goes
+       first, and rolling for it again every round would be ceremony where a
+       decision has already been made. It stays where it is, in newGame. */
+    g.side = g.roundWinner;
     g.roundWinner = null; g.roundWorth = 0;
     g.dice = null; g.left = []; g.moved = [];
     g.phase = "roll";

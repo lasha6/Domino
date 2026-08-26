@@ -511,7 +511,7 @@
     "ქვები მხოლოდ მაშინ გააქვს, როცა თხუთმეტივე სახლშია. ზუსტი რიცხვი ყოველთვის გააქვს; მეტი რიცხვი — მხოლოდ ყველაზე შორს მდგომს, სხვის თავზე გადახტომა არ შეიძლება.": "Nothing comes off until all fifteen are home. An exact roll always bears one off; a bigger roll takes the checker furthest from home, and never jumps over one behind it.",
     "მოგება ერთი ქულაა. თუ წაგებულს ერთი ქვაც არ გაუტანია — მარსი, ორი ქულა. მოკლეში, თუ თანაც ბარზე უდგას ან შენს სახლშია — კოკა, სამი ქულა.": "A win is one point. If the loser bore none off it is a gammon, worth two. In the short game, if on top of that they still have a checker on the bar or in your home, it is a backgammon, worth three.",
     "მატჩი.": "The match.",
-    "ვინც ოთახის ქულას პირველი მიაღწევს. შემდეგ პარტიას წაგებული იწყებს.": "Whoever reaches the table's target first. The loser opens the next game.",
+    "ვინც ოთახის ქულას პირველი მიაღწევს. შემდეგ პარტიას მოგებული იწყებს.": "Whoever reaches the table's target first. The winner opens the next game.",
     "8×8, თორმეტ-თორმეტი ქვა მუქ უჯრებზე.": "Eight by eight, twelve pieces each, on the dark squares.",
     "ჩვეულებრივი ქვა დიაგონალზე ერთ უჯრას წინ მიდის.": "A man walks one square diagonally forward.",
     "ჭამა სავალდებულოა.": "Taking is compulsory.",

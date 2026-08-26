@@ -12,6 +12,7 @@
    ===================================================================== */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 
 const N = createRequire(import.meta.url)("../public/js/nardi.js");
@@ -357,7 +358,7 @@ test("the match ends when somebody reaches the target", () => {
   assert.equal(g.matchWinner, 0);
 });
 
-test("and the loser opens the next round", () => {
+test("and the winner opens the next round", () => {
   const g = N.newGame({ variant: "long", target: 7 });
   place(g, { 0: { 23: 1 }, 1: { 5: 14 }, off: [14, 1] });
   g.side = 0;
@@ -365,7 +366,7 @@ test("and the loser opens the next round", () => {
   N.move(g, 23, 1);
   assert.equal(g.phase, "roundOver");
   N.nextRound(g);
-  assert.equal(g.side, 1, "the one who lost throws first");
+  assert.equal(g.side, 0, "the one who won throws first");
   assert.equal(g.round, 2);
   assert.equal(mine(g, 0), 15, "and the board is set up again");
   assert.equal(mine(g, 1), 15);
@@ -615,16 +616,18 @@ test("no ordinary roll happens while the opening is undecided", () => {
   assert.equal(g.left.length, 0);
 });
 
-test("later rounds are opened by the loser, with no throw at all", () => {
-  /* The ceremony is for the start of a MATCH. Between rounds the custom is
-     older and simpler: whoever lost the last one goes first. */
+test("later rounds are opened by the winner, with no throw at all", () => {
+  /* The ceremony belongs to a new TABLE, where nobody has a claim on going
+     first. Once two people are playing, that has been settled by playing:
+     whoever won the last round opens the next, and asking the dice again
+     would be ceremony over a decision already made. */
   const g = N.newGame({ variant: "long", target: 7, opening: true });
   N.openRoll(g, 0, () => 0.9);
   N.openRoll(g, 1, () => 0.1);
   g.phase = "roundOver"; g.roundWinner = 0; g.roundWorth = 1; g.scores = [1, 0];
   N.nextRound(g);
   assert.equal(g.phase, "roll", "straight to the throw, no ceremony");
-  assert.equal(g.side, 1, "the loser opens");
+  assert.equal(g.side, 0, "the winner opens");
 });
 
 /* ---------------- a throw with nowhere to go ----------------
@@ -707,4 +710,52 @@ test("a side that has already thrown is not thrown for twice", () => {
   N.openRoll(g, 0, () => 0.5);
   assert.ok(!N.owesOpening(g, 0));
   assert.equal(N.openRoll(g, 0, () => 0.9), null, "it threw a second time");
+});
+
+/* ---------------- who opens ----------------
+
+   Two different questions, and they have different answers:
+
+     · a NEW TABLE — nobody has any claim on going first, so both throw one
+       die and the higher one opens;
+     · the NEXT ROUND at the same table — that has been settled by playing,
+       and the winner of the round opens.
+
+   It had the loser opening, which is a real convention in some houses but not
+   this one, and it made ნარდი the only game of the five that answered "who
+   starts?" differently from the other four.
+   ---------------------------------------------------------------- */
+
+test("a new table is opened by a throw, not by anybody's claim", () => {
+  const g = N.newGame({ variant: "long", target: 3, opening: true });
+  assert.equal(g.phase, "opening", "a fresh table does not roll for the lead");
+  assert.deepEqual(g.opening, [null, null], "somebody has already thrown");
+  assert.ok(N.owesOpening(g, 0) && N.owesOpening(g, 1), "not both sides owe a throw");
+});
+
+test("the next round at the same table is opened by whoever won the last one", () => {
+  for (const winner of [0, 1]) {
+    const g = N.newGame({ variant: "long", target: 7 });
+    g.phase = "roundOver"; g.roundWinner = winner; g.roundWorth = 1;
+    assert.ok(N.nextRound(g), "the round would not turn over");
+    assert.equal(g.side, winner, `side ${winner} won and the other one was given the lead`);
+  }
+});
+
+test("carrying on at the same table does not throw for the lead again", () => {
+  /* The two have already settled who goes first; asking the dice a second
+     time is ceremony over a decision that has been made. */
+  const g = N.newGame({ variant: "short", target: 5 });
+  g.phase = "roundOver"; g.roundWinner = 1;
+  N.nextRound(g);
+  assert.equal(g.phase, "roll", "the next round starts with a roll-off");
+  assert.equal(g.round, 2, "the round number did not move on");
+});
+
+test("ნარდი now answers 'who starts?' the way ოზი and ბურა do", () => {
+  /* Not a rule of the game so much as a rule about the app: five games that
+     each answer it differently is five things to learn. */
+  const src = readFileSync(new URL("../public/js/nardi.js", import.meta.url), "utf8");
+  assert.match(src, /g\.side = g\.roundWinner;/, "the winner does not open");
+  assert.doesNotMatch(src, /g\.side = other\(g\.roundWinner\)/, "the loser still opens");
 });
