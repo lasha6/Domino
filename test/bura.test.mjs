@@ -410,3 +410,87 @@ test("the trump suit survives the card being drawn", () => {
   assert.equal(g.trump, suit, "the suit does not move when the deck empties");
   assert.ok(g.trump >= 0 && g.trump < 4, "and spades being 0 is a real suit, not nothing");
 });
+
+/* =====================================================================
+   Between one trick and the next.
+
+   Two rules the player stated, both of them the ordinary ბურა ones, and
+   neither of them protected by a test until now:
+
+     · whoever took the trick leads the following one;
+     · nothing in a hand is thrown away and re-dealt — what you are holding
+       stays, and only the shortfall is drawn back.
+
+   The second is the one worth guarding. "Deal again" is the natural thing to
+   write, and it would be wrong: a hand is only ever topped up.
+   ===================================================================== */
+
+// a repeatable shuffle, so a failure names a rule rather than a deal
+function fixed(seed) {
+  let s = seed;
+  return () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648;
+}
+
+/* Lead the first card, then let everyone answer with the first card that is
+   accepted. Returns who took it. */
+function playTrick(g) {
+  const leader = g.turn;
+  assert.ok(B.lead(g, leader, [g.hands[leader][0]]), "the leader could not lead");
+  let took = -1;
+  for (let k = 0; k < g.players - 1; k++) {
+    const s = g.turn;
+    let done = false;
+    for (const c of g.hands[s].slice()) {
+      const r = B.answer(g, s, [c]);
+      if (r !== null) { took = r; done = true; break; }
+    }
+    assert.ok(done, "seat " + s + " had no legal answer at all");
+  }
+  return took;
+}
+
+for (const players of [2, 4]) {
+  test(`ბურა ${players === 2 ? "1v1" : "2v2"}: whoever takes the trick leads the next one`, () => {
+    const g = B.newGame({ variant: "5", players, rnd: fixed(7) });
+    const took = playTrick(g);
+    assert.notEqual(took, -1, "nobody took the trick");
+    assert.equal(g.turn, took, "the trick was taken by one player and led by another");
+  });
+
+  test(`ბურა ${players === 2 ? "1v1" : "2v2"}: a hand is topped up, never re-dealt`, () => {
+    const g = B.newGame({ variant: "5", players, rnd: fixed(13) });
+    const key = (c) => c.join("-");
+    const before = g.hands.map((h) => h.map(key));
+    const deckBefore = g.deck.length;
+
+    playTrick(g);
+
+    let drawn = 0;
+    for (let p = 0; p < players; p++) {
+      const after = g.hands[p].map(key);
+      /* Everything still held was held before: one card each left the hand to
+         make the trick, and nothing else moved. */
+      const kept = before[p].filter((c) => after.includes(c));
+      assert.equal(kept.length, before[p].length - 1,
+        `seat ${p} lost cards it had not played — the hand was re-dealt`);
+      const fresh = after.filter((c) => !before[p].includes(c));
+      assert.ok(fresh.length <= 1, `seat ${p} drew ${fresh.length} for one card played`);
+      drawn += fresh.length;
+      assert.equal(after.length, g.handSize, `seat ${p} was not brought back up`);
+    }
+    assert.equal(deckBefore - g.deck.length, drawn,
+      "the deck lost a different number of cards than the players gained");
+  });
+}
+
+test("the player who took the trick draws first", () => {
+  /* It matters at the very end, when there are fewer cards left than players:
+     the winner is the one who gets them. */
+  const g = B.newGame({ variant: "5", players: 4, rnd: fixed(5) });
+  g.deck = g.deck.slice(0, 1);                 // one card left for four hands
+  const one = g.deck[0].join("-");
+  const took = playTrick(g);
+  assert.notEqual(took, -1, "nobody took the trick");
+  assert.ok(g.hands[took].some((c) => c.join("-") === one),
+    "the last card went to somebody other than the player who won the trick");
+});
