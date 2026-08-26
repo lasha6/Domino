@@ -104,14 +104,52 @@
     return gsiPromise;
   }
 
+  /* A page launched from a home-screen ICON runs in its own window, and
+     `window.open` there hands the job to the browser instead. Google's popup
+     flow then delivers the credential to a completely different context —
+     one with its own storage, which this app cannot read — so the player is
+     thrown out to Google and never comes back signed in.
+
+     The redirect flow is an ordinary top-level form submission, which stays in
+     whatever window it started in. It costs a page load, so it is used only
+     where the popup cannot work. */
+  const standalone = () => !!(global.navigator && global.navigator.standalone) ||
+    !!(global.matchMedia && (global.matchMedia("(display-mode: standalone)").matches ||
+                             global.matchMedia("(display-mode: fullscreen)").matches));
+
+  /* Coming back from that redirect: the address carries a one-time code, and
+     the token is fetched with it rather than being put in the URL — a token in
+     a URL is a token in the history, in the address bar and in every referrer.
+
+     Run on load, before anything asks who the player is. */
+  function collect() {
+    const m = /[#&]gauth=([^&]+)/.exec(global.location.hash || "");
+    if (!m) return Promise.resolve(null);
+    const code = decodeURIComponent(m[1]);
+    // the address is cleaned either way, so a reload cannot repeat any of this
+    try {
+      const clean = global.location.href.replace(/[#&]gauth=[^&]*/, "");
+      global.history.replaceState(null, "", clean || global.location.pathname);
+    } catch (e) {}
+    if (code === "csrf" || code === "bad") return Promise.resolve(null);
+    return fetch(base() + "/auth/claim?code=" + encodeURIComponent(code))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => (j && j.ok ? save(fromIdToken(j.credential)) : null))
+      .catch(() => null);
+  }
+  const collected = collect();
+
   // Google requires their own button, so we hand them an element to draw into.
   function mountGoogleButton(el, onDone, onFail) {
     config().then((cfg) => {
       if (!cfg.google || !cfg.clientId) throw new Error("not configured");
       return loadGsi().then(() => cfg);
     }).then((cfg) => {
+      const viaRedirect = standalone();
       global.google.accounts.id.initialize({
         client_id: cfg.clientId,
+        ux_mode: viaRedirect ? "redirect" : "popup",
+        login_uri: viaRedirect ? base() + "/auth/google" : undefined,
         callback: (res) => {
           const me = fromIdToken(res && res.credential);
           if (me) { save(me); onDone && onDone(me); }
@@ -180,5 +218,9 @@
     name: () => { const m = load(); return (m && m.name) || ""; },
     isGoogle: () => { const m = load(); return !!(m && m.kind === "google"); },
     onChange: (fn) => listeners.push(fn),
+    /* Resolves once a sign-in that came back by redirect has been collected —
+       or straight away when there was none. A screen that needs to know who
+       the player is before it does anything can wait on it. */
+    ready: () => collected,
   };
 })(window);

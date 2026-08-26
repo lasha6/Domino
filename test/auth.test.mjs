@@ -307,3 +307,89 @@ test("every online screen sends who it is when it sits down", async () => {
     assert.match(html, /auth: WHO\.auth/, f + " sits down without an identity");
   }
 });
+
+/* =====================================================================
+   Signing in from an icon.
+
+   Google's button opens a POPUP and hands the credential back to the page that
+   opened it. That works in a browser tab and nowhere else: a page launched from
+   a home-screen icon runs in its own window, `window.open` there hands the job
+   to the browser, and the credential arrives in a different context with its
+   own storage that the app cannot read. The player is thrown out to Google and
+   never comes back signed in — which is what was reported.
+
+   The redirect flow is a plain top-level form POST, so it stays in the window
+   it started in. What can be checked here is every way that POST is refused;
+   the accepted path needs a credential Google actually signed, which no test
+   can mint, so the properties of the one-time code are read off the source
+   instead.
+   ===================================================================== */
+
+const AUTH_PORT = 3902;
+
+test("a forged sign-in POST is refused, however it is shaped", async () => {
+  /* Google sends the same random value twice — in the body and in a cookie it
+     set itself. Only a form Google actually rendered has both. */
+  const s = startServer(AUTH_PORT, { GOOGLE_CLIENT_ID: "test.apps.googleusercontent.com" });
+  await ready(s);
+  const post = async (body, cookie) => {
+    const r = await fetch(`http://127.0.0.1:${AUTH_PORT}/auth/google`, {
+      method: "POST", redirect: "manual",
+      headers: Object.assign({ "content-type": "application/x-www-form-urlencoded" },
+                             cookie ? { cookie } : {}),
+      body,
+    });
+    return r.headers.get("location") || "";
+  };
+
+  assert.match(await post("credential=x"), /#gauth=csrf$/,
+    "a POST with no token at all was let through");
+  assert.match(await post("g_csrf_token=BBB&credential=x", "g_csrf_token=AAA"), /#gauth=csrf$/,
+    "a POST whose cookie and body disagree was let through");
+  assert.match(await post("g_csrf_token=AAA&credential=x", "g_csrf_token=AAA"), /#gauth=bad$/,
+    "a credential Google never signed was accepted");
+});
+
+test("a code that was never issued buys nothing", async () => {
+  const r = await fetch(`http://127.0.0.1:${AUTH_PORT}/auth/claim?code=nope`);
+  assert.equal(r.status, 404);
+  assert.equal((await r.json()).ok, false);
+});
+
+test("the token never travels in the address bar, and the code works once", async () => {
+  /* A token in a URL is a token in the history, in the address bar and in
+     every referrer that leaks. What goes in the address is a code that is
+     worth nothing a minute later and nothing at all a second time. */
+  const { readFileSync } = await import("node:fs");
+  const path = (await import("node:path")).default;
+  const src = readFileSync(path.join(CWD, "server.js"), "utf8");
+
+  const at = src.indexOf('app.post("/auth/google"');
+  assert.notEqual(at, -1, "there is no redirect endpoint, so an icon cannot sign in");
+  const post = src.slice(at, src.indexOf("\n});", at));
+  assert.doesNotMatch(post, /#gauth=" \+ req\.body\.credential/,
+    "the credential itself is put in the address");
+  assert.match(post, /newClaim\(req\.body\.credential\)/, "no one-time code is minted");
+
+  const claim = src.slice(src.indexOf('app.get("/auth/claim"'));
+  assert.ok(claim.indexOf("claims.delete(code)") < claim.indexOf("if (!found"),
+    "the code is only spent after it is checked, so a failed claim leaves it usable");
+  assert.match(src, /const CLAIM_TTL = \d+;/, "a code never expires");
+});
+
+test("the popup is only replaced where it cannot come back", async () => {
+  /* The redirect costs a page load, so a browser tab keeps the popup. */
+  const { readFileSync } = await import("node:fs");
+  const path = (await import("node:path")).default;
+  const auth = readFileSync(path.join(CWD, "public", "js", "auth.js"), "utf8");
+  assert.match(auth, /ux_mode: viaRedirect \? "redirect" : "popup"/,
+    "every browser is sent through the redirect, or none is");
+  assert.match(auth, /navigator && global\.navigator\.standalone/,
+    "an iOS home-screen launch is not recognised");
+  assert.match(auth, /display-mode: standalone/, "nobody else's standalone is recognised");
+  assert.match(auth, /login_uri: viaRedirect \? base\(\) \+ "\/auth\/google" : undefined/,
+    "Google is not told where to post the credential");
+  // and the address is cleaned whatever happened, so a reload cannot repeat it
+  assert.match(auth, /history\.replaceState\(null, "", clean/,
+    "the code is left in the address after it has been spent");
+});

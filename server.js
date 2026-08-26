@@ -8,6 +8,7 @@ import http from "http";
 import { Server } from "socket.io";
 import { fileURLToPath } from "url";
 import path from "path";
+import crypto from "crypto";
 // what the ბურა table is showing — the server draws it; no screen needs it
 import * as BuraTable from "./buratable.js";
 import { createRequire } from "module";
@@ -77,7 +78,7 @@ if (GOOGLE_CLIENT_ID) {
    from the start; these plain routes were not, so the app could not read them
    and quietly decided Google sign-in was switched off.
    Nothing here is private and nothing is read from a cookie, so anyone may ask. */
-app.use(["/auth/config", "/status"], (_req, res, next) => {
+app.use(["/auth/config", "/status", "/auth/claim"], (_req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   next();
 });
@@ -94,6 +95,73 @@ const GRANT_CODE = (process.env.GRANT_CODE || "").trim().toUpperCase();
 const GRANT_COINS = Math.max(0, parseInt(process.env.GRANT_COINS || "10000", 10) || 0);
 const GRANT_GEMS = Math.max(0, parseInt(process.env.GRANT_GEMS || "100", 10) || 0);
 if (GRANT_CODE) console.log(`🎟️  a promo code is active — ${GRANT_COINS} coins + ${GRANT_GEMS} gems, once per account`);
+
+/* ------------------------------------------------------------------ *
+ * Signing in from an icon
+ *
+ * Google's button normally opens a POPUP and hands the credential back to the
+ * page that opened it. That works in a browser tab and nowhere else: a page
+ * launched from a home-screen icon runs in its own window, `window.open` there
+ * hands the job to the BROWSER, and the credential comes back to a completely
+ * different context — one with its own storage, which the app cannot read. The
+ * player is thrown out to Google and never comes back signed in, which is
+ * exactly what was reported.
+ *
+ * The way out is the redirect flow. Google posts the credential to us as an
+ * ordinary top-level form submission, which stays inside whatever window it
+ * started in, and we hand it back to the page. Two small routes:
+ *
+ *   POST /auth/google — Google posts here, we check it and bounce the player
+ *                       back to the app carrying a one-time code
+ *   GET  /auth/claim  — the page trades that code for the token, once
+ *
+ * The code exists because a token in a URL is a token in the browser history,
+ * in the address bar and in anything that logs a referrer. The code is worth
+ * nothing a minute later and nothing at all a second time.
+ * ------------------------------------------------------------------ */
+const CLAIM_TTL = 120000;                 // two minutes to come back and collect
+const claims = new Map();                 // code -> { idToken, exp }
+
+function newClaim(idToken) {
+  const code = crypto.randomBytes(24).toString("base64url");
+  claims.set(code, { idToken, exp: Date.now() + CLAIM_TTL });
+  // nothing here is worth keeping: anything expired goes on the way past
+  for (const [k, v] of claims) if (v.exp < Date.now()) claims.delete(k);
+  return code;
+}
+
+const cookieOf = (req, name) => {
+  const raw = req.headers.cookie || "";
+  for (const part of raw.split(";")) {
+    const at = part.indexOf("=");
+    if (at > 0 && part.slice(0, at).trim() === name) return part.slice(at + 1).trim();
+  }
+  return null;
+};
+
+app.post("/auth/google", express.urlencoded({ extended: false, limit: "8kb" }), async (req, res) => {
+  const back = "/index.html";
+  /* Google sends the same random value twice — once in the body and once in a
+     cookie it set on its own page. Only a form that Google actually rendered
+     can produce both, which is what makes a forged POST here useless. */
+  const sent = req.body && req.body.g_csrf_token;
+  const baked = cookieOf(req, "g_csrf_token");
+  if (!sent || !baked || sent !== baked) return res.redirect(302, back + "#gauth=csrf");
+
+  const who = await verifyGoogle(req.body && req.body.credential);
+  if (!who) return res.redirect(302, back + "#gauth=bad");
+  res.redirect(302, back + "#gauth=" + newClaim(req.body.credential));
+});
+
+/* One code, one token, one time. */
+app.get("/auth/claim", (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  const code = String((req.query && req.query.code) || "");
+  const found = claims.get(code);
+  claims.delete(code);
+  if (!found || found.exp < Date.now()) return res.status(404).json({ ok: false });
+  res.json({ ok: true, credential: found.idToken });
+});
 
 app.get("/auth/config", (_req, res) => {
   res.json({ google: !!googleClient, clientId: GOOGLE_CLIENT_ID || null, promo: !!GRANT_CODE });
