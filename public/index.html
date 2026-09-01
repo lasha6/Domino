@@ -146,7 +146,11 @@
       <!-- ---- joker ---- -->
       <div class="center gameView" id="viewJoker" style="display:none">
         <button class="backGame" onclick="chooseGame(null)">← თამაშები</button>
-        <div class="buraArt"><span>🃏</span><span>♠</span><span>♥</span><span>♦</span></div>
+        <div class="gameArt">
+          <div class="mcard red back"><span class="cnr">♦</span><span class="big">♦</span></div>
+          <div class="mcard black fore"><span class="cnr">♠</span><span class="big">♠</span></div>
+          <div class="mcard jok" id="jokerMark"><span class="cnr">ჯოკ</span></div>
+        </div>
         <h1 class="logo-title">ჯოკერი</h1>
         <p class="logo-sub">ონლაინ</p>
         <button class="play" onclick="openJoker('quick')">
@@ -161,6 +165,13 @@
       <!-- ---- nardi: the board games share one room ---- -->
       <div class="center gameView" id="viewNardi" style="display:none">
         <button class="backGame" onclick="chooseGame(null)">← თამაშები</button>
+        <div class="gameArt nard">
+          <!-- a slice of the board: points in ivory and ebony, and the two
+               dice that are always on it -->
+          <div class="pts"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="die a"><span class="dp"><i></i><b></b><b></b><b></b><i></i><b></b><b></b><b></b><i></i></span></div>
+          <div class="die b"><span class="dp"><i></i><b></b><i></i><b></b><b></b><b></b><i></i><b></b><i></i></span></div>
+        </div>
         <h1 class="logo-title">ნარდი</h1>
         <p class="logo-sub">ონლაინ</p>
         <button class="play" onclick="openNardiRoom('quick')">
@@ -175,7 +186,10 @@
       <!-- ---- bura ---- -->
       <div class="center gameView" id="viewBura" style="display:none">
         <button class="backGame" onclick="chooseGame(null)">← თამაშები</button>
-        <div class="buraArt"><span>♠</span><span>♥</span><span>♦</span><span>♣</span></div>
+        <div class="gameArt">
+          <div class="mcard black back"><span class="cnr">♠</span><span class="big">♠</span></div>
+          <div class="mcard red fore"><span class="cnr">♥</span><span class="big">♥</span></div>
+        </div>
         <h1 class="logo-title">ბურა</h1>
         <p class="logo-sub" id="buraSub">ონლაინ</p>
         <button class="play" onclick="openBura('quick')">
@@ -701,6 +715,7 @@
   <script src="js/socket.io.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/jester.js"></script>
   <script src="js/profilecache.js"></script>
   <script src="js/progress.js"></script>
   <script src="js/theme.js"></script>
@@ -896,6 +911,9 @@
        Everything here is the server's word. The browser only draws it, using
        the same rules file the server counts with, so the bar the player watches
        and the number that was recorded cannot disagree. */
+    // the face on the ჯოკერი mark, the same one its cards wear
+    document.getElementById("jokerMark").insertAdjacentHTML("beforeend", Jester.svg());
+
     let ME = null;                    // the last profile the server sent
 
     /* ...and what it said the time before, kept on the device. Painted at
