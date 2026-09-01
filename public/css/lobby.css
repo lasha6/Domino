@@ -262,15 +262,16 @@
 .gSub{ font-size:11px; color:var(--cream-dim); }
 
 .gArt{ height:52px; display:flex; align-items:center; justify-content:center; gap:4px; font-size:30px; }
-/* two little domino halves, so the card shows the game rather than a word */
-.gDomino i{ width:17px; height:30px; border-radius:4px; background:linear-gradient(180deg,var(--bone-hi),var(--bone-lo));
-  border:1px solid var(--bone-edge); box-shadow:0 2px 4px rgba(0,0,0,.4); display:block; }
-.gDomino i:last-child{ transform:rotate(12deg); }
-.gBura i{ width:24px; height:34px; border-radius:4px; background:linear-gradient(180deg,var(--bone-hi),var(--bone-lo));
-  border:1px solid var(--bone-edge); box-shadow:0 2px 4px rgba(0,0,0,.4);
-  display:grid; place-items:center; font-size:15px; font-style:normal; }
-.gBura i:first-child{ color:#1b1b22; transform:rotate(-10deg); }
-.gBura i:last-child{ color:#b3202b; transform:rotate(10deg); }
+/* The card that chooses a game shows the very same mark as the game's own
+   heading, made small. Taken out of the flow and scaled about its middle, so
+   the mark keeps the 150×84 it is drawn in while the card reserves only the
+   52px it shows. (.gArt above is a different thing and still in use: the
+   ნარდი room picker draws its own dice and draughtsmen with it.) */
+.gMark{ position:relative; height:52px; }
+.gMark > *{
+  position:absolute; left:50%; top:50%;
+  transform:translate(-50%,-50%) scale(.56);
+}
 /* ნარდი: a thrown pair of dice, the way they land on the felt — one leaning
    left, one right, five pips and three. დამკა keeps its own icon below: two
    draughtsmen, one dark one light, the way a board looks from across the
@@ -362,13 +363,13 @@
 .mcard.black{ color:#1b1b22; }
 
 /* ბურა: two of them, the way the dominoes lie */
-#viewBura .mcard.back{ transform:translate(-84%,-50%) rotate(-13deg); }
-#viewBura .mcard.fore{ transform:translate(-16%,-50%) rotate(11deg); z-index:2; }
+.fan2 .mcard.back{ transform:translate(-84%,-50%) rotate(-13deg); }
+.fan2 .mcard.fore{ transform:translate(-16%,-50%) rotate(11deg); z-index:2; }
 
 /* ჯოკერი: three, and the one in front is the reason the game has a name */
-#viewJoker .mcard.back{ transform:translate(-120%,-48%) rotate(-21deg); }
-#viewJoker .mcard.fore{ transform:translate(20%,-48%) rotate(21deg); z-index:2; }
-#viewJoker .mcard.jok{ transform:translate(-50%,-54%); z-index:3; }
+.fan3 .mcard.back{ transform:translate(-120%,-48%) rotate(-21deg); }
+.fan3 .mcard.fore{ transform:translate(20%,-48%) rotate(21deg); z-index:2; }
+.fan3 .mcard.jok{ transform:translate(-50%,-54%); z-index:3; }
 .mcard.jok{ color:#1f3f8f; }
 .mcard.jok .cnr{ font-size:10px; letter-spacing:0; }
 .mcard.jok .jkArt{

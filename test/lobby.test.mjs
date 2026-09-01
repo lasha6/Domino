@@ -179,3 +179,63 @@ test("the manifest's icons are versioned, so a cached manifest cannot serve stal
     readFileSync(path.join(ROOT, "public", i.src.split("?")[0]));
   }
 });
+
+/* =====================================================================
+   The mark that stands for a game
+
+   Every game is drawn twice — large above its own heading, small on the
+   card that chooses it — and for a while those were two different drawings
+   kept in two places. They drifted exactly as you would expect: ჯოკერი's
+   card showed a raw 🃏 emoji beside three hand-drawn marks, and დომინო's
+   showed two blank slabs while its own screen showed tiles with pips. The
+   rule is now one definition, two placements.
+   ===================================================================== */
+
+const marks = readFileSync(new URL("../public/js/gamemark.js", import.meta.url), "utf8");
+
+test("every game the picker offers has a mark, and it is drawn not written", () => {
+  const picked = [...html.matchAll(/onclick="chooseGame\('(\w+)'\)"/g)].map((m) => m[1]);
+  assert.ok(picked.length >= 4, "found only " + picked.length + " games on the picker");
+  for (const g of picked) {
+    assert.ok(marks.includes(g + ": () =>"),
+      g + " has no mark of its own in js/gamemark.js");
+    assert.match(html, new RegExp('data-mark="' + g + '"[^]*data-mark="' + g + '"'),
+      g + " is not drawn in BOTH places from the one definition");
+  }
+});
+
+test("no game is represented by an emoji", () => {
+  /* The house rule, and the reason it is a rule: an emoji is somebody
+     else's drawing, it is a different drawing on every phone, and beside
+     four marks made of the app's own materials it looks like a mistake —
+     which is what it was. */
+  const cards = html.slice(html.indexOf('<div class="games">'),
+                           html.indexOf("</div>", html.indexOf('<div class="games">')));
+  assert.doesNotMatch(cards, /[\u{1F000}-\u{1FAFF}]/u,
+    "a picker card is showing an emoji instead of a drawn mark");
+});
+
+test("the marks are made of the app's own materials, so a bought set shows in them", () => {
+  /* --bone-* is what the shop writes when a player buys a table. A mark
+     painted with fixed colours would be the one place their set does not
+     reach — and it is the first thing they look at. */
+  const lobbyCss = readFileSync(new URL("../public/css/lobby.css", import.meta.url), "utf8");
+  for (const sel of [".mcard{", ".nard .die{"]) {
+    const at = lobbyCss.indexOf(sel);
+    assert.notEqual(at, -1, "no " + sel);
+    assert.match(lobbyCss.slice(at, at + 400), /var\(--bone/,
+      sel + " is painted with a colour the shop cannot reach");
+  }
+});
+
+test("the jester is one drawing, not two", () => {
+  /* It is on ჯოკერი's cards and on ჯოკერი's mark. Drawn out twice it would
+     be corrected once. */
+  const jester = readFileSync(new URL("../public/js/jester.js", import.meta.url), "utf8");
+  assert.match(jester, /viewBox="0 0 100 132"/, "the drawing does not live in js/jester.js");
+  for (const f of ["joker.html", "index.html"]) {
+    const src = readFileSync(path.join(ROOT, "public", f), "utf8");
+    assert.match(src, /js\/jester\.js/, f + " does not load the shared drawing");
+    assert.doesNotMatch(src, /viewBox="0 0 100 132"/, f + " carries its own copy of it");
+  }
+});

@@ -97,22 +97,22 @@
         <h1 class="logo-title">აირჩიე თამაში</h1>
         <div class="games">
           <button class="game" onclick="chooseGame('domino')">
-            <span class="gArt gDomino"><i></i><i></i></span>
+            <span class="gMark" data-mark="domino"></span>
             <span class="gName">დომინო</span>
             <span class="gSub">ქართული წესებით</span>
           </button>
           <button class="game" onclick="chooseGame('bura')">
-            <span class="gArt gBura"><i>♠</i><i>♥</i></span>
+            <span class="gMark" data-mark="bura"></span>
             <span class="gName">ბურა</span>
             <span class="gSub">3 და 5 კარტა</span>
           </button>
           <button class="game" onclick="chooseGame('joker')">
-            <span class="gArt gJoker">🃏</span>
+            <span class="gMark" data-mark="joker"></span>
             <span class="gName">ჯოკერი</span>
             <span class="gSub">24 ხელი · 4 მოთამაშე</span>
           </button>
           <button class="game" onclick="chooseGame('nardi')">
-            <span class="gArt gNardi"><i></i><i></i></span>
+            <span class="gMark" data-mark="nardi"></span>
             <span class="gName">ნარდი</span>
             <span class="gSub">გრძელი, კლასიკური · დამკა</span>
           </button>
@@ -122,16 +122,7 @@
       <!-- ---- domino ---- -->
       <div class="center gameView" id="viewDomino" style="display:none">
         <button class="backGame" onclick="chooseGame(null)">← თამაშები</button>
-        <div class="tiles">
-          <div class="tile a">
-            <div class="half"><div class="pips"><i></i><span></span><i></i><span></span><i></i><span></span><i></i><span></span><i></i></div></div>
-            <div class="half"><div class="pips"><span></span><span></span><span></span><span></span><i></i><span></span><span></span><span></span><span></span></div></div>
-          </div>
-          <div class="tile b">
-            <div class="half"><div class="pips"><i></i><span></span><i></i><i></i><span></span><i></i><i></i><span></span><i></i></div></div>
-            <div class="half"><div class="pips"><i></i><span></span><i></i><span></span><span></span><span></span><i></i><span></span><i></i></div></div>
-          </div>
-        </div>
+        <div data-mark="domino"></div>
         <h1 class="logo-title">დომინო</h1>
         <p class="logo-sub">ონლაინ</p>
         <button class="play" onclick="openRooms('quick')">
@@ -146,11 +137,7 @@
       <!-- ---- joker ---- -->
       <div class="center gameView" id="viewJoker" style="display:none">
         <button class="backGame" onclick="chooseGame(null)">← თამაშები</button>
-        <div class="gameArt">
-          <div class="mcard red back"><span class="cnr">♦</span><span class="big">♦</span></div>
-          <div class="mcard black fore"><span class="cnr">♠</span><span class="big">♠</span></div>
-          <div class="mcard jok" id="jokerMark"><span class="cnr">ჯოკ</span></div>
-        </div>
+        <div data-mark="joker"></div>
         <h1 class="logo-title">ჯოკერი</h1>
         <p class="logo-sub">ონლაინ</p>
         <button class="play" onclick="openJoker('quick')">
@@ -165,13 +152,7 @@
       <!-- ---- nardi: the board games share one room ---- -->
       <div class="center gameView" id="viewNardi" style="display:none">
         <button class="backGame" onclick="chooseGame(null)">← თამაშები</button>
-        <div class="gameArt nard">
-          <!-- a slice of the board: points in ivory and ebony, and the two
-               dice that are always on it -->
-          <div class="pts"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          <div class="die a"><span class="dp"><i></i><b></b><b></b><b></b><i></i><b></b><b></b><b></b><i></i></span></div>
-          <div class="die b"><span class="dp"><i></i><b></b><i></i><b></b><b></b><b></b><i></i><b></b><i></i></span></div>
-        </div>
+        <div data-mark="nardi"></div>
         <h1 class="logo-title">ნარდი</h1>
         <p class="logo-sub">ონლაინ</p>
         <button class="play" onclick="openNardiRoom('quick')">
@@ -186,10 +167,7 @@
       <!-- ---- bura ---- -->
       <div class="center gameView" id="viewBura" style="display:none">
         <button class="backGame" onclick="chooseGame(null)">← თამაშები</button>
-        <div class="gameArt">
-          <div class="mcard black back"><span class="cnr">♠</span><span class="big">♠</span></div>
-          <div class="mcard red fore"><span class="cnr">♥</span><span class="big">♥</span></div>
-        </div>
+        <div data-mark="bura"></div>
         <h1 class="logo-title">ბურა</h1>
         <p class="logo-sub" id="buraSub">ონლაინ</p>
         <button class="play" onclick="openBura('quick')">
@@ -716,6 +694,7 @@
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/jester.js"></script>
+  <script src="js/gamemark.js"></script>
   <script src="js/profilecache.js"></script>
   <script src="js/progress.js"></script>
   <script src="js/theme.js"></script>
@@ -911,8 +890,9 @@
        Everything here is the server's word. The browser only draws it, using
        the same rules file the server counts with, so the bar the player watches
        and the number that was recorded cannot disagree. */
-    // the face on the ჯოკერი mark, the same one its cards wear
-    document.getElementById("jokerMark").insertAdjacentHTML("beforeend", Jester.svg());
+    // every mark on this page — the four headings and the four cards that
+    // choose them — is drawn from the one place that defines them
+    GameMark.paint();
 
     let ME = null;                    // the last profile the server sent
 
