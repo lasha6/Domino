@@ -72,6 +72,7 @@
     <p>თამაში თარაზულ (landscape) რეჟიმში ითამაშება.</p>
   </div>
 
+  <script src="js/foes.js"></script>
   <script src="js/ozi.js"></script>
   <script src="js/render.js"></script>
   <script src="js/sound.js"></script>
@@ -138,7 +139,8 @@
     // ---------- player turn ----------
     function playerTurnBegin(){
       if(g.roundOver) return;
-      if(Ozi.hasMove(g, g.hands[0])){ busy=false; setMsg("შენი სვლაა — აირჩიე ქვა"); render(); Sound.play("turn"); return; }
+      // no message: the lit plate says whose move it is
+      if(Ozi.hasMove(g, g.hands[0])){ busy=false; setMsg(""); render(); Sound.play("turn"); return; }
       if(Ozi.canDraw(g)){ busy=true; showBoneForPlayer(); }
       else { busy=true; setMsg("სვლა არ გაქვს, ბაზარი დახურულია — პასი"); playerPass(); }
     }
@@ -163,7 +165,7 @@
       selIdx = (selIdx===idx) ? null : idx;
       render();
       if(selIdx!==null) setMsg("აირჩიე ადგილი მაგიდაზე — მწვანე ადგილები");
-      else setMsg("შენი სვლაა — აირჩიე ქვა");
+      else setMsg("");
     }
     function onDropClick(side){
       if(busy || g.turn!==0 || g.roundOver || selIdx===null) return;
@@ -212,7 +214,7 @@
       render();
       renderBone("player");
       if(Ozi.hasMove(g, g.hands[0])){
-        setMsg("აიღე ["+t[0]+"–"+t[1]+"] — ახლა შენი სვლაა");
+        setMsg("აიღე ["+t[0]+"–"+t[1]+"]");
         setTimeout(()=>{ closeBone(); busy=false; render(); }, 500);
       } else if(Ozi.canDraw(g)){
         document.getElementById("boneSub").textContent =
@@ -362,12 +364,15 @@
       document.getElementById("target").textContent=g.target;
       document.getElementById("bone").textContent=Ozi.boneCount(g);
 
-      const ch=document.getElementById("cpuhand");
+      /* Who is on the other side, what they are holding, and — by the plate
+         being lit rather than by a sentence — whether it is their move. */
+      const ch = document.getElementById("cpuhand");
+      Foes.paint(ch, [{ name: "კომპიუტერი",
+                        count: revealHand ? 0 : g.hands[1].length,
+                        turn: g.turn === 1 && !g.roundOver && !revealHand }]);
       // Once the hand is over the tiles are turned face up: the player is being
       // charged for what is in that hand, and should be able to count it.
-      const showTiles = !!revealHand;
-      ch.innerHTML = '<span class="lbl">კომპიუტერი (' + g.hands[1].length + ')</span>';
-      for (const t of g.hands[1]) ch.innerHTML += showTiles ? domV(t[0], t[1]) : backTile();
+      if (revealHand) for (const t of g.hands[1]) ch.insertAdjacentHTML("beforeend", domV(t[0], t[1]));
 
       renderBoard();
 

@@ -77,6 +77,7 @@
     <p>თამაში თარაზულ (landscape) რეჟიმში ითამაშება.</p>
   </div>
 
+  <script src="js/foes.js"></script>
   <script src="js/bura.js"></script>
   <script src="js/sound.js"></script>
   <script src="js/haptic.js"></script>
@@ -165,9 +166,12 @@
       }
 
       // the opponent's hand, face down
-      const oh = document.getElementById("ophand");
-      oh.innerHTML = "";
-      for (let i = 0; i < g.hands[1].length; i++) oh.appendChild(backEl(true));
+      /* Who is on the other side and what they are holding. Whose move it
+         is is the plate being lit, not a sentence about it. */
+      Foes.paint(document.getElementById("ophand"), [{
+        name: "კომპიუტერი", count: g.hands[1].length,
+        turn: g.phase === "play" && g.turn === 1,
+      }]);
 
       paintTrick();
 
@@ -386,7 +390,7 @@
         lastTrick = null;
         busy = false;
         if (g.phase !== "play") { roundEnded(); return; }
-        setMsg(g.turn === 0 ? "შენი სვლაა — აირჩიე ქვები" : "კომპიუტერის სვლაა");
+        setMsg("");            // the lit plate says whose move it is
         render();
         if (g.turn === 1 && !g.lead) setTimeout(cpuLead, PACE.beforeLead);
       }, PACE.showTrick);
@@ -420,7 +424,7 @@
       Sound.play(won ? "handWin" : "handLose");
       show(title, text, "შემდეგი რაუნდი", () => {
         Bura.nextRound(g); sel = []; lastTrick = null; hide(); render();
-        if (g.turn === 1) setTimeout(cpuLead, PACE.beforeLead); else setMsg("შენი სვლაა");
+        if (g.turn === 1) setTimeout(cpuLead, PACE.beforeLead); else setMsg("");
       });
     }
     function show(title, text, btn, fn){
@@ -437,7 +441,7 @@
       g = Bura.newGame({ variant: VARIANT, target: TARGET, openMalutka: OPEN });
       sel = []; busy = false; lastTrick = null;
       hide(); render();
-      setMsg(g.turn === 0 ? "შენი სვლაა — აირჩიე ქვები" : "კომპიუტერი იწყებს");
+      setMsg(g.turn === 0 ? "" : "კომპიუტერი იწყებს");
       if (g.turn === 1) setTimeout(cpuLead, PACE.beforeLead);
     }
     startMatch();

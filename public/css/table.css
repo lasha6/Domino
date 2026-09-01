@@ -136,28 +136,127 @@
   50%    { box-shadow:0 0 0 7px rgba(74,208,125,.05), 0 3px 10px rgba(0,0,0,.35); }
 }
 
-/* ---------------- opponents + message ---------------- */
-.statusrow{ flex:0 0 auto; display:flex; align-items:center; gap:12px; min-height:24px; }
-.cpuhand{ flex:0 0 auto; display:flex; align-items:center; gap:9px; }
-.cpuhand .lbl{ font-size:12.5px; font-weight:600; color:var(--cream); margin-right:4px; }
+/* ---------------- who else is at the table ----------------
+   This row used to be three things that did not belong together: a label,
+   a line of loose face-down pieces, and a sentence saying whose turn it
+   was. It sat left-aligned with the sentence drifting off to the right,
+   and on the ozi table the opponent's dominoes came out as six small green
+   squares — a green tile on a green cloth.
 
-.opp{
-  display:flex; align-items:center; gap:2px; padding:2px 8px;
-  border-radius:999px; border:1px solid transparent; transition:all .2s;
-}
-.opp.mate{ background:rgba(143,212,255,.10); border-color:rgba(143,212,255,.30); }
-.opp.mate .lbl{ color:#8fd4ff; }
-.opp.active{
-  background:rgba(74,208,125,.16); border-color:rgba(74,208,125,.55);
-  box-shadow:0 0 12px rgba(74,208,125,.22);
-}
-.opp.active .lbl{ color:#9df0bd; font-weight:700; }
+   It is the PEOPLE now. Each opponent is a plate cut from the same dark
+   enamel and brass as the counters above, wearing their initial, their
+   name, and the hand they are holding — fanned and overlapping, the way a
+   hand is actually held, and made of the game's own pieces, so a domino
+   table looks like dominoes and a card table like cards.
 
+   Whose turn it is is not written down. The plate of whoever is to move is
+   lit and breathing and the others are dim, which is the same thing the
+   ring round a seat says elsewhere in the app. "Your turn — pick a tile"
+   was the screen telling a player something they were already looking at.
+   ---------------------------------------------------------------- */
+.statusrow{
+  flex:0 0 auto; display:flex; align-items:center; justify-content:center;
+  gap:9px; min-height:36px; padding:1px 0; flex-wrap:wrap;
+}
+
+.foe{
+  display:flex; align-items:center; gap:7px;
+  padding:3px 11px 3px 3px; border-radius:999px;
+  background:linear-gradient(180deg, rgba(4,26,14,.78), rgba(2,15,9,.9));
+  border:1px solid rgba(242,205,126,.20);
+  box-shadow:inset 0 1px 0 rgba(242,205,126,.10), 0 2px 5px rgba(0,0,0,.32);
+  transition:border-color .3s, box-shadow .3s, background .3s;
+}
+/* the initial, struck in copper */
+.foe .ini{
+  flex:none; width:23px; height:23px; border-radius:50%;
+  display:grid; place-items:center;
+  font:800 12px/1 var(--font-ui); color:#2a1c0a;
+  background:radial-gradient(circle at 36% 30%, var(--brass-lit), var(--brass) 58%, var(--brass-dim));
+  box-shadow:inset 0 -1px 2px rgba(0,0,0,.35), 0 1px 3px rgba(0,0,0,.45);
+}
+.foe .nm{
+  font:700 12.5px/1 var(--font-ui); color:var(--cream);
+  max-width:22vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+/* what they are holding. Overlapping, because a hand is held and not laid
+   out — and it is the one part of this row that tells you how the game is
+   actually going. */
+.foe .fan{ display:flex; align-items:center; flex:none; }
+.foe .fan i{
+  display:block; width:13px; height:19px; border-radius:3px;
+  margin-left:-5px; border:1px solid rgba(0,0,0,.55);
+  background:
+    repeating-linear-gradient(45deg, rgba(0,0,0,.18) 0 3px, transparent 3px 6px),
+    linear-gradient(160deg, var(--wood-hi), var(--wood) 55%, var(--wood-lo));
+  /* the lit left edge is what separates one piece from the next — without
+     it the overlap closes up into a single dark bar */
+  box-shadow:-1px 0 0 rgba(242,205,126,.22), inset 0 1px 0 rgba(255,255,255,.08),
+             0 1px 3px rgba(0,0,0,.5);
+}
+.foe .fan i:first-child{ margin-left:0; }
+.foe .cnt{
+  font-family:var(--font-display); font-size:13.5px; font-weight:700;
+  color:var(--brass-lit); font-variant-numeric:tabular-nums; letter-spacing:.3px;
+}
+/* A seat the computer has taken over. Steel instead of copper: it says
+   "not a person" without a picture of a robot, which is the sort of thing
+   this table does not have on it. */
+.foe.bot .ini{
+  color:#161a1e;
+  background:radial-gradient(circle at 36% 30%, #dfe6ea, #9fb0ba 58%, #6c7c86);
+}
+/* Dropped, seat held. Still there, just not answering. */
+.foe.away{ opacity:.62; }
+.foe.away .ini{ filter:grayscale(.6); }
+
+/* the reserve, beside whoever is spending it */
+.foe .bank{
+  font:600 10.5px/1 var(--font-ui); color:var(--brass-lit); letter-spacing:.02em;
+}
+.foe .bank.low{ color:#e2685a; }
+/* a hand turned face up at the end of a round */
+.foe .up{ display:flex; align-items:center; gap:3px; }
+
+/* a partner, in the blue the scores already use for the other side */
+.foe.mate{ border-color:rgba(143,212,255,.34); }
+.foe.mate .ini{
+  color:#08202e;
+  background:radial-gradient(circle at 36% 30%, #cfeeff, #8fd4ff 58%, #4a93bd);
+}
+
+/* Whose move it is. A slow breath rather than a blink: it has to be
+   readable at a glance and invisible after ten seconds of not looking. */
+.foe.on{
+  border-color:rgba(242,205,126,.62);
+  background:linear-gradient(180deg, rgba(28,64,38,.85), rgba(8,36,20,.92));
+  animation:foeBreath 2.4s ease-in-out infinite;
+}
+@keyframes foeBreath{
+  0%,100%{ box-shadow:inset 0 1px 0 rgba(242,205,126,.16), 0 2px 5px rgba(0,0,0,.32), 0 0 0 rgba(242,205,126,0); }
+  50%    { box-shadow:inset 0 1px 0 rgba(242,205,126,.22), 0 2px 5px rgba(0,0,0,.32), 0 0 13px rgba(242,205,126,.30); }
+}
+@media (prefers-reduced-motion:reduce){
+  .foe.on{ animation:none; box-shadow:inset 0 1px 0 rgba(242,205,126,.22), 0 0 12px rgba(242,205,126,.28); }
+}
+
+/* What just happened — and only that. It carries no room when it is empty,
+   so a table with nothing to report is a table with nothing written on it. */
 .msg{
-  flex:1 1 auto; text-align:center; font-size:13px; font-weight:600;
-  color:var(--cream); text-shadow:0 1px 2px rgba(0,0,0,.5);
+  font:600 12.5px/1.2 var(--font-ui); color:rgba(246,239,221,.86);
+  text-shadow:0 1px 2px rgba(0,0,0,.55);
+  padding:3px 12px; border-radius:999px;
+  background:rgba(0,0,0,.24); border:1px solid rgba(255,255,255,.07);
+  max-width:46vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  animation:msgIn .22s ease-out;
 }
+.msg:empty{ display:none; }
+@keyframes msgIn{ from{ opacity:0; transform:translateY(-3px); } to{ opacity:1; } }
 .msg .pts{ color:var(--brass-lit); font-family:var(--font-display); font-size:14px; }
+
+/* Kept because six screens still name it; it is only the box the plates
+   sit in now. */
+.cpuhand{ display:flex; align-items:center; gap:9px; }
 
 /* ---------------- the table surface ---------------- */
 .board{
@@ -271,11 +370,17 @@
   background:radial-gradient(circle at 36% 32%, var(--brass-lit), var(--brass) 60%, var(--brass-dim));
   box-shadow:0 0 2px rgba(0,0,0,.5);
 }
-/* face down — the tile's back, in baize-stained wood */
+/* Face down is WOOD, and face up is bone — one rule for the whole app.
+   This used to be baize-stained: a green tile on a green table, which read
+   as a row of small green squares with no domino in them anywhere. The
+   cards had it right all along (see .card.back), so the tiles now wear the
+   same walnut and the same 45° stripe. What you cannot see is wood. */
 .domino.back{
-  background:linear-gradient(158deg,#1d6b41,#0a3c22 60%,#062a17);
-  border-color:rgba(242,205,126,.20);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.10), 0 3px 6px rgba(0,0,0,.45);
+  background:
+    repeating-linear-gradient(45deg, rgba(0,0,0,.16) 0 5px, transparent 5px 10px),
+    linear-gradient(160deg, var(--wood-hi), var(--wood) 55%, var(--wood-lo));
+  border-color:rgba(0,0,0,.45);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 3px 6px rgba(0,0,0,.45);
 }
 .domino.back .dhalf .pip i{ display:none; }
 .domino.back .dbar{ background:linear-gradient(90deg,transparent,rgba(242,205,126,.3),transparent); }
@@ -298,8 +403,13 @@
   .myhand .domino{ width:31px; padding:2px; }
   .myhand .dhalf{ height:23px; }
   .myhand .dhalf .pip i{ width:4px; height:4px; }
-  .statusrow{ min-height:20px; }
-  .cpuhand .lbl, .msg{ font-size:11.5px; }
+  .statusrow{ min-height:30px; gap:7px; }
+  .msg{ font-size:11.5px; padding:2px 9px; max-width:40vw; }
+  .foe{ gap:5px; padding:2px 8px 2px 2px; }
+  .foe .ini{ width:20px; height:20px; font-size:11px; }
+  .foe .nm{ font-size:11.5px; max-width:18vw; }
+  .foe .fan i{ width:10px; height:16px; margin-left:-5px; }
+  .foe .cnt{ font-size:12px; }
 }
 @media (max-height:340px){
   .myhand{ min-height:48px; }
@@ -316,7 +426,10 @@
     0 0 16px rgba(74,208,125,.22);
 }
 .myhand .domino.legal:hover{ transform:translateY(-9px); }
-.myhand .domino.dim{ opacity:.42; filter:saturate(.6); }
+/* Not "half see-through": a tile at .42 opacity over green baize borrows the
+   baize, and a bone domino came out pale green. It stays opaque and goes
+   into shadow instead — same reason the dice may never carry opacity. */
+.myhand .domino.dim{ filter:brightness(.62) saturate(.75); box-shadow:none; }
 /* picked up, waiting for a spot */
 .myhand .domino.sel{
   transform:translateY(-12px);

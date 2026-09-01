@@ -124,6 +124,7 @@
   <script src="js/haptic.js"></script>
   <script src="js/turnring.js"></script>
   <script src="js/emote.js"></script>
+  <script src="js/foes.js"></script>
   <script src="js/pairing.js"></script>
   <script src="js/hints.js"></script>
   <script src="js/fx.js"></script>
@@ -551,29 +552,24 @@
       else { pill.classList.toggle("mine", !!S.myTurn); startClock(S.moveLeft, who); }
 
       // everyone else at the table, face down. In 2v2: ◀ next, 🤝 partner, ▶ right.
-      const oh = document.getElementById("ophand");
-      oh.innerHTML = "";
-      others.forEach((p) => {
-        const box = document.createElement("div");
-        box.dataset.seat = p.seat;      // so a phrase knows which face it belongs to
-        box.className = "opp" + (p.turn ? " active" : "")
-          + (S.size === 4 && p.team === myTeam ? " mate" : "");
-        let tag = S.size === 4 ? (p.rel === 2 ? "🤝 " : p.rel === 1 ? "◀ " : "▶ ") : "";
-        if (p.bot) tag = "🤖 " + tag;          // the computer plays this seat now
-        else if (p.away) tag = "⏳ " + tag;    // dropped, seat held
+      /* Everybody else at the table, in the order they sit round it from
+         this player's left — which is what says who is across from you,
+         rather than an arrow beside each name. A partner is marked by
+         colour; a seat the computer has taken over, by a steel roundel. */
+      Foes.paint(document.getElementById("ophand"), others.map((p) => {
         // Once the hand is over the server sends what everybody was holding:
         // those tiles are what the score is made of, so they go face up and
         // can be counted rather than taken on trust.
         const shown = S.handReveal && S.handReveal.hands.find((h) => h.seat === p.seat);
-        let backs = "";
-        if (shown) for (const t of shown.tiles) backs += Tiles.domV(t[0], t[1]);
-        else for (let i = 0; i < Math.min(p.count, 7); i++) backs += Tiles.backTile();
-        const bank = p.reserve != null
-          ? '<span class="bank' + (p.reserve <= 30 ? " low" : "") + '" data-bank="' + p.seat + '">⏱ '
-            + mmss(p.reserve) + "</span>" : "";
-        box.innerHTML = '<span class="lbl">' + tag + p.name + " (" + p.count + ")</span>" + bank + backs;
-        oh.appendChild(box);
-      });
+        return {
+          seat: p.seat, name: p.name, count: p.count, turn: !!p.turn,
+          bot: !!p.bot, away: !!p.away, verified: !!p.verified,
+          mate: S.size === 4 && p.team === myTeam,
+          bank: p.reserve != null ? "⏱ " + mmss(p.reserve) : null,
+          bankLow: p.reserve != null && p.reserve <= 30,
+          show: shown ? shown.tiles.map((t) => Tiles.domV(t[0], t[1])).join("") : null,
+        };
+      }));
 
       // board + drop spots
       if (S.line) {

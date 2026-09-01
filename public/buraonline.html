@@ -139,6 +139,7 @@
   <script src="js/haptic.js"></script>
   <script src="js/turnring.js"></script>
   <script src="js/emote.js"></script>
+  <script src="js/foes.js"></script>
   <script src="js/pairing.js"></script>
   <script src="js/hints.js"></script>
   <script src="js/fx.js"></script>
@@ -495,9 +496,16 @@
       // in 1v1 the one opponent keeps the strip above the table; at four they
       // are all drawn in their chairs instead
       const oh = document.getElementById("ophand");
-      oh.innerHTML = "";
       oh.style.display = S.size === 4 ? "none" : "";
-      if (S.size !== 4) for (let i = 0; i < S.oppCount; i++) oh.appendChild(backEl(true));
+      if (S.size === 4) oh.innerHTML = "";
+      else {
+        const foe = (S.table || []).find((t) => t.rel !== "me") || {};
+        Foes.paint(oh, [{
+          seat: foe.seat, name: foe.name || "მოწინააღმდეგე", count: S.oppCount,
+          turn: S.phase === "play" && !S.myTurn, bot: !!foe.bot,
+          away: !!foe.away, verified: !!foe.verified,
+        }]);
+      }
       paintSeats();
 
       paintTrick();
