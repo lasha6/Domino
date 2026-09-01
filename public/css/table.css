@@ -351,8 +351,17 @@
 }
 
 /* hand / boneyard tiles (upright, free-standing) */
+/* A domino is a fixed shape, so it is given one. Height as well as width,
+   and `flex:none` so a container can neither stretch nor squeeze it: the
+   halves inside are flex items, and in any box that is even slightly short
+   they used to give up their 27px and collapse to the height of their own
+   empty pip grid. The tile then came out very nearly SQUARE — which is what
+   the boneyard had been showing all along, a grid of small rounded boxes
+   with a brass dot and no domino anywhere in it.
+   27 + 27 halves, 2 for the groove and 4 for its margins, 6 padding, 2 border. */
 .domino{
-  display:flex; flex-direction:column; width:36px; padding:3px; border-radius:7px;
+  display:flex; flex-direction:column; flex:none;
+  width:36px; height:68px; padding:3px; border-radius:7px;
   background:linear-gradient(158deg, var(--bone-hi) 0%, var(--bone) 46%, var(--bone-lo) 100%);
   border:1px solid var(--bone-edge);
   box-shadow:
@@ -361,7 +370,17 @@
     0 3px 5px rgba(0,0,0,.42),
     0 8px 14px rgba(0,0,0,.26);
 }
-.domino .dhalf{ width:100%; height:27px; }
+/* `flex:0 0 auto`, and it is the whole reason a domino is a domino.
+   A tile is a column flex box; without it the two halves are shrinkable
+   flex items, and in any container that is even slightly short they give
+   up their 27px and collapse to the height of their own empty pip grid —
+   about ten pixels. The tile then comes out very nearly SQUARE, which is
+   what the boneyard had been showing all along: a grid of little rounded
+   boxes with a brass dot, and no domino anywhere.
+
+   The board tiles already carried this fix, marked KEEP by whoever found
+   it there. The hand and the boneyard never got it. */
+.domino .dhalf{ width:100%; height:27px; flex:0 0 27px; }
 .domino .dhalf .pip i{ width:5px; height:5px; }
 .domino .dbar{ height:2px; margin:2px 1px; }
 .domino .dbar::after{
@@ -392,7 +411,7 @@
   gap:5px; min-height:66px; flex-wrap:wrap; padding-top:2px;
 }
 .myhand .domino{ cursor:default; transition:transform .12s ease, box-shadow .12s ease; }
-.myhand .dhalf{ height:27px; }
+.myhand .dhalf{ height:27px; flex-basis:27px; }
 
 /* A short phone in landscape has very little height — tighten everything so
    the hand can never be pushed off the bottom. */
@@ -400,8 +419,8 @@
   .stage{ padding:calc(4px + var(--safeT)) calc(8px + var(--safeR))
                   calc(4px + var(--safeB)) calc(8px + var(--safeL)); gap:2px; }
   .myhand{ min-height:56px; gap:4px; }
-  .myhand .domino{ width:31px; padding:2px; }
-  .myhand .dhalf{ height:23px; }
+  .myhand .domino{ width:31px; height:58px; padding:2px; }
+  .myhand .dhalf{ height:23px; flex-basis:23px; }
   .myhand .dhalf .pip i{ width:4px; height:4px; }
   .statusrow{ min-height:30px; gap:7px; }
   .msg{ font-size:11.5px; padding:2px 9px; max-width:40vw; }
@@ -413,8 +432,8 @@
 }
 @media (max-height:340px){
   .myhand{ min-height:48px; }
-  .myhand .domino{ width:27px; }
-  .myhand .dhalf{ height:20px; }
+  .myhand .domino{ width:27px; height:52px; }
+  .myhand .dhalf{ height:20px; flex-basis:20px; }
 }
 /* playable */
 .myhand .domino.legal{

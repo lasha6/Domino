@@ -180,3 +180,37 @@ test("a tile you cannot play stays a tile", () => {
   assert.doesNotMatch(body, /opacity:/, "an unplayable tile goes see-through over the cloth");
   assert.match(body, /brightness\(/, "nothing marks it as unplayable at all");
 });
+
+test("a domino has a shape, and no box may squeeze it out of it", () => {
+  /* A tile is a column flex box and its two halves are flex items. In any
+     container even slightly short they gave up their 27px and collapsed to
+     the height of their own empty pip grid — about ten pixels — and the tile
+     came out very nearly SQUARE. That is what the boneyard had been showing
+     all along: a grid of small rounded boxes with a brass dot, and no domino
+     anywhere in it. Both ends are pinned now: the tile is given a height and
+     told not to flex, and the halves are given a basis they cannot shrink
+     below. The board tiles had carried the same fix for a long time, marked
+     KEEP by whoever found it there first. */
+  const css = read("public", "css", "table.css");
+  const at = css.indexOf("\n.domino{");
+  assert.notEqual(at, -1, "there is no tile");
+  const body = css.slice(at, css.indexOf("\n}", at));
+  assert.match(body, /height:\s*\d+px/, "a domino has no height of its own");
+  assert.match(body, /flex:\s*none/, "a container can still stretch or squeeze a tile");
+
+  const hat = css.indexOf(".domino .dhalf{");
+  assert.notEqual(hat, -1);
+  const half = css.slice(hat, css.indexOf("}", hat));
+  assert.match(half, /flex:\s*0 0 \d+px/, "the halves can still be shrunk away");
+});
+
+test("every size the hand is drawn at gives the tile a height to match", () => {
+  /* The hand is redrawn smaller on a short screen. A width without a height
+     there is a tile that goes back to being decided by whatever is around
+     it, which is where this started. */
+  const css = read("public", "css", "table.css");
+  const bad = [];
+  for (const m of css.matchAll(/\.myhand \.domino\{([^}]*)\}/g))
+    if (/width:/.test(m[1]) && !/height:/.test(m[1])) bad.push(m[1].trim());
+  assert.deepEqual(bad, [], "these set a tile's width and leave its height to chance");
+});
