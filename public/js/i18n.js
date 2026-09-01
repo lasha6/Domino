@@ -257,6 +257,8 @@
     "დავრჩები": "Stay", "გასვლა": "Leave", "გაუქმება": "Cancel",
     "მარტო დაველოდები": "Wait alone",
     "შენს წყვილს ელოდები?": "Waiting for your partner?",
+    "ბოლოს ნანახი მონაცემები — სერვერს ვერ დავუკავშირდი":
+      "Last known figures — could not reach the server",
     "აირჩიე ვისთან გინდა წყვილში, ან დაელოდე შენს ადამიანს":
       "Pick who you want to play with, or wait for your own partner",
     "მოწინააღმდეგე გავიდა": "Your opponent left",

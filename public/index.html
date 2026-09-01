@@ -701,6 +701,7 @@
   <script src="js/socket.io.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/profilecache.js"></script>
   <script src="js/progress.js"></script>
   <script src="js/theme.js"></script>
   <script src="js/coins.js"></script>
@@ -841,6 +842,10 @@
       });
     }
     function signOutNow(){
+      /* Before the identity goes, not after — the cache is filed under who
+         you are, and once you are signed out that is somebody else. Leaving
+         an account's coins and level on a shared phone is not on. */
+      ProfileCache.forget();
       Auth.signOut();
       paintSignIn(); showName();
       toast("გამოხვედი");
@@ -892,6 +897,14 @@
        the same rules file the server counts with, so the bar the player watches
        and the number that was recorded cannot disagree. */
     let ME = null;                    // the last profile the server sent
+
+    /* ...and what it said the time before, kept on the device. Painted at
+       once so the screen opens with this account's real numbers instead of
+       🪙 0 and a blank level for as long as the round trip takes — which on
+       a sleeping host is seconds, and happens again every time a player
+       comes back from a table. The answer below replaces all of it. */
+    ME = ProfileCache.load();
+    if (ME) paintProfile();
     /* One retry, and it belongs up here because the identity listener below
        resets it. */
     let retried = false;
@@ -913,6 +926,11 @@
        came seconds later, sometimes not at all. */
     Auth.onChange(() => {
       retried = false;                       // a new identity gets a fresh go
+      /* Whose numbers are on the screen right now are the PREVIOUS account's.
+         Swap them for this account's own remembered ones — or for nothing at
+         all, which is the honest answer when we have never seen them. */
+      ME = ProfileCache.load();
+      if (ME) paintProfile(); else blankProfile();
       askProfile();
       // ...and the shop, if they are standing in it
       if (document.getElementById("shopOverlay").classList.contains("show"))
@@ -931,16 +949,39 @@
         return;
       }
       retried = false;
-      ME = p; paintProfile();
+      ME = ProfileCache.save(p) || p;      // remembered for the next opening
+      paintProfile();
       if (document.getElementById("paneAch").style.display !== "none") paintAchievements();
     });
 
-    // Say so, rather than showing zeros that look like lost progress.
+    /* Nothing is known about this player yet — so nothing is shown. Used
+       when the account changes to one we have never seen: the alternative is
+       leaving the previous player's coins and level on the screen, which is
+       worse than a blank in every way. */
+    function blankProfile(){
+      const badge = document.querySelector("#avatarLetter .lvl");
+      if (badge) { badge.textContent = ""; badge.style.display = "none"; }
+      const bar = document.querySelector(".playercard .xp i");
+      if (bar) bar.style.width = "0";
+      document.getElementById("coinLabel").textContent = "0";
+      document.getElementById("gemLabel").textContent = "0";
+      showPic("chipPic", null); showPic("profPic", null);
+    }
+
+    /* The server could not be asked. If we know what this account had last
+       time, that is far better than zeros — zeros read as progress that has
+       been lost. Say the numbers are not fresh and leave them standing; only
+       blank the screen when there is genuinely nothing to show. */
     function profileUnavailable(){
+      document.getElementById("claimBtn").disabled = true;
+      if (ME) {
+        document.getElementById("profKind").textContent =
+          "ბოლოს ნანახი მონაცემები — სერვერს ვერ დავუკავშირდი";
+        return;
+      }
       document.getElementById("profKind").textContent = "პროგრესი ვერ ჩავტვირთე — სცადე თავიდან შესვლა";
       document.getElementById("profStats").innerHTML = "";
       document.getElementById("profDays").innerHTML = "";
-      document.getElementById("claimBtn").disabled = true;
     }
     socket.on("dailyResult", (r) => {
       if (r && r.ok) {
