@@ -71,7 +71,9 @@ test("every game the front page can start has its own rules", () => {
      missed დამკა the moment its button went through a function. */
   const screens = [...html.matchAll(/["'](\w+)\.html/g)].map((m) => m[1]);
   const startable = new Set([...cards, ...screens]
-    .filter((n) => !["index", "online", "buraonline", "jokeronline", "game"].includes(n)));
+    .filter((n) => !["index", "online", "buraonline", "jokeronline", "game",
+                     // not a game: the policy every ad programme asks to see
+                     "privacy"].includes(n)));
   assert.ok(startable.size >= 5, `the lobby starts ${[...startable].join(", ")}`);
   for (const g of startable) {
     const tab = "rules" + g[0].toUpperCase() + g.slice(1);

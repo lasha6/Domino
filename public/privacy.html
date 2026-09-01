@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>კონფიდენციალურობა — Pips</title>
+  <meta name="description" content="Pips — რა მონაცემებს ვინახავთ და რატომ. What Pips stores, and why." />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0f5230" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/base.css" />
+  <script src="js/i18n.js"></script>
+  <style>
+    /* A document rather than a screen: it scrolls, it is read sitting still,
+       and it is the one page in the app that is not landscape-locked. */
+    body{ overflow:auto; }
+    .doc{
+      max-width:760px; margin:0 auto; padding:26px 20px 60px;
+      color:var(--cream); font:400 14.5px/1.72 var(--font-ui);
+    }
+    .doc h1{
+      font:700 30px/1.2 var(--font-display); color:var(--brass-lit);
+      margin:0 0 4px; text-shadow:0 2px 0 var(--brass-dim), 0 8px 20px rgba(0,0,0,.5);
+    }
+    .doc .when{ font-size:12px; color:var(--cream-dim); margin:0 0 22px; }
+    .doc h2{
+      font:700 17px/1.3 var(--font-ui); color:var(--brass-lit);
+      margin:26px 0 8px; padding-top:16px; border-top:1px solid rgba(255,255,255,.08);
+    }
+    .doc p, .doc li{ color:rgba(246,239,221,.88); margin:0 0 10px; }
+    .doc ul{ margin:0 0 12px; padding-left:20px; }
+    .doc b{ color:var(--cream); }
+    .doc a{ color:var(--brass-lit); }
+    .back{
+      display:inline-block; margin:0 0 18px; padding:8px 14px; border-radius:10px;
+      border:1px solid rgba(255,255,255,.16); background:rgba(0,0,0,.3);
+      color:var(--cream); font:700 13px/1 var(--font-ui); text-decoration:none;
+    }
+    .doc section{ display:none; }
+    .doc section.on{ display:block; }
+  </style>
+</head>
+<body>
+  <!-- Both languages are written out and one is shown, rather than the page
+       being translated a sentence at a time by i18n. A policy is the one text
+       in the app where a half-translated line is worse than none, and it is
+       far too long to keep in the dictionary. data-raw tells i18n to leave the
+       whole document alone. -->
+  <div class="doc" data-raw="1">
+    <a class="back" href="index.html">←</a>
+
+    <!-- ======================= ქართული ======================= -->
+    <section id="ka">
+      <h1>კონფიდენციალურობის პოლიტიკა</h1>
+      <p class="when">ბოლო განახლება: 2 სექტემბერი, 2026</p>
+
+      <p><b>Pips</b> სამაგიდო თამაშების აპლიკაციაა (დომინო, ბურა, ჯოკერი, ნარდი, დამკა).
+        ქვემოთ მარტივად წერია, რა მონაცემებს ვინახავთ, რატომ და როგორ წაშლი.</p>
+
+      <h2>რას ვინახავთ</h2>
+      <ul>
+        <li><b>სახელი, რომელსაც თვითონ წერ.</b> სტუმრად თამაშისას სხვას არაფერს გთხოვთ.</li>
+        <li><b>მოწყობილობის შემთხვევითი ნომერი.</b> იქმნება პირველივე გახსნისას და მხოლოდ
+          იმისთვის, რომ პროგრესი შენი დარჩეს. ეს არ არის შენი ვინაობა და არავის გადაეცემა.</li>
+        <li><b>Google-ით შესვლისას</b> — სახელი, პროფილის სურათი და Google-ის ანგარიშის
+          იდენტიფიკატორი. <b>პაროლს ვერასდროს ვხედავთ</b>: შესვლას თვითონ Google ამოწმებს.</li>
+        <li><b>თამაშის პროგრესი</b> — მონეტები, დონე, გამოცდილება, ყოველდღიური სერია,
+          მოგება-წაგება, მიღწევები და ნაყიდი იერსახე.</li>
+      </ul>
+
+      <h2>რას არ ვინახავთ</h2>
+      <ul>
+        <li><b>მიმოწერას — რადგან მიმოწერა არ არსებობს.</b> მაგიდაზე მხოლოდ მზა ფრაზების
+          არჩევა შეიძლება, და სერვერს მათი <b>ნომერი</b> გადაეცემა და არა ტექსტი.</li>
+        <li>ტელეფონის ნომერს, მისამართს, საკონტაქტო სიას, ადგილმდებარეობას.</li>
+        <li>გადახდის მონაცემებს — ბარათს არსად ვითხოვთ.</li>
+      </ul>
+
+      <h2>რატომ</h2>
+      <p>მხოლოდ იმისთვის, რომ თამაში იმუშაოს: მოგაგებინოთ მაგიდასთან, დაგიბრუნოთ იმავე
+        ხელში კავშირის გაწყვეტის შემდეგ, და პროგრესი არ დაიკარგოს ტელეფონის შეცვლისას.
+        <b>მონაცემებს არ ვყიდით და არავის ვაწვდით.</b></p>
+
+      <h2>რეკლამა</h2>
+      <p>თუ საიტზე რეკლამა გამოჩნდება, ის Google-ისგან იქნება (Google AdSense / H5 Games
+        Ads). Google-მა შესაძლოა გამოიყენოს cookie-ები, რომ რეკლამა უფრო შესაფერისი იყოს.
+        ევროპის ეკონომიკურ ზონაში, დიდ ბრიტანეთსა და შვეიცარიაში მყოფ მოთამაშეს
+        <b>წინასწარ ვკითხავთ თანხმობას</b> და უარის თქმა შეიძლება.</p>
+      <p>Google-ის მიერ რეკლამაში მონაცემების გამოყენებაზე:
+        <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener">
+          policies.google.com/technologies/ads</a>.</p>
+
+      <h2>Cookie-ები და ბრაუზერის მეხსიერება</h2>
+      <p>ვინახავთ ენას, არჩეულ იერსახეს, ხმის ჩამრთველს, ბოლო ნანახ ქულებს და მაგიდის
+        დროებით ბილეთს — ყველაფერი შენივე ბრაუზერში. ეს არ არის თვალთვალი და სხვა
+        საიტებზე არ მოგყვება.</p>
+
+      <h2>ბავშვები</h2>
+      <p>თამაში არ არის განკუთვნილი <b>13 წლამდე</b> ბავშვებისთვის და შეგნებულად არ ვაგროვებთ
+        მათ მონაცემებს. თუ ასეთი შემთხვევა აღმოჩნდა — მოგვწერეთ და წავშლით.</p>
+
+      <h2>რამდენ ხანს ინახება და როგორ წაიშლება</h2>
+      <p>პროგრესი ინახება მანამ, სანამ ანგარიში არსებობს. წასაშლელად მოგვწერეთ იმ
+        მისამართიდან, რომლითაც შეხვედით — ანგარიშსაც და მასთან დაკავშირებულ ყველა
+        ჩანაწერს წავშლით. სტუმრის მონაცემები ბრაუზერის მეხსიერების გასუფთავებით იშლება.</p>
+
+      <h2>ცვლილებები</h2>
+      <p>თუ რამე შეიცვლება, ამ გვერდზე დაიწერება და თარიღი განახლდება.</p>
+
+      <h2>კონტაქტი</h2>
+      <p id="contactKa">კითხვის ან წაშლის მოთხოვნის შემთხვევაში: <b>[საკონტაქტო ელფოსტა]</b></p>
+    </section>
+
+    <!-- ======================== English ======================== -->
+    <section id="en">
+      <h1>Privacy Policy</h1>
+      <p class="when">Last updated: 2 September 2026</p>
+
+      <p><b>Pips</b> is a board and card game app (dominoes, bura, joker, backgammon,
+        checkers). This page says plainly what we keep, why, and how to have it removed.</p>
+
+      <h2>What we keep</h2>
+      <ul>
+        <li><b>The name you type.</b> Playing as a guest, we ask for nothing else.</li>
+        <li><b>A random number for your device.</b> Made the first time you open the game,
+          and only so your progress stays yours. It is not your identity and it goes to
+          nobody.</li>
+        <li><b>If you sign in with Google</b> — your name, profile picture and Google
+          account identifier. <b>We never see your password</b>: Google checks the sign-in
+          itself.</li>
+        <li><b>Your progress</b> — coins, level, experience, daily streak, wins and losses,
+          achievements, and any table you have bought.</li>
+      </ul>
+
+      <h2>What we do not keep</h2>
+      <ul>
+        <li><b>Messages — because there are none.</b> At the table you may only pick from a
+          fixed set of phrases, and what reaches the server is the phrase's <b>number</b>,
+          never text.</li>
+        <li>Phone number, address, contacts, location.</li>
+        <li>Payment details — we never ask for a card.</li>
+      </ul>
+
+      <h2>Why</h2>
+      <p>Only so the game works: to seat you at a table, to put you back in the same hand
+        after your connection drops, and so your progress survives a new phone.
+        <b>We do not sell your data and we do not pass it to anyone.</b></p>
+
+      <h2>Advertising</h2>
+      <p>If advertising appears on this site it comes from Google (Google AdSense / H5 Games
+        Ads). Google may use cookies to make ads more relevant. Players in the European
+        Economic Area, the UK and Switzerland are <b>asked for consent first</b> and may
+        decline.</p>
+      <p>How Google uses data in advertising:
+        <a href="https://policies.google.com/technologies/ads" target="_blank" rel="noopener">
+          policies.google.com/technologies/ads</a>.</p>
+
+      <h2>Cookies and browser storage</h2>
+      <p>We keep your language, the look you chose, the sound setting, the figures you last
+        saw, and a temporary ticket for the table you are sitting at — all of it inside your
+        own browser. It is not tracking and it does not follow you to other sites.</p>
+
+      <h2>Children</h2>
+      <p>The game is not intended for children <b>under 13</b> and we do not knowingly
+        collect their data. If it has happened, write to us and it will be removed.</p>
+
+      <h2>How long it is kept, and how to remove it</h2>
+      <p>Progress is kept for as long as the account exists. To have it removed, write from
+        the address you signed in with and the account and everything attached to it will be
+        deleted. Guest data is removed by clearing your browser's storage.</p>
+
+      <h2>Changes</h2>
+      <p>If anything changes it will be written here and the date above updated.</p>
+
+      <h2>Contact</h2>
+      <p id="contactEn">For questions or a deletion request: <b>[contact email]</b></p>
+    </section>
+  </div>
+
+  <script>
+    /* The page shows one language and swaps on the same setting the rest of
+       the app uses, so arriving here from an English lobby does not drop the
+       reader into Georgian. */
+    function paint() {
+      const en = (window.I18N ? I18N.lang : "ka") === "en";
+      document.getElementById("en").classList.toggle("on", en);
+      document.getElementById("ka").classList.toggle("on", !en);
+      document.documentElement.lang = en ? "en" : "ka";
+      document.title = en ? "Privacy — Pips" : "კონფიდენციალურობა — Pips";
+    }
+    paint();
+    window.addEventListener("storage", paint);   // language changed in another tab
+  </script>
+</body>
+</html>

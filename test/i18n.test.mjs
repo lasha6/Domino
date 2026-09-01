@@ -43,6 +43,35 @@ const I18N = loadI18N();
 const covered = (s) => I18N.t(s) !== s;
 const norm = (s) => s.trim().replace(/[\s ]+/g, " ");
 
+/* Cut out anything marked data-raw before looking for Georgian in it. That
+   attribute is i18n's own "keep out of this subtree", and demanding
+   dictionary entries for text the dictionary must never touch would be the
+   test contradicting the rule it exists to protect. Two things wear it: a
+   player's name, and the privacy policy — which carries both languages
+   written out in full and shows one, because a policy is the one text where
+   a half-translated sentence is worse than none. */
+function withoutRaw(html) {
+  for (;;) {
+    const at = html.search(/<(\w+)[^>]*\sdata-raw[=\s>]/);
+    if (at < 0) return html;
+    const tag = /<(\w+)/.exec(html.slice(at))[1];
+    const open = new RegExp("<" + tag + "\\b", "g");
+    const close = new RegExp("</" + tag + "\\s*>", "g");
+    let depth = 0, i = at, end = html.length;
+    while (i < html.length) {
+      open.lastIndex = close.lastIndex = i;
+      const o = open.exec(html);
+      const c = close.exec(html);
+      if (!c) break;                       // unbalanced: take the rest of it
+      if (o && o.index < c.index) { depth++; i = o.index + 1; continue; }
+      depth--;
+      i = c.index + 1;
+      if (depth === 0) { end = c.index + c[0].length; break; }
+    }
+    html = html.slice(0, at) + " " + html.slice(end);
+  }
+}
+
 const screens = readdirSync(PUB).filter((f) => f.endsWith(".html"));
 /* Two design sketches that no player ever opens. They are kept because they
    are what the boards were drawn from, not because they are screens. */
@@ -60,10 +89,10 @@ test("every word written into a screen has an English one", () => {
   const missing = [];
   for (const f of screens) {
     if (SKETCHES.has(f)) continue;
-    const html = readFileSync(path.join(PUB, f), "utf8")
+    const html = withoutRaw(readFileSync(path.join(PUB, f), "utf8")
       .replace(/<script[\s\S]*?<\/script>/g, " ")
       .replace(/<style[\s\S]*?<\/style>/g, " ")
-      .replace(/<!--[\s\S]*?-->/g, " ");
+      .replace(/<!--[\s\S]*?-->/g, " "));
     for (const m of html.matchAll(/\b(placeholder|title|aria-label)="([^"]*)"/g)) {
       const s = norm(m[2]);
       if (KA.test(s) && !covered(s)) missing.push(`${f} @${m[1]}: ${s}`);

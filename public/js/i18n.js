@@ -176,6 +176,7 @@
     "ბურა — ონლაინ": "Bura — online",
     "ჯოკერი — კომპიუტერთან": "Joker — against the computer",
     "ჯოკერი — ონლაინ": "Joker — online",
+    "კონფიდენციალურობა — Pips": "Privacy — Pips",
 
     // --- the table of honour ---
     "რეიტინგი": "Leaderboard",
@@ -275,6 +276,7 @@
     "კომპიუტერის სვლაა": "The computer's move",
     "მოწინააღმდეგე ფიქრობს": "Your opponent is thinking",
     "დასრულდა": "Finished",
+    "კონფიდენციალურობა": "Privacy",
     "ახალი თამაში": "New game", "ახალი მატჩი": "New match",
     "მთავარ ეკრანზე": "Back to the menu",
     "მენიუში დაბრუნება": "Back to the menu",

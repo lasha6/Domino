@@ -1,0 +1,11 @@
+# Who is allowed to sell advertising on this site.
+#
+# The file has to sit at the root of the domain the ads are served from, and
+# it is read by the buyers rather than by us: a domain with no ads.txt, or one
+# that does not name the publisher, is treated as unauthorised inventory and
+# quietly stops being bid on. It costs nothing to have it in place early and
+# it is one of the things asked for before H5 Games Ads is switched on.
+#
+# One line per seller: <domain>, <publisher id>, <DIRECT|RESELLER>, <TAG-ID>
+# The last field is Google's own certification id and is the same for everyone.
+google.com, pub-7087199697693403, DIRECT, f08c47fec0942fa0
