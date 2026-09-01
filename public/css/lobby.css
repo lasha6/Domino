@@ -267,11 +267,13 @@
    the mark keeps the 150×84 it is drawn in while the card reserves only the
    52px it shows. (.gArt above is a different thing and still in use: the
    ნარდი room picker draws its own dice and draughtsmen with it.) */
-.gMark{ position:relative; height:52px; }
-.gMark > *{
-  position:absolute; left:50%; top:50%;
-  transform:translate(-50%,-50%) scale(.56);
-}
+.gMark{ position:relative; height:52px; transform:scale(.56); }
+/* centred by margin rather than by translate, so nothing here writes a
+   transform onto the mark — see the short-screen rules further down, which
+   set one on .gameArt and used to land on this copy as well: the marks came
+   out at four fifths of full size, un-centred, spilling over the card and
+   its words. That is the whole reason .hero exists. */
+.gMark > *{ position:absolute; left:50%; top:50%; margin:-42px 0 0 -75px; }
 /* ნარდი: a thrown pair of dice, the way they land on the felt — one leaning
    left, one right, five pips and three. დამკა keeps its own icon below: two
    draughtsmen, one dark one light, the way a board looks from across the
@@ -425,7 +427,7 @@
   .gName{ font-size:15px; }
   /* the height follows the scale (84 × .82), so the cards inside stay
      inside the room reserved for them rather than over the heading */
-  .gameArt, .tiles{ height:69px; transform:scale(.82); }
+  .hero > .gameArt, .hero > .tiles{ height:69px; transform:scale(.82); }
 }
 
 /* the toast itself now lives in base.css — the table screen shows one too */
@@ -619,17 +621,17 @@
   .center{ gap:7px; }
   /* დომინო is drawn smaller here rather than scaled — its pips stay
      crisp that way — so the scale from the taller breakpoint is undone */
-  .tiles{ height:56px; width:104px; transform:none; }
-  .tile{ width:34px; height:54px; border-radius:6px; }
-  .pips{ grid-template-columns:repeat(3,5px); grid-template-rows:repeat(3,5px); gap:2.5px; }
-  .pips i, .pips span{ width:5px; height:5px; }
-  .tile::after{ width:4px; height:4px; }
+  .hero > .tiles{ height:56px; width:104px; transform:none; }
+  .hero .tile{ width:34px; height:54px; border-radius:6px; }
+  .hero .pips{ grid-template-columns:repeat(3,5px); grid-template-rows:repeat(3,5px); gap:2.5px; }
+  .hero .pips i, .pips span{ width:5px; height:5px; }
+  .hero .tile::after{ width:4px; height:4px; }
   .logo-title{ font-size:31px; }
   .logo-sub{ font-size:10px; letter-spacing:4px; }
   .play{ padding:10px 32px; font-size:16px; }
   .modes{ gap:8px; }
   .mode{ padding:8px 14px; font-size:12px; }
-  .gameArt{ height:62px; transform:scale(.74); }
+  .hero > .gameArt{ height:62px; transform:scale(.74); }
   .backGame{ padding:7px 11px; font-size:11px; }   /* still a fingertip */
 }
 

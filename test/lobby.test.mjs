@@ -239,3 +239,42 @@ test("the jester is one drawing, not two", () => {
     assert.doesNotMatch(src, /viewBox="0 0 100 132"/, f + " carries its own copy of it");
   }
 });
+
+test("shrinking the heading's mark cannot shrink the picker's", () => {
+  /* Each mark is drawn twice, and the short-screen rules mean only the big
+     one. Written unqualified they reached both: on a landscape phone the
+     picker's copies came out at four fifths of full size and un-centred,
+     spilling across the card and over its words. It looked like the marks
+     had broken; what had happened was one selector matching twice.
+
+     So inside those blocks, anything that resizes a mark must say .hero. */
+  const css = readFileSync(new URL("../public/css/lobby.css", import.meta.url), "utf8");
+  const parts = css.split("@media (max-height:");
+  assert.ok(parts.length >= 3, "the short-screen rules have gone");
+  const risky = /(^|[\s,>])(\.gameArt|\.tiles|\.tile|\.pips|\.mcard|\.nard)\b/;
+  const loose = [];
+  for (const part of parts.slice(1)) {
+    const body = part.slice(part.indexOf("{") + 1, part.indexOf("\n}"));
+    for (const line of body.split("\n")) {
+      const sel = line.split("{")[0];
+      if (!line.includes("{") || !risky.test(sel)) continue;
+      if (!sel.includes(".hero")) loose.push(sel.trim());
+    }
+  }
+  assert.deepEqual(loose, [],
+    "these resize every copy of a mark, including the small ones on the picker");
+});
+
+test("nothing writes a transform onto the picker's copy of a mark", () => {
+  /* That is what keeps it out of reach: the shrinking is done on the wrapper
+     and the mark's own transform is left alone, so a rule that sets one
+     elsewhere cannot land here and undo the centring. */
+  const css = readFileSync(new URL("../public/css/lobby.css", import.meta.url), "utf8");
+  const at = css.indexOf(".gMark > *{");
+  assert.notEqual(at, -1, "the picker no longer places its mark");
+  const body = css.slice(at, css.indexOf("}", at));
+  assert.doesNotMatch(body, /transform:/,
+    "the picker's mark carries a transform, which a later rule can overwrite");
+  assert.match(css.slice(css.indexOf(".gMark{"), at), /transform:scale\(/,
+    "nothing shrinks the picker's copy at all");
+});
