@@ -73,6 +73,8 @@
       <div class="spin"></div>
       <p id="waitText">სერვერს ვუკავშირდები</p>
       <div class="code" id="waitCode" style="display:none"></div>
+      <!-- 2v2: who you play WITH, drawn by js/pairing.js -->
+      <div class="lobby" id="lobbyList"></div>
       <button class="alt" onclick="quit()">გაუქმება</button>
     </div>
   </div>
@@ -137,6 +139,7 @@
   <script src="js/haptic.js"></script>
   <script src="js/turnring.js"></script>
   <script src="js/emote.js"></script>
+  <script src="js/pairing.js"></script>
   <script src="js/hints.js"></script>
   <script src="js/fx.js"></script>
   <script>
@@ -343,8 +346,11 @@
       const first = !seated && !!st.hand;
       S = st;
       lastSt = st;
-      if (st.hand) { seated = true; document.getElementById("waitOverlay").classList.remove("show"); }
-      else paintWaiting(st);
+      if (st.hand) {
+        seated = true;
+        document.getElementById("waitOverlay").classList.remove("show");
+        Pairing.clear(document.getElementById("lobbyList"));
+      } else paintWaiting(st);
       /* Wear what this ACCOUNT bought. The copy on the device is written by
          the lobby, so on a phone that had not been back to the front page
          since signing in, a game opened in the wrong colours. */
@@ -393,8 +399,9 @@
       const here = (st.lobby && st.lobby.length) || 1;
       const left = Math.max(0, seats - here);
       const need = seats === 4 ? left + " მოთამაშე კიდევ" : "მოწინააღმდეგეს ვეძებ";
+      const mode = seats === 4 ? "2v2 (წყვილებით)" : "1v1";
       if (st.code) {
-        document.getElementById("waitTitle").textContent = "მაგიდა შექმნილია";
+        document.getElementById("waitTitle").textContent = "მაგიდა შექმნილია — " + mode;
         document.getElementById("waitText").textContent =
           seats === 4 ? "გაუზიარე კოდი — " + need : "გაუზიარე კოდი მეგობარს";
         const c = document.getElementById("waitCode");
@@ -403,6 +410,8 @@
         document.getElementById("waitTitle").textContent = "ველოდებით…";
         document.getElementById("waitText").textContent = need;
       }
+      // and, at four, who you play WITH
+      Pairing.render(document.getElementById("lobbyList"), st, socket);
     }
 
     /* Where everyone sits. The server sends the table in clockwise order from

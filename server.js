@@ -275,6 +275,12 @@ function resolveTeams(room) {
   const count = (t) => room.players.filter((p) => p.team === t).length;
   room.players.forEach((p) => { if (p.team !== 0 && p.team !== 1) p.team = count(0) < 2 ? 0 : 1; });
 }
+/* Does this table have partners to choose at all? Four chairs is not the
+   answer on its own: ჯოკერი seats four and is usually every player for
+   themselves. Asked in one place because three different files were about to
+   answer it three different ways. */
+const hasPairs = (room) => room.size === 4 && (room.game !== "joker" || !!room.teams);
+
 // Partners face each other: team 0 takes seats 0 and 2, team 1 takes 1 and 3.
 function assignSeats(room) {
   if (room.size === 2) { room.players.forEach((p, i) => { p.seat = i; p.team = i; }); return; }
@@ -283,6 +289,34 @@ function assignSeats(room) {
   const t1 = room.players.filter((p) => p.team === 1);
   t0.forEach((p, i) => { p.seat = i * 2; });        // 0, 2
   t1.forEach((p, i) => { p.seat = i * 2 + 1; });    // 1, 3
+}
+
+/* ------------------------------------------------------------------ *
+ * the waiting room
+ *
+ * The same waiting room in every game that seats four: who is here, who is
+ * paired with whom, and what this player may do about it. It used to be
+ * written into the domino view alone, so a ბურა or ჯოკერი table showed four
+ * names and no way to choose between them — and then seated partners by the
+ * order people happened to arrive in, which is not a choice anybody made.
+ * ------------------------------------------------------------------ */
+function lobbyView(room, me, base) {
+  // team sizes as they would look without me, since joining is what I am deciding
+  const cnt = (t) => room.players.filter((p) => p.team === t && (!me || p.idx !== me.idx)).length;
+  base.pairs = hasPairs(room);
+  base.lobby = room.players.map((p) => ({
+    idx: p.idx, name: p.name, team: p.team, me: !!me && p.idx === me.idx,
+    verified: !!p.verified,          // signed in, so the name is really theirs
+    // I can pair with them unless we're already partners, and either they
+    // have a free seat beside them, or we're both free and a team is empty
+    pairable: base.pairs && !!me && p.idx !== me.idx
+      && !(me.team !== null && p.team === me.team)
+      && ((p.team === 0 || p.team === 1) ? cnt(p.team) < 2 : (cnt(0) === 0 || cnt(1) === 0)),
+  }));
+  base.myTeam = me ? me.team : null;
+  base.canStayAlone = base.pairs && !!me && me.team !== null;
+  base.autoStartIn = room.autoStartAt ? Math.max(0, Math.round((room.autoStartAt - Date.now()) / 1000)) : null;
+  return base;
 }
 
 /* ------------------------------------------------------------------ *
@@ -306,24 +340,7 @@ function viewFor(room, seat) {
     roster: roster(room, seat), stake: matchStake(room),
     myLook: lookOf(room, seat),
   };
-  if (!g) {
-    // waiting room: who is here, who is paired with whom, what I may do
-    // team sizes as they'd look without me, since joining is what I'm deciding
-    const cnt = (t) => room.players.filter((p) => p.team === t && (!me || p.idx !== me.idx)).length;
-    base.lobby = room.players.map((p) => ({
-      idx: p.idx, name: p.name, team: p.team, me: !!me && p.idx === me.idx,
-      verified: !!p.verified,          // signed in, so the name is really theirs
-      // I can pair with them unless we're already partners, and either they
-      // have a free seat beside them, or we're both free and a team is empty
-      pairable: !!me && p.idx !== me.idx
-        && !(me.team !== null && p.team === me.team)
-        && ((p.team === 0 || p.team === 1) ? cnt(p.team) < 2 : (cnt(0) === 0 || cnt(1) === 0)),
-    }));
-    base.myTeam = me ? me.team : null;
-    base.canStayAlone = !!me && me.team !== null;
-    base.autoStartIn = room.autoStartAt ? Math.max(0, Math.round((room.autoStartAt - Date.now()) / 1000)) : null;
-    return base;
-  }
+  if (!g) return lobbyView(room, me, base);
   // everyone at the table, described relative to the viewer:
   //   0 = me, 1 = next to play (left), 2 = across (partner in 2v2), 3 = right
   const seats = room.players.map((p) => ({
@@ -365,7 +382,10 @@ function say(room, text) { room.log = text; }
 /* ------------------------------------------------------------------ *
  * game flow
  * ------------------------------------------------------------------ */
-const PAIR_GRACE = 15000;      // ms the full 2v2 table gets to finish choosing partners
+/* How long a full 2v2 table is given to finish choosing partners before the
+   server seats whoever has not. Settable like the other waits, so a test does
+   not have to sit through fifteen seconds of it to reach the game. */
+const PAIR_GRACE = +process.env.PAIR_GRACE || 15000;
 /* How long the table waits, holding everything, before it decides somebody is
    away rather than blinking. The seat itself is held for as long as the table
    lives; this is only how long the OTHERS are asked to wait. Settable so the
@@ -656,8 +676,9 @@ function startBura(room) {
   // a fresh match to write down, and a full bank of thinking time to spend
   room.players.forEach((p) => { p.settled = false; p.reserve = RESERVE_START; });
   clearAuto(room);
-  // partners sit across, so a side is every other chair round the table
-  room.players.forEach((p, i) => { p.seat = i; p.team = i % 2; });
+  // partners sit across, so a side is every other chair round the table —
+  // and WHO is partners with whom was decided in the waiting room
+  assignSeats(room);
   room.b = Bura.newGame({ variant: room.variant, target: room.target, players: room.size,
                           openMalutka: room.openMalutka !== false });
   room.phase = "play";
@@ -785,12 +806,7 @@ function buraView(room, seat) {
     roster: roster(room, seat), stake: matchStake(room),
     myLook: lookOf(room, seat),
   };
-  if (!b) {
-    base.lobby = room.players.map(function (p) {
-      return { idx: p.idx, name: p.name, me: !!me && p.idx === me.idx, verified: !!p.verified };
-    });
-    return base;
-  }
+  if (!b) return lobbyView(room, me, base);
   /* Everyone else at the table, in clockwise order starting from the player
      themselves, so a screen can seat them without knowing the seat numbers:
      "left" is the next chair round, "across" is the partner, "right" is the
@@ -1063,12 +1079,7 @@ function nardiView(room, seat) {
     roster: roster(room, seat), stake: matchStake(room),
     myLook: lookOf(room, seat),
   };
-  if (!n) {
-    base.lobby = room.players.map((p) => ({
-      idx: p.idx, name: p.name, me: !!me && p.idx === me.idx, verified: !!p.verified,
-    }));
-    return base;
-  }
+  if (!n) return lobbyView(room, me, base);
   const other = room.players.find((p) => p.seat !== seat) || {};
   return Object.assign({}, base, {
     pts: n.pts.slice(), bar: n.bar.slice(), off: n.off.slice(),
@@ -1185,12 +1196,7 @@ function damkaView(room, seat) {
     roster: roster(room, seat), stake: matchStake(room),
     myLook: lookOf(room, seat),
   };
-  if (!d) {
-    base.lobby = room.players.map((p) => ({
-      idx: p.idx, name: p.name, me: !!me && p.idx === me.idx, verified: !!p.verified,
-    }));
-    return base;
-  }
+  if (!d) return lobbyView(room, me, base);
   const other = room.players.find((p) => p.seat !== seat) || {};
   return Object.assign({}, base, {
     cells: d.cells.slice(),
@@ -1227,9 +1233,11 @@ function startJoker(room) {
   // a fresh match to write down, and a full bank of thinking time to spend
   room.players.forEach((p) => { p.settled = false; p.reserve = RESERVE_START; });
   clearAuto(room);
-  /* Alone, a seat is its own team. In pairs the partners sit opposite, 0 and
-     2 against 1 and 3, which is where they already are. */
-  room.players.forEach((p, i) => { p.seat = i; p.team = room.teams ? i % 2 : i; });
+  /* Alone, a seat is its own team and the order people arrived in is as good
+     as any. In pairs it is not: partners sit opposite, and which two those
+     are is what the waiting room was for. */
+  if (room.teams) assignSeats(room);
+  else room.players.forEach((p, i) => { p.seat = i; p.team = i; });
   room.j = Joker.newGame({
     dealer: room.size - 1,                 // so seat 0 calls first
     variant: room.variant === "nines" ? "nines" : "full",
@@ -1350,12 +1358,7 @@ function jokerView(room, seat) {
     roster: roster(room, seat), stake: matchStake(room),
     myLook: lookOf(room, seat),
   };
-  if (!j) {
-    base.lobby = room.players.map(function (p) {
-      return { idx: p.idx, name: p.name, me: !!me && p.idx === me.idx, verified: !!p.verified };
-    });
-    return base;
-  }
+  if (!j) return lobbyView(room, me, base);
   // everybody, clockwise from this player's own chair
   const REL = ["me", "left", "across", "right"];
   const table = [];
@@ -1395,21 +1398,33 @@ function jokerView(room, seat) {
   });
 }
 
+/* Which starter this table wants. Named once so the pairing wait below can
+   be written for every game rather than for domino and nobody else. */
+function starterFor(room) {
+  return room.game === "bura" ? startBura
+       : room.game === "joker" ? startJoker
+       : room.game === "nardi" ? startNardi
+       : room.game === "damka" ? startDamka
+       : startMatch;
+}
+
 function maybeStart(room) {
   if (room.players.length < room.size) { clearAuto(room); return false; }
-  if (room.game === "bura") { startBura(room); return true; }
-  if (room.game === "joker") { startJoker(room); return true; }   // no pairs to settle
-  if (room.game === "nardi") { startNardi(room); return true; }
-  if (room.game === "damka") { startDamka(room); return true; }
-  if (room.size === 2) { startMatch(room); return true; }
+  const go = starterFor(room);
+  /* A table with no partners to settle starts the moment it is full. One
+     that HAS them does not: it waits while people choose, and only seats
+     the undecided when the grace runs out. ბურა and ჯოკერი used to skip
+     this entirely and start on the fourth arrival — so the partner you got
+     was whoever happened to join in step with you. */
+  if (!hasPairs(room)) { clearAuto(room); go(room); return true; }
   const c0 = room.players.filter((p) => p.team === 0).length;
   const c1 = room.players.filter((p) => p.team === 1).length;
-  if (c0 === 2 && c1 === 2) { clearAuto(room); startMatch(room); return true; }
+  if (c0 === 2 && c1 === 2) { clearAuto(room); go(room); return true; }
   if (!room.autoTimer) {
     room.autoStartAt = Date.now() + PAIR_GRACE;
     room.autoTimer = setTimeout(() => {
       room.autoTimer = null;
-      if (rooms.has(room.id) && room.phase === "wait" && room.players.length === room.size) startMatch(room);
+      if (rooms.has(room.id) && room.phase === "wait" && room.players.length === room.size) go(room);
     }, PAIR_GRACE);
   }
   return false;

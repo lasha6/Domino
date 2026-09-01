@@ -92,6 +92,8 @@
       <div class="spin"></div>
       <p id="waitText">სერვერს ვუკავშირდები</p>
       <div class="code" id="waitCode" style="display:none"></div>
+      <!-- 2v2: who you play WITH, drawn by js/pairing.js -->
+      <div class="lobby" id="lobbyList"></div>
       <button class="alt" onclick="quit()">გაუქმება</button>
     </div>
   </div>
@@ -133,6 +135,7 @@
   <script src="js/config.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/socket.io.min.js"></script>
+  <script src="js/pairing.js"></script>
   <script src="js/leaving.js"></script>
   <script>
     /* ჯოკერი against real people. The server holds the game and checks every
@@ -735,8 +738,10 @@
     function paintWaiting(st){
       const here = (st.lobby && st.lobby.length) || 1;
       const left = Math.max(0, 4 - here);
+      // pairs or every player for themselves — the table says which it is
+      const mode = st.pairs ? "2v2 (წყვილებით)" : "თითოეული თავისთვის";
       if (st.code) {
-        document.getElementById("waitTitle").textContent = "მაგიდა შექმნილია";
+        document.getElementById("waitTitle").textContent = "მაგიდა შექმნილია — " + mode;
         document.getElementById("waitText").textContent = "გაუზიარე კოდი — " + left + " მოთამაშე კიდევ";
         const c = document.getElementById("waitCode");
         c.style.display = "block"; c.textContent = st.code;
@@ -744,6 +749,7 @@
         document.getElementById("waitTitle").textContent = "ველოდებით…";
         document.getElementById("waitText").textContent = left + " მოთამაშე კიდევ";
       }
+      Pairing.render(document.getElementById("lobbyList"), st, socket);
     }
 
     /* ---------------- the server ---------------- */
@@ -844,8 +850,11 @@
     socket.on("state", (st) => {
       S = st;
       lastSt = st;
-      if (st.hand) { seated = true; document.getElementById("waitOverlay").classList.remove("show"); }
-      else { paintWaiting(st); return; }
+      if (st.hand) {
+        seated = true;
+        document.getElementById("waitOverlay").classList.remove("show");
+        Pairing.clear(document.getElementById("lobbyList"));
+      } else { paintWaiting(st); return; }
       /* Wear what this ACCOUNT bought. The copy on the device is written by
          the lobby, so on a phone that had not been back to the front page
          since signing in, a game opened in the wrong colours. */

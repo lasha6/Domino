@@ -270,6 +270,15 @@ test("the computer may finish your cards, but the match is lost the moment you g
                             auth: { kind: "guest", id: ids[i] } });
       return c;
     });
+    /* Four at a ბურა table now choose their partners before it deals, the
+       same as a domino one — so the pairs are made here rather than waiting
+       out the grace period the server would otherwise sit through. */
+    assert.ok(await until(() => cs.every((c) => c.last && c.last.lobby &&
+                                          c.last.lobby.length === 4)), "all four in");
+    const idxOf = (c) => c.last.lobby.find((p) => p.me).idx;
+    cs[0].emit("choosePartner", { idx: idxOf(cs[1]) });
+    await wait(200);
+    cs[2].emit("choosePartner", { idx: idxOf(cs[3]) });
     assert.ok(await until(() => cs.every((c) => c.last && c.last.hand)), "all four dealt");
     cs.sort((x, y) => x.last.seat - y.last.seat);
     const goner = cs[0];

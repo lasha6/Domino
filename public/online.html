@@ -124,6 +124,7 @@
   <script src="js/haptic.js"></script>
   <script src="js/turnring.js"></script>
   <script src="js/emote.js"></script>
+  <script src="js/pairing.js"></script>
   <script src="js/hints.js"></script>
   <script src="js/fx.js"></script>
   <script>
@@ -356,91 +357,16 @@
           document.getElementById("waitText").textContent =
             mode + " · " + st.target + " ქულა · " + joined + "/" + need;
         }
-        renderLobby(st);
+        Pairing.render(document.getElementById("lobbyList"), st, socket);
       } else {
         wait.classList.remove("show");
-        document.getElementById("lobbyList").innerHTML = "";
+        Pairing.clear(document.getElementById("lobbyList"));
       }
       // boneyard opens only for the player who must draw
       if (st.phase === "draw" && st.myTurn) showBone(); else closeBone();
       selIdx = null;
       render();
     });
-
-    /* ---------------- 2v2 waiting room ---------------- */
-    // Shows everyone who has joined so you can pick your partner. If you'd
-    // rather wait for someone specific, stay unpaired — the table only seats
-    // you automatically once it is full and the grace period runs out.
-    function renderLobby(st){
-      const box = document.getElementById("lobbyList");
-      if (st.size !== 4 || !st.lobby) { box.innerHTML = ""; return; }
-      box.innerHTML = "";
-      st.lobby.forEach(p => {
-        const row = document.createElement("div");
-        row.className = "lrow" + (p.me ? " me" : "");
-        const team = p.team === 0 ? '<span class="lteam t0">წყვილი A</span>'
-                   : p.team === 1 ? '<span class="lteam t1">წყვილი B</span>'
-                   : '<span class="lteam">უწყვილო</span>';
-        // a name is typed by a stranger — never let it become markup
-        const nameEl = document.createElement("span");
-        nameEl.className = "lname";
-        nameEl.textContent = p.name + (p.me ? " (შენ)" : "");
-        if (p.verified) {
-          // signed in with Google, so this name is really theirs
-          const tick = document.createElement("span");
-          tick.className = "vtick";
-          tick.textContent = "✓";
-          tick.title = "დამოწმებული სახელი";
-          nameEl.appendChild(tick);
-        }
-        row.appendChild(nameEl);
-        row.insertAdjacentHTML("beforeend", team);
-        if (p.pairable) {
-          const b = document.createElement("button");
-          b.textContent = "დაწყვილდი";
-          b.onclick = () => socket.emit("choosePartner", { idx: p.idx });
-          row.appendChild(b);
-        }
-        box.appendChild(row);
-      });
-      const hint = document.createElement("div");
-      hint.className = "lobbyHint";
-      if (st.canStayAlone) {
-        hint.innerHTML = "შენს წყვილს ელოდები? ";
-        const b = document.createElement("button");
-        b.textContent = "მარტო დაველოდები";
-        b.style.cssText = "font-size:12px;padding:5px 12px;margin-left:6px;border-radius:9px;border:1px solid rgba(255,255,255,.16);background:rgba(0,0,0,.3);color:#fff;font-weight:700;cursor:pointer;font-family:inherit";
-        b.onclick = () => socket.emit("stayAlone");
-        hint.appendChild(b);
-      } else {
-        hint.innerHTML = "აირჩიე ვისთან გინდა წყვილში, ან დაელოდე შენს ადამიანს";
-      }
-      if (st.autoStartIn != null) {
-        const c = document.createElement("div");
-        c.className = "lobbyHint"; c.id = "autoCount";
-        box.appendChild(c);
-        startCountdown(st.autoStartIn);
-      } else {
-        stopCountdown();
-      }
-      box.appendChild(hint);
-    }
-    // the server only pushes on events, so tick the countdown locally
-    let cdTimer = null, cdLeft = 0;
-    function startCountdown(secs){
-      cdLeft = secs; paintCountdown();
-      if (cdTimer) return;
-      cdTimer = setInterval(() => {
-        cdLeft = Math.max(0, cdLeft - 1);
-        paintCountdown();
-        if (cdLeft === 0) stopCountdown();
-      }, 1000);
-    }
-    function stopCountdown(){ if (cdTimer) { clearInterval(cdTimer); cdTimer = null; } }
-    function paintCountdown(){
-      const el = document.getElementById("autoCount");
-      if (el) el.innerHTML = "მაგიდა სავსეა — <b>" + cdLeft + " წმ</b>-ში ავტომატურად დავსხდებით";
-    }
 
     /* ---------------- actions ---------------- */
     function myBoard(){ return { line:S.line, top:S.top, bottom:S.bottom, spinnerVal:S.spinnerVal }; }

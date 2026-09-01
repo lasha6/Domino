@@ -196,6 +196,7 @@
       "🎓 Practice against the computer — no coins at stake",
     "👥 2v2 წყვილებით": "👥 2v2 in pairs",
     "2v2 (წყვილებით)": "2v2 (in pairs)",
+    "თითოეული თავისთვის": "every player for themselves",
     "ხუთკარტა": "Five-card", "სამკარტა": "Three-card",
     "36 კარტი": "36 cards", "20 კარტი · „ვარ\"": "20 cards · \"var\"",
     "მალუტკა რიგის გარეშე": "Malutka out of turn",
@@ -256,6 +257,8 @@
     "დავრჩები": "Stay", "გასვლა": "Leave", "გაუქმება": "Cancel",
     "მარტო დაველოდები": "Wait alone",
     "შენს წყვილს ელოდები?": "Waiting for your partner?",
+    "აირჩიე ვისთან გინდა წყვილში, ან დაელოდე შენს ადამიანს":
+      "Pick who you want to play with, or wait for your own partner",
     "მოწინააღმდეგე გავიდა": "Your opponent left",
 
     // --- the table, generally ---
@@ -632,6 +635,10 @@
     [/^წაიღოს — (.+)$/, (m) => `Let it go — ${one(m[1])}`],
     [/^ველოდებით — (.+)$/, (m) => `Waiting for ${one(m[1])}`],
     [/^გაუზიარე კოდი — (.+)$/, (m) => `Share the code — ${one(m[1])}`],
+    /* The table title carries the mode after a dash, so the whole line has
+       to be matched — the bare "მაგიდა შექმნილია" below it never met this
+       string and the title sat in Georgian on an English screen. */
+    [/^მაგიდა შექმნილია — (.+)$/, (m) => `Table made — ${one(m[1])}`],
     [/^ახალი ხელი — (.+)$/, (m) => `New hand — ${one(m[1])}`],
 
     [/^(.+) ჩამოვიდა (\d+) ქვით$/, (m) => `${one(m[1])} led ${m[2]} card${m[2] === "1" ? "" : "s"}`],
