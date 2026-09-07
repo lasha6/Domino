@@ -258,6 +258,11 @@
     "დავრჩები": "Stay", "გასვლა": "Leave", "გაუქმება": "Cancel",
     "მარტო დაველოდები": "Wait alone",
     "შენს წყვილს ელოდები?": "Waiting for your partner?",
+    "მაღაზია ვერ ჩაიტვირთა — სცადე თავიდან შესვლა":
+      "The shop would not load — try signing in again",
+    "ვერ ავიღე — სცადე თავიდან შესვლა": "Could not claim it — try signing in again",
+    "იტვირთება…": "Loading…",
+    "ვამოწმებ…": "Checking…",
     "ბოლოს ნანახი მონაცემები — სერვერს ვერ დავუკავშირდი":
       "Last known figures — could not reach the server",
     "აირჩიე ვისთან გინდა წყვილში, ან დაელოდე შენს ადამიანს":

@@ -73,15 +73,26 @@
       && !!p.daily && typeof p.daily === "object";
   }
 
+  /* Marked on the way out. Everything on a profile is paint except the
+     things that are DECISIONS — whether today's reward is still waiting is
+     one, and a day-old answer to it is worse than no answer: the button
+     would sit greyed out on a morning when the reward was there to take.
+     The caller can tell the difference now, and only the paint is used. */
   function load() {
     const p = all()[keyFor()];
-    return whole(p) ? p : null;
+    if (!whole(p)) return null;
+    const copy = {};
+    for (const k of Object.keys(p)) copy[k] = p[k];
+    copy.fromCache = true;
+    return copy;
   }
 
   function save(p) {
     if (!whole(p)) return null;
     const box = all();
-    box[keyFor()] = p;
+    const keep = {};
+    for (const k of Object.keys(p)) if (k !== "fromCache") keep[k] = p[k];
+    box[keyFor()] = keep;
     /* One account per key and only a handful of keys ever — but a shared
        phone could collect them, so the oldest go rather than growing for
        ever. Written last-seen-first, so "oldest" is simply the tail. */

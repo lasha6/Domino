@@ -202,7 +202,11 @@ test("signing in asks the server again", async () => {
   const at = html.indexOf("Auth.onChange(() => {");
   const body = html.slice(at, html.indexOf("});", at));
   assert.match(body, /askProfile\(\);/, "the profile is not asked for again");
-  assert.match(body, /emit\("shop"/, "the shop is left showing another account's shelf");
+  /* However it is spelled — the shop's own asking moved behind askShop()
+     when it learned to renew a stale token and try again. What matters is
+     that the shelf is asked for a second time, not which line does it. */
+  assert.match(body, /emit\("shop"|askShop\(\)/,
+    "the shop is left showing another account's shelf");
   assert.match(body, /retried = false;/,
     "a new identity inherits the old one's spent retry");
 });

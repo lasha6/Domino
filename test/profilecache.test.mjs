@@ -119,11 +119,46 @@ test("half a profile is treated as no profile", () => {
   assert.ok(w.ProfileCache.save(profile()), "a whole profile was refused");
 });
 
-test("a whole profile survives the round trip unchanged", () => {
+test("the paint survives the round trip, and says it came from here", () => {
+  /* Everything on a profile is paint except the parts that are DECISIONS.
+     Whether today's reward is still waiting is one of those, and a day-old
+     answer to it left the claim button greyed out on a morning when the
+     reward was there to be taken — so what comes back is marked, and the
+     screen uses the cached figures for drawing and waits for the server
+     before it will let anybody press anything. */
   const w = browser(GUEST);
   const p = profile({ equipped: { table: "wood" }, name: "ლაშა" });
   w.ProfileCache.save(p);
-  assert.deepEqual(w.ProfileCache.load(), p);
+  const back = w.ProfileCache.load();
+  assert.equal(back.fromCache, true, "nothing says these figures are remembered");
+  delete back.fromCache;
+  assert.deepEqual(back, p, "the figures themselves did not survive");
+});
+
+test("the mark is not written to the device with them", () => {
+  /* Otherwise a profile saved straight from a server reply that had been
+     round the cache once would carry it for ever. */
+  const w = browser(GUEST);
+  w.ProfileCache.save(profile());
+  const stored = JSON.parse(w.localStorage.getItem("dominoProfileCache"));
+  assert.equal(stored["guest:g-1"].fromCache, undefined, "the mark was stored too");
+  w.ProfileCache.save(w.ProfileCache.load());     // straight back round again
+  const again = JSON.parse(w.localStorage.getItem("dominoProfileCache"));
+  assert.equal(again["guest:g-1"].fromCache, undefined, "the mark stuck on the way back");
+});
+
+test("the claim button waits for the server, never for the cache", () => {
+  /* The bug a player hit: the reward was there to take and the button sat
+     greyed out, because the figures on screen were a day old and said it had
+     already been taken. */
+  const lobby = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
+  const at = lobby.indexOf('const btn = document.getElementById("claimBtn");');
+  assert.notEqual(at, -1, "there is no claim button");
+  const body = lobby.slice(at, at + 500);
+  assert.match(body, /const known = !ME\.fromCache;/,
+    "the button cannot tell a remembered answer from a fresh one");
+  assert.match(body, /btn\.disabled = !known \|\| !ME\.daily\.canClaim;/,
+    "a remembered profile can still decide whether the reward is claimable");
 });
 
 test("signing out takes the numbers with it, and only this account's", () => {

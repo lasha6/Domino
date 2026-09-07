@@ -936,7 +936,7 @@
       askProfile();
       // ...and the shop, if they are standing in it
       if (document.getElementById("shopOverlay").classList.contains("show"))
-        socket.emit("shop", { auth: Auth.credentials().auth, name: Auth.name() });
+        { shopRetried = false; askShop(); }
     });
     /* The server answers with null when it has nothing to look the player up
        by. For someone signed in that almost always means the Google token has
@@ -994,6 +994,13 @@
       } else if (r && r.reason === "claimed") {
         if (r.level) { ME = r; paintProfile(); }
         toast("დღეს უკვე აიღე — დაბრუნდი ხვალ");
+      } else {
+        /* Anything else — and in practice that means the token aged out
+           between opening the page and pressing the button. It used to fall
+           off the end of this and the button simply did nothing, which is
+           indistinguishable from a broken button. */
+        toast("ვერ ავიღე — სცადე თავიდან შესვლა");
+        Auth.refreshIfStale().then(() => askProfile());
       }
     });
 
@@ -1072,11 +1079,18 @@
       });
       document.getElementById("profStreak").textContent =
         ME.daily.streak ? "სერია: " + ME.daily.streak + " დღე" : "";
+      /* Whether today's reward is still there is a DECISION, and the
+         remembered figures are only paint. A profile drawn from the device
+         is a day old at worst — it would have said "already taken" on a
+         morning when it was waiting to be taken, and the button would have
+         sat there greyed out with the reward unclaimed. So the strip and the
+         streak paint from it and the button waits for the server. */
       const btn = document.getElementById("claimBtn");
-      btn.disabled = !ME.daily.canClaim;
-      btn.style.opacity = ME.daily.canClaim ? "1" : ".45";
+      const known = !ME.fromCache;
+      btn.disabled = !known || !ME.daily.canClaim;
+      btn.style.opacity = (known && ME.daily.canClaim) ? "1" : ".45";
       document.getElementById("claimLbl").textContent =
-        ME.daily.canClaim ? "მიიღე " + ME.daily.reward + " 🪙" : "დღეს აღებულია";
+        !known ? "ვამოწმებ…" : ME.daily.canClaim ? "მიიღე " + ME.daily.reward + " 🪙" : "დღეს აღებულია";
     }
 
     /* ---------------- which game ----------------
@@ -1320,12 +1334,36 @@
     let SHOP = null, shopKind = "table";
 
     function openShop(){
-      socket.emit("shop", { auth: Auth.credentials().auth, name: Auth.name() });
+      shopRetried = false;
+      askShop();
       document.getElementById("shopOverlay").classList.add("show");
       showShop(shopKind);
     }
     function closeShop(){ document.getElementById("shopOverlay").classList.remove("show"); }
-    socket.on("shop", (r) => { if (r) { SHOP = r.items; adoptPurse(r); paintShop(); } });
+    /* The server answers null when it could not tell who is asking, which for
+       somebody signed in almost always means the Google token has aged out —
+       they last about an hour. The profile has renewed it and asked again for
+       a long time; the shop never did. It dropped the null on the floor, so
+       the shelves stayed on "…" and the purse on nought until the page was
+       reloaded, and nothing anywhere said why. */
+    let shopRetried = false;
+    function askShop(){
+      socket.emit("shop", { auth: Auth.credentials().auth, name: Auth.name() });
+    }
+    socket.on("shop", (r) => {
+      if (!r) {
+        if (shopRetried) { shopUnavailable(); return; }
+        shopRetried = true;
+        Auth.refreshIfStale().then(askShop);
+        return;
+      }
+      shopRetried = false;
+      SHOP = r.items; adoptPurse(r); paintShop();
+    });
+    function shopUnavailable(){
+      const grid = document.getElementById("shopGrid");
+      grid.textContent = "მაღაზია ვერ ჩაიტვირთა — სცადე თავიდან შესვლა";
+    }
     socket.on("buyResult", (r) => {
       if (r && r.ok) {
         SHOP = r.items; adoptPurse(r); paintShop();
@@ -1350,7 +1388,7 @@
     function paintShop(){
       const grid = document.getElementById("shopGrid");
       grid.innerHTML = "";
-      if (!SHOP) { grid.textContent = "..."; return; }
+      if (!SHOP) { grid.textContent = "იტვირთება…"; return; }
       SHOP.filter(i => i.kind === shopKind).forEach(item => {
         const card = document.createElement("div");
         card.className = "shopItem" + (item.equipped ? " on" : "");

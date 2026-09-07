@@ -186,3 +186,61 @@ test("what was bought is still there after a restart", async () => {
   assert.equal(find(after.items, "table-crimson").owned, true, "and still owns what it paid for");
   assert.deepEqual(after.equipped, before.equipped, "still wearing it");
 });
+
+/* =====================================================================
+   A shelf that could not be fetched
+
+   The server answers null when it cannot tell who is asking, which for
+   somebody signed in almost always means their Google token has aged out
+   — they last about an hour. The profile had renewed it and asked again
+   for a long time. The shop never did: it dropped the null on the floor,
+   so the shelves stayed on "…" and the purse on nought until the page was
+   reloaded, and nothing on the screen said why.
+   ===================================================================== */
+
+test("the shop renews a stale token and asks once more", async () => {
+  const { readFileSync } = await import("node:fs");
+  const p = (await import("node:path")).default;
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const html = readFileSync(p.join(root, "public", "index.html"), "utf8");
+
+  const at = html.indexOf('socket.on("shop", (r) => {');
+  assert.notEqual(at, -1, "nothing listens for the shelves");
+  const body = html.slice(at, html.indexOf("\n    });", at));
+  assert.match(body, /if \(!r\) \{/, "a null reply is dropped on the floor again");
+  assert.match(body, /Auth\.refreshIfStale\(\)/, "an aged-out token is never renewed");
+  assert.match(body, /shopRetried/, "it will renew and retry for ever");
+});
+
+test("a shop that will not load says so, rather than sitting on a full stop", async () => {
+  const { readFileSync } = await import("node:fs");
+  const p = (await import("node:path")).default;
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const html = readFileSync(p.join(root, "public", "index.html"), "utf8");
+  assert.match(html, /function shopUnavailable\(\)/, "there is no way to say it failed");
+  assert.match(html, /მაღაზია ვერ ჩაიტვირთა/, "nothing is ever said to the player");
+
+  const dict = readFileSync(p.join(root, "public", "js", "i18n.js"), "utf8");
+  for (const line of ["მაღაზია ვერ ჩაიტვირთა — სცადე თავიდან შესვლა",
+                      "ვერ ავიღე — სცადე თავიდან შესვლა"])
+    assert.ok(dict.includes('"' + line + '"'), "no English for: " + line);
+});
+
+test("a daily claim that fails for any other reason still says something", async () => {
+  /* `reason: "unknown"` — the token aged out between opening the page and
+     pressing the button — used to fall off the end of the handler, and the
+     button simply did nothing. That is indistinguishable from a broken
+     button, and it is what a player reported. */
+  const { readFileSync } = await import("node:fs");
+  const p = (await import("node:path")).default;
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const html = readFileSync(p.join(root, "public", "index.html"), "utf8");
+  const at = html.indexOf('socket.on("dailyResult", (r) => {');
+  assert.notEqual(at, -1);
+  const body = html.slice(at, html.indexOf("\n    });", at));
+  assert.match(body, /\} else \{/, "every other answer is silence");
+  assert.match(body, /ვერ ავიღე/, "the player is told nothing when it fails");
+});
