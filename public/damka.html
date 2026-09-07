@@ -98,6 +98,7 @@
   <script src="js/config.js"></script>
   <script src="js/coins.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/profilecache.js"></script>
   <script src="js/socket.io.min.js"></script>
   <script src="js/leaving.js"></script>
   <script>
@@ -194,10 +195,25 @@
     const myName = mine.name || acc.name || "სტუმარი";
     face(document.getElementById("meFace"), mine.pic || acc.picture, myName);
     document.getElementById("meName").textContent = myName;
-    const purse = mine.coins != null ? mine.coins : (window.Coins ? Coins.get() : null);
+    /* The account's purse, and only the account's. `Coins.get()` used to be
+       the fallback here: it is the balance this DEVICE kept before there
+       were accounts, it starts everybody at a thousand and it drifts on its
+       own. Against the computer `mine.coins` is never filled in — nothing
+       online is arriving — so that fallback was what every practice game
+       showed, and it disagreed with the lobby by whatever the old number had
+       wandered to. A player with 6,250 in the lobby was shown 4,400 here.
+
+       What is remembered for this account is the right answer, and when
+       there is nothing remembered the right answer is to say nothing.
+       Practice pays no coins either way, so nothing here can be out of date
+       by more than the walk from the front page. */
+    const remembered = window.ProfileCache ? ProfileCache.load() : null;
+    const purse = mine.coins != null ? mine.coins
+      : (remembered ? remembered.coins : null);
     document.getElementById("meCoins").textContent =
       purse == null ? "" : (window.Coins ? Coins.format(purse) : String(purse));
-    rank(document.getElementById("meLevel"), mine.level);
+    rank(document.getElementById("meLevel"),
+         mine.level != null ? mine.level : (remembered ? remembered.level : null));
 
     document.getElementById("themName").textContent =
       ONLINE ? (opp.name || "მოწინააღმდეგე") : "კომპიუტერი";

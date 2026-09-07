@@ -256,3 +256,50 @@ test("the wording for stale numbers is in both languages", () => {
   assert.match(dict, /"ბოლოს ნანახი მონაცემები — სერვერს ვერ დავუკავშირდი"/,
     "the stale-numbers line has no English");
 });
+
+/* =====================================================================
+   The purse a board game shows
+
+   Reported: 6,250 in the lobby and 4,400 in ნარდი, at the same moment.
+
+   `Coins.get()` was the fallback on those two screens — the balance this
+   DEVICE kept before there were accounts. It starts everybody at a
+   thousand and it drifts on its own. Against the computer nothing arrives
+   from a server, so `mine.coins` is never filled in and that fallback was
+   what every practice game showed.
+   ===================================================================== */
+
+test("a board game shows the account's purse, never the old device one", () => {
+  for (const f of ["nardi.html", "damka.html"]) {
+    const src = read("public", f);
+    assert.match(src, /js\/profilecache\.js/, f + " cannot reach the account's figures");
+    const at = src.indexOf("const purse =");
+    assert.notEqual(at, -1, f + " shows no purse at all");
+    const body = src.slice(at, at + 200);
+    assert.doesNotMatch(body, /Coins\.get\(\)/,
+      f + " is back on the balance this device kept before there were accounts");
+    assert.match(body, /remembered/, f + " has nothing to fall back on");
+  }
+});
+
+test("...and an account it has never seen is shown nothing, not a guess", () => {
+  /* An invented balance is worse than a blank: a blank is obviously not an
+     answer, and 1,000 looks exactly like one. */
+  for (const f of ["nardi.html", "damka.html"]) {
+    const src = read("public", f);
+    const at = src.indexOf("const purse =");
+    const body = src.slice(at, at + 260);
+    assert.match(body, /remembered \? remembered\.coins : null/,
+      f + " makes something up when it has never seen the account");
+  }
+});
+
+test("the level falls back the same way the purse does", () => {
+  /* It had no fallback at all, so a practice game showed no level even for
+     an account the device knows perfectly well. */
+  for (const f of ["nardi.html", "damka.html"]) {
+    const src = read("public", f);
+    assert.match(src, /mine\.level != null \? mine\.level : \(remembered \? remembered\.level : null\)/,
+      f + " leaves the level blank for an account it knows");
+  }
+});
