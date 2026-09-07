@@ -797,7 +797,11 @@ test("the screen plays a forced move itself, and keeps doing so", () => {
   assert.match(body, /only\.length !== 1/, "it plays when there was a choice to make");
   assert.match(body, /forcedKey/, "nothing stops it firing twice on one drawing");
   // ...and it is actually wired into the one place every path goes through
-  assert.match(html, /giveUpStuck\(\) \|\| playForced\(\) \|\| finishForcedTurn\(\);/,
+  /* A chain, and it has grown: the computer being nudged when nothing else
+     took the turn on is the last link. What matters is the order — nothing
+     playable first, then one playable thing, then a turn that was forced
+     throughout, then whoever is left holding it. */
+  assert.match(html, /giveUpStuck\(\) \|\| playForced\(\) \|\| finishForcedTurn\(\)/,
     "the checks are not all run, or not in that order");
 });
 
@@ -872,4 +876,75 @@ test("and when the two plays are different, the bigger die still wins", () => {
   g.side = 0; g.phase = "move"; g.dice = [5, 4]; g.left = [5, 4];
   const ms = N.legalMoves(g);
   assert.deepEqual(dice(ms), [5], "the smaller die was allowed instead of the bigger");
+});
+
+/* =====================================================================
+   Nothing on this board may sit still
+
+   Reported twice: "it froze, it is not bearing off". The rules were right
+   both times — the position it stopped in has legal moves and the engine
+   offers them. What had stopped was the SCREEN.
+
+   Two things can do that, and both are the same shape: something that is
+   supposed to be started by whoever finished the last thing, and one path
+   that does not start it. Chasing which path was the wrong fix the last
+   time this came up, so neither is chased here. draw() guarantees both.
+   ===================================================================== */
+
+const screen = readFileSync(new URL("../public/nardi.html", import.meta.url), "utf8");
+
+test("the computer cannot be left with the move and nothing to make it move", () => {
+  const at = screen.indexOf("function nudgeComputer()");
+  assert.notEqual(at, -1, "nothing makes sure the computer is playing");
+  const body = screen.slice(at, screen.indexOf("\n  }", at));
+  assert.match(body, /g\.side !== CPU/, "it would start the computer on the player's turn");
+  assert.match(body, /busy \|\| cpuPending/, "it can start several turns at once");
+  assert.match(body, /ONLINE/, "it would play for the server's opponent as well");
+  assert.match(screen, /finishForcedTurn\(\) \|\| nudgeComputer\(\)/,
+    "it is not wired into the one place every path goes through");
+});
+
+test("a lock nobody hands back is handed back anyway", () => {
+  /* `busy` is held across timers and animations, and each of those is a
+     promise that something will give it back. A promise that is not kept
+     leaves a board that takes no taps at all, for good. */
+  const at = screen.indexOf("function watchBusy()");
+  assert.notEqual(at, -1, "the lock has no deadline");
+  const body = screen.slice(at, screen.indexOf("\n  }", at));
+  assert.match(body, /busy = false/, "it notices and does nothing");
+  assert.match(screen, /const BUSY_LIMIT = (\d+);/, "there is no deadline to read");
+  const limit = +screen.match(/const BUSY_LIMIT = (\d+);/)[1];
+  /* Longer than the longest honest wait — the computer playing a double is
+     about four seconds and laying the checkers out about two — and short
+     enough that somebody who put their phone down is not left with a dead
+     game when they pick it up. */
+  assert.ok(limit >= 8000 && limit <= 20000, "the deadline is " + limit + "ms");
+  assert.match(screen, /watchBusy\(\);/, "the deadline is never checked");
+});
+
+test("the way out of the lock is booked before the risky part runs", () => {
+  /* Every one of these holds `busy` across a timer. Written as
+     `busy = true; draw();` first, a throw inside that drawing — and drawing
+     is the biggest thing on this screen — means the timer that hands the
+     lock back is never scheduled at all, and the board takes no taps again
+     for the rest of the game. Book the way back, then draw. */
+  for (const fn of ["playForced", "finishForcedTurn", "giveUpStuck"]) {
+    const at = screen.indexOf("function " + fn + "()");
+    assert.notEqual(at, -1, "no " + fn);
+    const body = screen.slice(at, screen.indexOf("\n  }", at));
+    const timer = body.indexOf("setTimeout(");
+    const lock = body.indexOf("busy = true");
+    assert.notEqual(timer, -1, fn + " holds the lock with nothing to release it");
+    assert.notEqual(lock, -1, fn + " does not take the lock at all");
+    assert.ok(timer < lock,
+      fn + " draws before booking the way out, so a throw there strands the lock");
+  }
+});
+
+test("a throw that goes wrong still gives the lock back", () => {
+  const at = screen.indexOf("async function doRoll()");
+  assert.notEqual(at, -1);
+  const body = screen.slice(at, screen.indexOf("\n  }", at));
+  assert.match(body, /finally \{ busy = false; \}/,
+    "an exception mid-throw leaves the board locked for good");
 });

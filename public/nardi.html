@@ -590,7 +590,8 @@
        does not wait to be confirmed. Each returns true if it took over, so
        only one of them acts on any one drawing. */
     if (g && g.phase === "roll") chose = false;      // a new turn decides nothing yet
-    giveUpStuck() || playForced() || finishForcedTurn();
+    watchBusy();
+    giveUpStuck() || playForced() || finishForcedTurn() || nudgeComputer();
   }
 
   /* what the player may touch right now */
@@ -782,6 +783,7 @@
     theirs.clear();                                 // the turn is under way
     if (ONLINE) { socket.emit("nRoll"); return; }   // the server throws them
     busy = true;
+    try {
     const rolled = Nardi.roll(g);
     /* Two dice are thrown, and two land, even on a double — a double is worth
        four moves, not four dice. The player was clear: if there are two in your
@@ -789,10 +791,10 @@
     shownValues = rolled;
     draw();
     await throwDice(shownValues, true);
-    busy = false;
     say(g.log || "");
     draw();
     if (g.side !== ME) setTimeout(cpuTurn, 700);
+    } finally { busy = false; }      // the lock comes back however this ends
   }
 
   /* Dice in hand that the board will not take are thrown away for the player.
@@ -841,11 +843,11 @@
       + g.left.join(",") + ":" + only[0].from + ":" + only[0].die;
     if (forcedKey === key) return false;     // draw() runs many times a second
     forcedKey = key;
-    busy = true; draw();
     setTimeout(() => {
       busy = false; forcedKey = null;
       if (mineNow()) play(only[0].from, only[0].die, true);
     }, 520);
+    busy = true; draw();
     return true;
   }
 
@@ -855,8 +857,58 @@
     const key = g.round + ":" + g.side + ":" + (g.dice || []).join(",");
     if (doneKey === key) return false;
     doneKey = key;
-    busy = true; draw();
     setTimeout(() => { busy = false; doneKey = null; doneTurn(); }, 700);
+    busy = true; draw();
+    return true;
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Nothing on this board is allowed to sit still
+   *
+   * The computer's turn is started by whoever ended the player's, and there
+   * are several places that can end one: a move, a Done, a turn given up as
+   * stuck, a forced turn finishing itself, a new round, an opening throw.
+   * Miss any one of them and the board simply sits there with the computer
+   * to play and nothing to make it play — which from the other side of the
+   * screen is a game that froze and stopped bearing off.
+   *
+   * Hunting for the path that missed it was the wrong shape of fix the last
+   * time this came up. draw() guarantees it instead, the same way it already
+   * guarantees the stuck check: if it is the computer's move and nothing is
+   * happening, something starts happening.
+   * ---------------------------------------------------------------- */
+  /* The timer is set BEFORE the board is drawn, in all three of these, and
+     that order is the whole point. Drawing is the biggest thing on this
+     screen and the one most likely to throw; with `busy = true; draw();`
+     first, a throw in there means the timer that hands the lock back is
+     never scheduled at all — and the board takes no taps again, ever. Set
+     the way back first, then draw. */
+  let cpuPending = false;
+  function nudgeComputer() {
+    if (ONLINE || !g || busy || cpuPending) return false;
+    if (g.side !== CPU) return false;
+    if (g.phase !== "roll" && g.phase !== "move") return false;
+    cpuPending = true;
+    setTimeout(() => { cpuPending = false; cpuTurn(); }, 500);
+    return true;
+  }
+
+  /* And the same argument for the lock itself. `busy` is held across timers
+     and animations, and every one of those is a promise that something will
+     hand it back. A promise that is not kept leaves a board that takes no
+     taps at all, for good. So it has a deadline: far longer than the longest
+     honest wait — the computer playing a double is about four seconds, the
+     checkers being laid out about two — and short enough that a player who
+     put their phone down does not come back to a dead game. */
+  const BUSY_LIMIT = 12000;
+  let busySince = 0, wasBusy = false;
+  function watchBusy() {
+    const now = Date.now();
+    if (busy && !wasBusy) busySince = now;
+    wasBusy = busy;
+    if (!busy || now - busySince < BUSY_LIMIT) return false;
+    busy = false; wasBusy = false;
+    setTimeout(draw, 0);          // not from inside the drawing that found it
     return true;
   }
 
@@ -867,8 +919,8 @@
     if (stuckKey === key) return false;
     stuckKey = key;
     say("სვლა აღარ არის");
-    busy = true; draw();
     setTimeout(() => { busy = false; stuckKey = null; doneTurn(); }, 900);
+    busy = true; draw();
     return true;
   }
 
