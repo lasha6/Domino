@@ -819,3 +819,57 @@ test("a turn you never had a choice in does not wait to be confirmed", () => {
   assert.match(html, /if \(g && g\.phase === "roll"\) chose = false;/,
     "a new turn inherits the last one's decision");
 });
+
+/* =====================================================================
+   Taking the last one off
+
+   Reported from a real game: one checker left on the one-point, a five and
+   a four on the table, and only the five would take it. The rule doing it
+   is a real one — when just one of two dice can be played it has to be the
+   bigger — but here the two plays are the same play. Same checker, same
+   point, same tray, same finished turn. Nothing was being protected.
+   ===================================================================== */
+
+/* a bare board with `n` of my checkers on the one-point and nothing else */
+function lastOnes(n, alsoOnThree) {
+  const g = N.newGame({ variant: "short" });
+  g.pts = new Array(24).fill(0);
+  g.bar = [0, 0]; g.moved = [];
+  g.off = [15 - n - (alsoOnThree ? 2 : 0), 15];
+  g.pts[N.pointAt(g, 0, 23)] = n;                       // the one-point
+  if (alsoOnThree) g.pts[N.pointAt(g, 0, 21)] = 2;      // ...and further back
+  g.side = 0; g.phase = "move"; g.dice = [5, 4]; g.left = [5, 4];
+  return g;
+}
+const dice = (ms) => ms.map((m) => m.die).sort();
+
+test("either die takes the last checker off", () => {
+  const ms = N.legalMoves(lastOnes(1));
+  assert.deepEqual(dice(ms), [4, 5], "only one of the two dice would bear it off");
+  assert.ok(ms.every((m) => m.from === 23), "it is coming off some other point");
+});
+
+test("...and with two of them on it, both dice still bear off", () => {
+  assert.deepEqual(dice(N.legalMoves(lastOnes(2))), [4, 5]);
+});
+
+test("but a bigger die may not reach over a checker further back", () => {
+  /* The rule the exception must not eat: with checkers on the three-point,
+     the five and the four have to be played from THERE, not from the one. */
+  const ms = N.legalMoves(lastOnes(1, true));
+  assert.ok(ms.length > 0, "nothing can be played at all");
+  assert.ok(ms.every((m) => m.from === 21),
+    "a checker was borne off over the top of one further from home");
+});
+
+test("and when the two plays are different, the bigger die still wins", () => {
+  /* Only one die can be played and it is an ordinary move: the rule stands. */
+  const g = N.newGame({ variant: "short" });
+  g.pts = new Array(24).fill(0); g.bar = [0, 0]; g.moved = []; g.off = [0, 0];
+  g.pts[N.pointAt(g, 0, 10)] = 1;
+  for (const i of [11, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23])
+    g.pts[N.pointAt(g, 0, i)] = -2;
+  g.side = 0; g.phase = "move"; g.dice = [5, 4]; g.left = [5, 4];
+  const ms = N.legalMoves(g);
+  assert.deepEqual(dice(ms), [5], "the smaller die was allowed instead of the bigger");
+});

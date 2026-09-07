@@ -340,11 +340,24 @@
       return n === want;
     });
     /* Only one die can be played and the two are different: it has to be the
-       bigger one, if the bigger one can be played at all. */
+       bigger one, if the bigger one can be played at all.
+
+       With one exception, and it is the last checker. When both dice would
+       bear the SAME checker off the SAME point, the two plays leave exactly
+       the same board — the same checker in the same tray, the same turn over.
+       There is nothing for the rule to protect, and all it does is refuse the
+       four while the five is sitting there doing the identical thing. A
+       player with a single checker on the one-point and a five and a four
+       should be able to take it off with either. */
     if (want === 1 && g.left.length === 2 && g.left[0] !== g.left[1]) {
       const big = Math.max(g.left[0], g.left[1]);
-      const withBig = moves.filter((m) => m.die === big);
-      if (withBig.length) moves = withBig;
+      const bearing = moves.filter((m) => m.from + m.die >= POINTS);
+      const sameChecker = bearing.length === moves.length
+        && moves.every((m) => m.from === moves[0].from);
+      if (!sameChecker) {
+        const withBig = moves.filter((m) => m.die === big);
+        if (withBig.length) moves = withBig;
+      }
     }
     return moves;
   }
