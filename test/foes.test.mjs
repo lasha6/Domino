@@ -214,3 +214,33 @@ test("every size the hand is drawn at gives the tile a height to match", () => {
     if (/width:/.test(m[1]) && !/height:/.test(m[1])) bad.push(m[1].trim());
   assert.deepEqual(bad, [], "these set a tile's width and leave its height to chance");
 });
+
+test("the counters sit in the middle of the bar, in every game", () => {
+  /* They used to be packed against the score on the left with all the slack
+     thrown to the right, which read as a row left where it fell rather than
+     laid out.
+
+     Done by taking the middle outright rather than with a pair of auto
+     margins: the board screens already carry one of those — the far seat
+     plate pushes itself right with `margin-left:auto` — and free space
+     divided between two claims lands neither of them where it was meant to.
+     ნარდი's score stayed hard left the whole time the auto margins were in. */
+  const css = read("public", "css", "table.css");
+  const at = css.indexOf("\n.info{");
+  assert.notEqual(at, -1, "the counters have no rule of their own");
+  const body = css.slice(at, css.indexOf("}", at));
+  assert.match(body, /flex:\s*1/, "the counters do not take the middle");
+  assert.match(body, /justify-content:\s*center/, "they take it and sit at one end of it");
+  assert.match(css, /\.spacer\{ flex:0 0 auto; \}/,
+    "the spacer is still shoving everything to one side");
+});
+
+test("every game screen has a bar with counters in it to centre", () => {
+  /* If a screen ever stops using .info the rule above quietly does nothing
+     for it, and nobody would notice until they looked. */
+  for (const f of ["game.html", "online.html", "bura.html", "buraonline.html",
+                   "joker.html", "jokeronline.html", "nardi.html", "damka.html"]) {
+    const src = read("public", f);
+    assert.match(src, /<div class="info"/, f + " has no counters in its bar");
+  }
+});
