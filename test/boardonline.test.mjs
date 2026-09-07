@@ -502,7 +502,11 @@ test("the screen asks when it DRAWS, not only after a move", () => {
   const drawAt = html.indexOf("function draw()");
   const drawEnd = html.indexOf("/* what the player may touch right now */");
   assert.ok(drawAt > 0 && drawEnd > drawAt, "draw() is not where it was");
-  assert.match(html.slice(drawAt, drawEnd), /giveUpStuck\(\);/,
+  /* It stands at the head of a chain now — nothing playable ends the turn,
+     one playable thing plays itself, a turn that was forced throughout does
+     not wait to be confirmed — so what matters is that it is called from
+     inside draw(), not that it is the only thing on the line. */
+  assert.match(html.slice(drawAt, drawEnd), /giveUpStuck\(\)/,
     "the board can be drawn stuck and left that way");
 });
 

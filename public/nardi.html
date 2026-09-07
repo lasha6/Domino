@@ -585,9 +585,12 @@
     cs.style.display = stakeMul > 1 ? "" : "none";
     document.getElementById("cubeVal").textContent = "×" + stakeMul;
     highlight();
-    /* Last: a board that has just been drawn with nothing on it to play is a
-       turn nobody can take, whichever way it got here. */
-    giveUpStuck();
+    /* Last, and in this order: nothing playable at all ends the turn; one
+       playable thing plays itself; a turn that was forced from end to end
+       does not wait to be confirmed. Each returns true if it took over, so
+       only one of them acts on any one drawing. */
+    if (g && g.phase === "roll") chose = false;      // a new turn decides nothing yet
+    giveUpStuck() || playForced() || finishForcedTurn();
   }
 
   /* what the player may touch right now */
@@ -808,6 +811,55 @@
      `stuckKey` is what stops it firing twice while the 900ms is running: draw
      is called many times a second and the turn is still stuck all the way
      through it. */
+  /* ---------------------------------------------------------------- *
+   * A turn with nothing to decide in it
+   *
+   * The rule underneath was already here for a die the board will not take:
+   * holding the turn open for it only asks the player to press a button to
+   * agree that they had no choice. One legal move is the same thing. The
+   * player put it plainly — if there is only one way to play it, play it.
+   *
+   * So: a forced move plays itself, and it keeps doing so, because a double
+   * against a closed board is often four of them in a row. Each one waits
+   * long enough to be watched, and every one of them can still be taken
+   * back — the turn is held open exactly as it was.
+   *
+   * And a turn in which you never had a choice at all does not stop at
+   * "მზადაა" either. Confirming a turn you did not make is the same button
+   * press for the same non-decision.
+   * ---------------------------------------------------------------- */
+  let forcedKey = null, chose = false;
+
+  const mineNow = () => !!g && g.phase === "move" && g.side === ME && !busy
+    && (!ONLINE || (lastState && lastState.myTurn !== false));
+
+  function playForced() {
+    if (!mineNow()) return false;
+    const only = Nardi.legalMoves(g);
+    if (only.length !== 1) return false;
+    const key = g.round + ":" + g.side + ":" + (g.dice || []).join(",") + ":"
+      + g.left.join(",") + ":" + only[0].from + ":" + only[0].die;
+    if (forcedKey === key) return false;     // draw() runs many times a second
+    forcedKey = key;
+    busy = true; draw();
+    setTimeout(() => {
+      busy = false; forcedKey = null;
+      if (mineNow()) play(only[0].from, only[0].die, true);
+    }, 520);
+    return true;
+  }
+
+  let doneKey = null;
+  function finishForcedTurn() {
+    if (!mineNow() || chose || !Nardi.turnOver(g)) return false;
+    const key = g.round + ":" + g.side + ":" + (g.dice || []).join(",");
+    if (doneKey === key) return false;
+    doneKey = key;
+    busy = true; draw();
+    setTimeout(() => { busy = false; doneKey = null; doneTurn(); }, 700);
+    return true;
+  }
+
   let stuckKey = null;
   function giveUpStuck() {
     if (!g || g.side !== ME || busy || !Nardi.stuck(g)) return false;
@@ -936,7 +988,9 @@
     play(off[0].from, off[0].die);
   }
 
-  function play(from, die) {
+  function play(from, die, forced) {
+    // touching the board IS the decision, and a turn with one in it waits
+    if (!forced) chose = true;
     // acting on it is reading it: the mark has done its job by now, and
     // leaving it up would only compete with what this player is doing
     theirs.clear();

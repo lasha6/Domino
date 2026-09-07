@@ -759,3 +759,63 @@ test("ნარდი now answers 'who starts?' the way ოზი and ბურ�
   assert.match(src, /g\.side = g\.roundWinner;/, "the winner does not open");
   assert.doesNotMatch(src, /g\.side = other\(g\.roundWinner\)/, "the loser still opens");
 });
+
+/* =====================================================================
+   A turn with nothing to decide in it
+
+   The rule was already here for a die the board will not take: holding the
+   turn open for it only asks the player to press a button to agree that
+   they are stuck. One legal move is the same thing, and the player said so
+   — if there is only one way to play it, play it.
+   ===================================================================== */
+
+test("positions with exactly one legal move really do come up", () => {
+  /* Otherwise the whole thing is dead code that reads well. Played out
+     rather than argued: random games until one turns up. */
+  let found = null;
+  for (let t = 0; t < 400 && !found; t++) {
+    const g = N.newGame({ variant: "short" });
+    for (let step = 0; step < 300 && !found; step++) {
+      if (g.phase === "over" || g.phase === "roundOver") break;
+      if (g.phase === "roll") { N.roll(g); continue; }
+      const ms = N.legalMoves(g);
+      if (!ms.length) { if (N.turnOver(g)) N.endTurn(g); else break; continue; }
+      if (ms.length === 1) { found = { dice: g.dice.slice(), only: ms[0] }; break; }
+      const m = ms[Math.floor(Math.random() * ms.length)];
+      N.move(g, m.from, m.die);
+    }
+  }
+  assert.ok(found, "four hundred games and never once a forced move");
+});
+
+test("the screen plays a forced move itself, and keeps doing so", () => {
+  const html = readFileSync(new URL("../public/nardi.html", import.meta.url), "utf8");
+  assert.match(html, /function playForced\(\)/, "a forced move still waits to be tapped");
+  const at = html.indexOf("function playForced()");
+  const body = html.slice(at, html.indexOf("\n  }", at));
+  assert.match(body, /Nardi\.legalMoves\(g\)/, "it does not ask what is legal");
+  assert.match(body, /only\.length !== 1/, "it plays when there was a choice to make");
+  assert.match(body, /forcedKey/, "nothing stops it firing twice on one drawing");
+  // ...and it is actually wired into the one place every path goes through
+  assert.match(html, /giveUpStuck\(\) \|\| playForced\(\) \|\| finishForcedTurn\(\);/,
+    "the checks are not all run, or not in that order");
+});
+
+test("a turn you never had a choice in does not wait to be confirmed", () => {
+  /* Confirming a turn you did not make is the same button press for the same
+     non-decision. But a turn with a real decision in it still waits, because
+     a die you SPENT is yours to look at and take back. */
+  const html = readFileSync(new URL("../public/nardi.html", import.meta.url), "utf8");
+  const at = html.indexOf("function finishForcedTurn()");
+  assert.notEqual(at, -1, "a forced turn still stops at the button");
+  const body = html.slice(at, html.indexOf("\n  }", at));
+  assert.match(body, /chose/, "it ends turns the player actually played");
+  assert.match(body, /Nardi\.turnOver\(g\)/, "it ends turns that are not over");
+
+  const play = html.indexOf("function play(from, die, forced)");
+  assert.notEqual(play, -1, "play() cannot tell a forced move from a chosen one");
+  assert.match(html.slice(play, play + 220), /if \(!forced\) chose = true;/,
+    "touching the board no longer counts as a decision");
+  assert.match(html, /if \(g && g\.phase === "roll"\) chose = false;/,
+    "a new turn inherits the last one's decision");
+});
