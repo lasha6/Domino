@@ -52,6 +52,26 @@
    free space divided between two claims lands neither of them where it was
    meant to. ნარდი's score stayed hard left the whole time that was the fix. */
 .info{ display:flex; align-items:center; gap:6px; flex:1 1 auto; justify-content:center; }
+/* And centred against the BAR, not against the space it was handed.
+   `flex:1` plus `justify-content:center` centres the counters inside their
+   own box, and that box sits between whatever is on either side — so the
+   moment the two ends differ in width, the middle of the box is not the
+   middle of the bar. On a wide window the ends differ a great deal and the
+   counters came out most of two hundred pixels right of centre.
+
+   Taken out of the flow above 900px, where there is room for it and no
+   chance of running into either end. Below that they go back to sharing the
+   row, because on a landscape phone the bar is nearly full and a thing that
+   ignores its neighbours would sit on top of them. ჯოკერი is the measure:
+   its ends and counters come to about 850px together. */
+@media (min-width:901px){
+  .top{ position:relative; }
+  .top > .info{
+    position:absolute; left:50%; top:50%;
+    transform:translate(-50%,-50%);
+    flex:none; margin:0;
+  }
+}
 .stat{
   display:flex; align-items:baseline; gap:5px; padding:3px 10px; border-radius:9px;
   background:linear-gradient(180deg, rgba(4,26,14,.78), rgba(2,15,9,.9));

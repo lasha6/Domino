@@ -233,6 +233,32 @@ test("the counters sit in the middle of the bar, in every game", () => {
   assert.match(body, /justify-content:\s*center/, "they take it and sit at one end of it");
   assert.match(css, /\.spacer\{ flex:0 0 auto; \}/,
     "the spacer is still shoving everything to one side");
+
+  /* And centred against the BAR where there is room for it. `flex:1` plus
+     `justify-content:center` only centres the counters inside their own box,
+     and that box sits between whatever is on either side — so the moment the
+     two ends differ in width, the middle of the box is not the middle of the
+     bar. On a wide window they came out most of two hundred pixels right of
+     it, which is where a player noticed. */
+  const at2 = css.indexOf("@media (min-width:901px)");
+  assert.notEqual(at2, -1, "nothing centres the counters against the bar itself");
+  const wide = css.slice(at2, css.indexOf("\n}", css.indexOf(".top > .info{", at2)));
+  assert.match(wide, /position:absolute/, "the counters still sit where they are handed");
+  assert.match(wide, /left:50%/, "they are not put at the middle");
+  assert.match(wide, /translate\(-50%/, "they are put with their left edge at the middle");
+  assert.match(wide, /\.top\{ position:relative; \}/,
+    "the middle they are put at is the page's, not the bar's");
+});
+
+test("...but on a phone they go back to sharing the row", () => {
+  /* A landscape phone's bar is nearly full — ჯოკერი's two ends and its
+     counters come to about 850px together — and something taken out of the
+     flow there would sit on top of one end or the other. */
+  const css = read("public", "css", "table.css");
+  const at = css.indexOf("@media (min-width:901px)");
+  assert.notEqual(at, -1);
+  assert.ok(css.indexOf(".top > .info{", at) > at,
+    "the absolute rule is not inside the wide-screen block at all");
 });
 
 test("every game screen has a bar with counters in it to centre", () => {
