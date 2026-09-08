@@ -28,9 +28,10 @@
 <body>
   <div class="stage">
     <div class="top">
+      <div class="barEnd">
       <button class="back" onclick="location.href='index.html'">←</button>
       <button class="histBtn" id="histBtn" onclick="toggleHist()">📋 ისტორია <span class="chev">▾</span></button>
-      <div class="jkScores" id="scores"></div>   <!-- your own running total only -->
+      <div class="jkScores" id="scores"></div></div>
       <div class="info">
         <span class="stat"><span class="k">სეტი</span><b id="setNo">1</b></span>
         <span class="stat"><span class="k">ხელი</span><b id="handNo">1/24</b></span>
@@ -38,9 +39,9 @@
         <span class="stat"><span class="k">ბიდი</span><b id="myBid">—</b></span>
         <span class="badge">🎓 პრაქტიკა</span>
       </div>
-      <div class="spacer" style="flex:0 1 8px"></div>
+      <div class="barEnd right">
       <button class="back sndBtn" id="sndBtn" onclick="toggleSound()" title="ხმა">🔊</button>
-      <button class="newgame" onclick="startMatch()">ახალი თამაში</button>
+      <button class="newgame" onclick="startMatch()">ახალი თამაში</button></div>
     </div>
 
     <div class="statusrow">

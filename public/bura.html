@@ -28,19 +28,17 @@
 <body>
   <div class="stage">
     <div class="top">
+      <div class="barEnd">
       <button class="back" onclick="location.href='index.html'">←</button>
-      <div class="score"><span class="me">შენ <b id="s0">0</b></span> : <span class="cpu"><b id="s1">0</b> კომპ.</span></div>
-      <!-- No running point counts, for either side. Counting what has been
-           taken is the game: "ვარ" is a claim you make by eye, and a number on
-           the wall would answer it for you. Only the match score is public. -->
+      <div class="score"><span class="me">შენ <b id="s0">0</b></span> : <span class="cpu"><b id="s1">0</b> კომპ.</span></div></div>
       <div class="info">
         <span class="stat"><span class="k">მიზანი</span><b id="target">11</b></span>
         <span class="stat"><span class="k">ფასი</span><b id="worth">1</b></span>
         <span class="badge">🎓 პრაქტიკა</span>
       </div>
-      <div class="spacer"></div>
+      <div class="barEnd right">
       <button class="back sndBtn" id="sndBtn" onclick="toggleSound()" title="ხმა">🔊</button>
-      <button class="newgame" onclick="startMatch()">ახალი თამაში</button>
+      <button class="newgame" onclick="startMatch()">ახალი თამაში</button></div>
     </div>
 
     <div class="statusrow">

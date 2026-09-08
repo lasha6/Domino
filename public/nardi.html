@@ -28,6 +28,7 @@
 <body>
   <div class="stage">
     <div class="top">
+      <div class="barEnd">
       <button class="back" onclick="location.href='index.html'">←</button>
       <!-- Who is playing, one at each end of the bar, the way the two chairs
            face each other. Mine carries the purse; the other one does not,
@@ -36,7 +37,7 @@
         <span class="avatar"><span class="face" id="meFace"></span>
           <span class="rank" id="meLevel">1</span></span>
         <span class="who"><b id="meName" data-raw>—</b><i id="meCoins" class="purse"></i><i id="meBank" class="bank"></i></span>
-      </div>
+      </div></div>
       <div class="info">
         <span class="stat"><span class="k">ანგარიში</span><b id="scoreLbl">0 : 0</b></span>
         <span class="stat pipStat"><span class="dot w"></span><b id="myPip">—</b></span>
@@ -44,19 +45,19 @@
         <span class="badge">პრაქტიკა</span>
       <span class="stat cubeStat" id="cubeStat" style="display:none"><b id="cubeVal">×2</b></span>
       </div>
+      <div class="barEnd right">
       <div class="bStat">
         <span class="dot" id="turnDot"></span>
         <span id="turnName">შენი სვლა</span>
       </div>
       <div class="msg" id="msg"></div>
-      <div class="spacer" style="flex:1 1 auto"></div>
       <div class="seatPlate them" id="seatThem">
         <span class="who"><b id="themName" data-raw>—</b><i id="themNote"></i><i id="themBank" class="bank"></i></span>
         <span class="avatar"><span class="face" id="themFace"></span>
           <span class="rank" id="themLevel"></span></span>
       </div>
       <button class="back sndBtn" id="sndBtn" onclick="toggleSound()" title="ხმა"></button>
-      <button class="newgame" onclick="startMatch()">ახალი თამაში</button>
+      <button class="newgame" onclick="startMatch()">ახალი თამაში</button></div>
     </div>
 
     <div class="boardWrap">

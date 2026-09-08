@@ -28,10 +28,9 @@
 <body>
   <div class="stage">
     <div class="top">
+      <div class="barEnd">
       <button class="back" onclick="quit()">←</button>
-      <div class="score"><span class="me">შენ <b id="s0">0</b></span> : <span class="op"><b id="s1">0</b> <span id="opName">მოწ.</span></span></div>
-      <!-- no running count of taken points, for either side: working it out is
-           the game, and a number here would answer it for both of them -->
+      <div class="score"><span class="me">შენ <b id="s0">0</b></span> : <span class="op"><b id="s1">0</b> <span id="opName">მოწ.</span></span></div></div>
       <div class="info">
         <span class="stat"><span class="k">მიზანი</span><b id="target">—</b></span>
         <span class="stat"><span class="k">ხელი</span><b id="round">1</b></span>
@@ -39,9 +38,9 @@
         <span class="stat stake"><span class="k">ფსონი</span><b id="stakeLbl">—</b></span>
         <span class="stat coins"><span class="k">🪙</span><b id="coinLbl">—</b></span>
       </div>
-      <div class="spacer"></div>
+      <div class="barEnd right">
       <button class="back sndBtn" id="sndBtn" onclick="toggleSound()" title="ხმა">🔊</button>
-      <div class="turnpill" id="turnPill">—</div>
+      <div class="turnpill" id="turnPill">—</div></div>
     </div>
 
     <div class="statusrow">

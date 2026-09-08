@@ -51,27 +51,32 @@
    those: the far seat plate pushes itself right with `margin-left:auto`, and
    free space divided between two claims lands neither of them where it was
    meant to. ნარდი's score stayed hard left the whole time that was the fix. */
-.info{ display:flex; align-items:center; gap:6px; flex:1 1 auto; justify-content:center; }
-/* And centred against the BAR, not against the space it was handed.
-   `flex:1` plus `justify-content:center` centres the counters inside their
-   own box, and that box sits between whatever is on either side — so the
-   moment the two ends differ in width, the middle of the box is not the
-   middle of the bar. On a wide window the ends differ a great deal and the
-   counters came out most of two hundred pixels right of centre.
+.info{ display:flex; align-items:center; gap:6px; flex:0 0 auto; }
+/* The two ENDS are made the same width, and that is what centres what is
+   between them. Everything before it centred the counters against something
+   other than the bar, and each was wrong in its own way:
 
-   Taken out of the flow above 900px, where there is room for it and no
-   chance of running into either end. Below that they go back to sharing the
-   row, because on a landscape phone the bar is nearly full and a thing that
-   ignores its neighbours would sit on top of them. ჯოკერი is the measure:
-   its ends and counters come to about 850px together. */
-@media (min-width:901px){
-  .top{ position:relative; }
-  .top > .info{
-    position:absolute; left:50%; top:50%;
-    transform:translate(-50%,-50%);
-    flex:none; margin:0;
-  }
+     a single pushing spacer     left them against the score
+     auto margins on the counters divided with the seat plate's own auto
+                                 margin and centred nothing
+     flex:1 + justify-content    centred them in the space they had been
+                                 handed, 130px off centre on a wide window
+     absolute above a breakpoint exact on a desktop, on top of the buttons on
+                                 a phone — a landscape phone is wider than the
+                                 breakpoint meant to protect it
+     an equal spacer either side equal FREE space each side, which is not the
+                                 same thing at all when the ends differ: they
+                                 measured 451 and 209
+
+   `flex:1 1 0` on both ends is the only one that is actually symmetric. The
+   counters keep their natural width in the middle; when the bar fills up the
+   ends shrink instead, so the worst case is a tight bar, never an overlap. */
+.barEnd{
+  display:flex; align-items:center; gap:9px;
+  flex:1 1 0; min-width:0;
 }
+.barEnd.right{ justify-content:flex-end; }
+
 .stat{
   display:flex; align-items:baseline; gap:5px; padding:3px 10px; border-radius:9px;
   background:linear-gradient(180deg, rgba(4,26,14,.78), rgba(2,15,9,.9));
@@ -107,7 +112,7 @@
    before flex-grow gets a look at it, so the spacer no longer needs to push
    and the counters land between what is on either side of them. Nothing can
    overlap, because nothing here is taken out of the flow. */
-.spacer{ flex:0 0 auto; }
+.spacer{ flex:0 0 auto; }   /* .mid does the pushing now */
 
 /* On a narrow phone the five counters would crowd the bar, so the captions
    drop away first and the numbers stay. */

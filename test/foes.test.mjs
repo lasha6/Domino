@@ -216,49 +216,48 @@ test("every size the hand is drawn at gives the tile a height to match", () => {
 });
 
 test("the counters sit in the middle of the bar, in every game", () => {
-  /* They used to be packed against the score on the left with all the slack
-     thrown to the right, which read as a row left where it fell rather than
-     laid out.
+  /* They were packed against the score with all the slack thrown to the
+     right, which reads as a row left where it fell.
 
-     Done by taking the middle outright rather than with a pair of auto
-     margins: the board screens already carry one of those — the far seat
-     plate pushes itself right with `margin-left:auto` — and free space
-     divided between two claims lands neither of them where it was meant to.
-     ნარდი's score stayed hard left the whole time the auto margins were in. */
+     What centres them is that the two ENDS are made the same width. Four
+     other things were tried and each was wrong in its own way, so they are
+     written down: a single pushing spacer left them against the score; auto
+     margins were divided with the seat plate's own auto margin; `flex:1`
+     with `justify-content:center` centred them in the space they had been
+     handed and came out 130px off on a wide window; and taking them out of
+     the flow above a breakpoint was exact on a desktop and sat on top of the
+     buttons on a phone, because a landscape phone is wider than the
+     breakpoint meant to protect it. An equal spacer either side is the near
+     miss — it gives equal FREE space, which is not the same thing when the
+     ends are 451 and 209. */
   const css = read("public", "css", "table.css");
-  const at = css.indexOf("\n.info{");
-  assert.notEqual(at, -1, "the counters have no rule of their own");
+  const at = css.indexOf(".barEnd{");
+  assert.notEqual(at, -1, "the bar has no ends to make equal");
   const body = css.slice(at, css.indexOf("}", at));
-  assert.match(body, /flex:\s*1/, "the counters do not take the middle");
-  assert.match(body, /justify-content:\s*center/, "they take it and sit at one end of it");
-  assert.match(css, /\.spacer\{ flex:0 0 auto; \}/,
-    "the spacer is still shoving everything to one side");
+  assert.match(body, /flex:\s*1 1 0/, "the two ends are not made the same width");
+  assert.match(css, /\.barEnd\.right\{ justify-content:flex-end; \}/,
+    "the far end does not sit at the far end");
 
-  /* And centred against the BAR where there is room for it. `flex:1` plus
-     `justify-content:center` only centres the counters inside their own box,
-     and that box sits between whatever is on either side — so the moment the
-     two ends differ in width, the middle of the box is not the middle of the
-     bar. On a wide window they came out most of two hundred pixels right of
-     it, which is where a player noticed. */
-  const at2 = css.indexOf("@media (min-width:901px)");
-  assert.notEqual(at2, -1, "nothing centres the counters against the bar itself");
-  const wide = css.slice(at2, css.indexOf("\n}", css.indexOf(".top > .info{", at2)));
-  assert.match(wide, /position:absolute/, "the counters still sit where they are handed");
-  assert.match(wide, /left:50%/, "they are not put at the middle");
-  assert.match(wide, /translate\(-50%/, "they are put with their left edge at the middle");
-  assert.match(wide, /\.top\{ position:relative; \}/,
-    "the middle they are put at is the page's, not the bar's");
+  const info = css.indexOf("\n.info{");
+  assert.match(css.slice(info, css.indexOf("}", info)), /flex:\s*0 0 auto/,
+    "the counters grow, so they are no longer their own width in the middle");
+  assert.doesNotMatch(css, /@media \(min-width:901px\)/,
+    "the breakpoint that put them on top of the buttons on a phone is back");
 });
 
-test("...but on a phone they go back to sharing the row", () => {
-  /* A landscape phone's bar is nearly full — ჯოკერი's two ends and its
-     counters come to about 850px together — and something taken out of the
-     flow there would sit on top of one end or the other. */
-  const css = read("public", "css", "table.css");
-  const at = css.indexOf("@media (min-width:901px)");
-  assert.notEqual(at, -1);
-  assert.ok(css.indexOf(".top > .info{", at) > at,
-    "the absolute rule is not inside the wide-screen block at all");
+test("every bar has both its ends wrapped, or nothing is centred there", () => {
+  for (const f of ["game.html", "online.html", "bura.html", "buraonline.html",
+                   "joker.html", "jokeronline.html", "nardi.html", "damka.html"]) {
+    const src = read("public", f);
+    const bar = src.slice(src.indexOf('<div class="top">'), src.indexOf('<div class="statusrow"'));
+    assert.equal((bar.match(/class="barEnd/g) || []).length, 2,
+      f + " does not have exactly two ends in its bar");
+    const l = bar.indexOf('class="barEnd"');
+    const i = bar.indexOf('class="info"');
+    const r = bar.indexOf('class="barEnd right"');
+    assert.ok(l < i && i < r,
+      f + ": the counters are not between the two ends");
+  }
 });
 
 test("every game screen has a bar with counters in it to centre", () => {
