@@ -699,6 +699,7 @@
   <script src="js/auth.js"></script>
   <script src="js/jester.js"></script>
   <script src="js/gamemark.js"></script>
+  <script src="js/tablelink.js"></script>
   <script src="js/profilecache.js"></script>
   <script src="js/progress.js"></script>
   <script src="js/theme.js"></script>
@@ -1676,16 +1677,36 @@
       else if (friendGame === "damka") location.href = "damka.html?mode=friend";
       else openRooms("friend");
     }
+    /* The code is asked about before anybody goes anywhere. Which friend window
+       it was typed into says nothing about which game the table is — დამკა
+       has no window of its own and lives in ნარდი's, so a დამკა code typed
+       there used to open the ნარდი screen, and the guest never reached the
+       table. The server knows; it is asked.
+
+       If it does not answer — a host still waking up — the old guess is used
+       after a while, and the screen it opens is told by the table itself if
+       the guess was wrong. Either way nobody is left standing at the door. */
+    let joinWait = null, joinAsked = null;
     function doJoin(){
       const c = document.getElementById("codeInput").value.trim().toUpperCase();
       if(c.length !== 4) return toast("კოდი 4 სიმბოლოა");
-      /* A ნარდი code carries which board it is: the guest is told by the table
-         itself, so the variant in the address is only a first guess. */
-      /* A code carries which table it is: the guest is told by the table
-         itself, so what is in the address is only a first guess. */
-      const sep = friendGame === "nardi" ? "?v=" + nardiPick + "&" : "?";
-      location.href = FRIEND_SCREEN[friendGame] + sep + "mode=join&code=" + encodeURIComponent(c);
+      joinAsked = c;
+      toast("მაგიდას ვეძებ…");
+      socket.emit("peekTable", { code: c });
+      clearTimeout(joinWait);
+      joinWait = setTimeout(() => {
+        if (joinAsked !== c) return;
+        joinAsked = null;
+        const sep = friendGame === "nardi" ? "?v=" + nardiPick + "&" : "?";
+        location.href = FRIEND_SCREEN[friendGame] + sep + "mode=join&code=" + encodeURIComponent(c);
+      }, 9000);
     }
+    socket.on("tableInfo", (t) => {
+      if (!t || t.code !== joinAsked) return;          // an answer to an old question
+      joinAsked = null; clearTimeout(joinWait);
+      if (t.missing) return toast("ასეთი მაგიდა ვერ მოიძებნა");
+      location.href = TableLink.screenFor(t);
+    });
 
     let toastTimer;
     function toast(msg){

@@ -223,6 +223,8 @@
     "მაგიდა შექმნილია": "Table made",
     "ვერ შევედი": "Could not join",
     "ასეთი მაგიდა ვერ მოიძებნა": "No such table",
+    "მაგიდას ვეძებ…": "Looking for the table…",
+    "ეს კოდი სხვა თამაშისაა": "That code is for a different game",
     "მაგიდა უკვე სავსეა": "That table is already full",
 
     // --- waiting, dropping, coming back ---

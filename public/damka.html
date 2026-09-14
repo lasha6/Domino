@@ -98,6 +98,7 @@
   <script src="js/damka.js"></script>
   <script src="js/config.js"></script>
   <script src="js/coins.js"></script>
+  <script src="js/tablelink.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/profilecache.js"></script>
   <script src="js/socket.io.min.js"></script>
@@ -325,6 +326,7 @@
   }
 
   function cpuTurn() {
+    if (ONLINE) return;               // online the other side is a person
     if (!g || g.phase === "over" || g.side !== CPU) return;
     busy = true; draw();
     (function step() {
@@ -544,6 +546,13 @@
       document.getElementById("msg").textContent =
         (m && m.name ? m.name : "მოწინააღმდეგე") + " გავიდა";
     });
+    /* Sent to a table of a different game — a code typed into the wrong friend
+       window, or an old link. The table said what it is; go there. */
+    socket.on("wrongTable", (t) => {
+      if (window.TableLink && TableLink.redirectOnce(t)) return;
+      document.getElementById("waitTitle").textContent = "ვერ შევედი";
+      document.getElementById("waitText").textContent = "ეს კოდი სხვა თამაშისაა";
+    });
     socket.on("joinError", (m) => {
       document.getElementById("waitTitle").textContent = "ვერ შევედი";
       document.getElementById("waitText").textContent = m || "";
@@ -557,6 +566,23 @@
   const hide = () => document.getElementById("resultOverlay").classList.remove("show");
 
   async function startGame() {
+    /* "New game" means something else at a table with a person at it. It
+       used to start a game against the COMPUTER on this very screen — behind
+       the waiting window, on top of the online table — and the board went on
+       playing itself while the player waited for a friend who could not get
+       in. Online it is a fresh search, or the way back to the front page. */
+    if (ONLINE) {
+      /* and leaving a table in the middle of a match is still a question —
+         a new game there costs the one being played */
+      const go = () => {
+        if (socket) try { socket.emit("leaveRoom"); } catch (e) {}
+        if (MODE === "quick") location.replace(location.pathname + location.search);
+        else location.href = "index.html";
+      };
+      const over = document.getElementById("resultOverlay").classList.contains("show");
+      if (seated && g && !over && window.Leaving) Leaving.confirmLeave(go); else go();
+      return;
+    }
     hide();
     g = Damka.newGame({});
     picked = null;

@@ -130,6 +130,7 @@
   <script src="js/socket.io.min.js"></script>
   <script src="js/leaving.js"></script>
   <script src="js/config.js"></script>
+  <script src="js/tablelink.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/bura.js"></script>
   <script src="js/coins.js"></script>
@@ -222,6 +223,12 @@
       else                        socket.emit("joinTable",   { ...who, code: CODE });
     });
     socket.on("disconnect", () => document.getElementById("netOverlay").classList.add("show"));
+    /* Sent to a table of a different game — a code typed into the wrong friend
+       window, or an old link. The table said what it is; go there. */
+    socket.on("wrongTable", (t) => {
+      if (window.TableLink && TableLink.redirectOnce(t)) return;
+      toast("ეს კოდი სხვა თამაშისაა");
+    });
     socket.on("joinError", (m) => {
       document.getElementById("waitTitle").textContent = "ვერ შევედი";
       document.querySelector("#waitOverlay .spin").style.display = "none";

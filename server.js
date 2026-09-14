@@ -1980,10 +1980,47 @@ io.on("connection", (socket) => {
     pushState(room);
   });
 
-  on("joinTable", async ({ code, name, token, auth }) => {
+  /* ---------------------------------------------------------------- *
+   * A code names a TABLE, and a table is one game
+   *
+   * The code is four letters and says nothing about which game it is for, so
+   * the lobby used to guess — from which friend window the code was typed
+   * into. დამკა has no card of its own; it lives in the ნარდი room, so its
+   * friend window is ნარდი's, and a friend typing a დამკა code was sent to
+   * the ნარდი screen. The server seated them anyway. They sat at a table
+   * their screen could not draw, the host waited for somebody who never
+   * appeared, and the guest was left looking at a ნარდი board.
+   *
+   * So the table says what it is. `peekTable` answers before anybody moves,
+   * and `joinTable` refuses a screen that is for a different game — telling
+   * it where to go instead of sitting it down in the wrong room. Nothing is
+   * given away that the code did not already open: the game and its shape,
+   * never who is sitting there.
+   * ---------------------------------------------------------------- */
+  const tableInfo = (room) => ({
+    code: room.code, game: room.game, variant: room.variant,
+    size: room.size, teams: !!room.teams, target: room.target,
+  });
+  const findTable = (code) =>
+    [...rooms.values()].find((r) => r.code && r.code === String(code || "").toUpperCase());
+
+  on("peekTable", ({ code } = {}) => {
+    const room = findTable(code);
+    socket.emit("tableInfo", room ? tableInfo(room)
+                                  : { code: String(code || "").toUpperCase(), missing: true });
+  });
+
+  on("joinTable", async ({ code, name, token, auth, game, variant, size, teams }) => {
     if (busyElsewhere(socket, token)) return;
-    const room = [...rooms.values()].find((r) => r.code === String(code || "").toUpperCase());
+    const room = findTable(code);
     if (!room) return socket.emit("joinError", "ასეთი მაგიდა ვერ მოიძებნა");
+    /* Only what the screen actually said is compared. An older app sends no
+       game at all, and is seated exactly as it always was. */
+    const wrong = (game != null && game !== room.game)
+      || (variant != null && room.variant && String(variant) !== String(room.variant))
+      || (size != null && +size !== room.size)
+      || (teams != null && room.game === "joker" && !!teams !== !!room.teams);
+    if (wrong) return socket.emit("wrongTable", tableInfo(room));
     if (room.players.length >= room.size) return socket.emit("joinError", "მაგიდა უკვე სავსეა");
     const who = await whoIs(auth, name);
     if (room.players.length >= room.size) return socket.emit("joinError", "მაგიდა უკვე სავსეა");
